@@ -1,0 +1,39 @@
+# ── Web service ──────────────────────────────────────────────────────────────
+fastapi
+uvicorn[standard]
+
+# ── Database (pgvector via raw SQL) ──────────────────────────────────────────
+psycopg2-binary
+# LangGraph durable checkpointer (Postgres) uses psycopg v3
+psycopg[binary]
+
+# ── Orchestration (club of agents) ───────────────────────────────────────────
+langgraph
+langgraph-checkpoint-postgres
+
+# ── Config ───────────────────────────────────────────────────────────────────
+python-dotenv
+
+# ── Local embeddings (384-dim). Heavy on first install (pulls torch). ────────
+sentence-transformers
+
+# ── LLM providers (provider-agnostic via llm.py). openai SDK also serves
+#    Azure / Ollama / vLLM / local (OpenAI-compatible). Uncomment anthropic if used.
+openai
+# anthropic
+
+# ── Governance: PII tokenization (Presidio + spaCy en_core_web_sm) ───────────
+presidio-analyzer
+spacy
+
+# ── Screening / registries ───────────────────────────────────────────────────
+requests
+
+# ── SFTP intake (optional) ───────────────────────────────────────────────────
+paramiko
+
+# ── Document parsing ─────────────────────────────────────────────────────────
+pdfplumber       # PDFs
+python-docx      # .docx
+
+numpy

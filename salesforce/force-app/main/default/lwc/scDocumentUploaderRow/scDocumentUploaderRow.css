@@ -1,0 +1,53 @@
+.vcu-zone {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+}
+.vcu-zone.drag {
+    outline: 1px dashed #2563eb;
+    outline-offset: 4px;
+    border-radius: 6px;
+    background: #f5f8ff;
+}
+.vcu-input { display: none; }
+.vcu-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #2563eb;
+    background: #fff;
+    border: 1px solid #c9d2e3;
+    border-radius: 6px;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: background .1s, border-color .1s;
+}
+.vcu-btn:hover {
+    background: #f5f8ff;
+    border-color: #2563eb;
+}
+.vcu-ico { --sds-c-icon-color-foreground-default: #2563eb; }
+.vcu-hint {
+    font-size: 11px;
+    color: #8a8a8a;
+}
+.vcu-err {
+    font-size: 11px;
+    color: #b91c1c;
+    margin-top: 4px;
+}
+.vcu-file {
+    font-size: 12px;
+    font-weight: 500;
+    color: #14532D;
+    margin-top: 6px;
+    word-break: break-all;
+}
+.vcu-latest {
+    font-size: 10px;
+    font-weight: 400;
+    color: #8a8a8a;
+}

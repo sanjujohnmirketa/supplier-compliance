@@ -1,0 +1,126 @@
+<template>
+
+    <!-- Loading / auto-sending state -->
+    <template if:true={isLoading}>
+        <div class="slds-is-relative spinner-container">
+            <lightning-spinner alternative-text="Sending…" size="medium"></lightning-spinner>
+        </div>
+    </template>
+
+    <!-- Error banner (shown if auto-send fails) -->
+    <template if:false={isLoading}>
+        <template if:true={hasError}>
+            <div class="error-banner" role="alert">
+                <lightning-icon icon-name="utility:error" size="x-small" class="slds-m-right_x-small" variant="error"></lightning-icon>
+                {error}
+            </div>
+            <div class="action-footer">
+                <lightning-button label="Close" onclick={handleCancel}></lightning-button>
+            </div>
+        </template>
+    </template>
+
+    <!-- POPUP COMMENTED OUT — re-enable to restore the preview form
+    <template if:false={isLoading}>
+
+        <template if:true={hasError}>
+            <div class="error-banner" role="alert">
+                <lightning-icon icon-name="utility:error" size="x-small" class="slds-m-right_x-small" variant="error"></lightning-icon>
+                {error}
+            </div>
+        </template>
+
+        <div class="section">
+            <lightning-input
+                type="email"
+                label="Send to"
+                value={toEmail}
+                placeholder="supplier@example.com"
+                onchange={handleEmailChange}
+                required>
+            </lightning-input>
+            <template if:false={toEmail}>
+                <p class="hint">No contact email found for this account. Please enter the recipient's email address.</p>
+            </template>
+        </div>
+
+        <div class="section">
+            <template if:true={hasDocuments}>
+                <p class="summary-line">
+                    This email will list
+                    <strong> {totalCount} compliance document(s)</strong>
+                    <template if:true={preview.hasRequiredDocs}>
+                        — including <strong class="required-count">{requiredCount} required </strong>
+                    </template>
+                    for <strong>{preview.accountName}</strong>.
+                </p>
+
+                <template if:true={preview.hasRequiredDocs}>
+                    <div class="doc-group">
+                        <h3 class="group-heading group-heading_required">Required Documents</h3>
+                        <template for:each={preview.requiredDocs} for:item="doc">
+                            <div key={doc.requirementLabel} class="doc-row">
+                                <span class="doc-label">{doc.requirementLabel}</span>
+                                <span class={doc.severityBadgeClass}>{doc.severityDisplay}</span>
+                                <span class="doc-status">{doc.statusLabel}</span>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <template if:true={preview.hasAdditionalDocs}>
+                    <div class="doc-group">
+                        <h3 class="group-heading">Additional Documents</h3>
+                        <template for:each={preview.additionalDocs} for:item="doc">
+                            <div key={doc.requirementLabel} class="doc-row">
+                                <span class="doc-label">{doc.requirementLabel}</span>
+                                <span class={doc.severityBadgeClass}>{doc.severityDisplay}</span>
+                                <span class="doc-status">{doc.statusLabel}</span>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+            </template>
+
+            <template if:false={hasDocuments}>
+                <div class="slds-box slds-theme_shade" style="text-align:center;padding:16px;">
+                    <p class="slds-text-body_small slds-text-color_weak">No compliance assessments found for this account.</p>
+                </div>
+            </template>
+        </div>
+
+        <div class="section">
+            <lightning-textarea
+                label="Add a personal note (optional)"
+                placeholder="e.g. Please submit these documents by the end of the month to avoid delays in onboarding."
+                value={customNote}
+                max-length="500"
+                onchange={handleNoteChange}>
+            </lightning-textarea>
+        </div>
+
+        <div class="portal-notice">
+            <lightning-icon icon-name="utility:link" size="xx-small" class="slds-m-right_xx-small"></lightning-icon>
+            The email will include a personal Supplier Portal link so the supplier can upload documents and track their status directly.
+        </div>
+
+        <div class="action-footer">
+            <lightning-button
+                label="Cancel"
+                onclick={handleCancel}
+                disabled={isSending}>
+            </lightning-button>
+            <lightning-button
+                label={sendLabel}
+                variant="brand"
+                onclick={handleSend}
+                disabled={isSendDisabled}
+                class="slds-m-left_small">
+            </lightning-button>
+        </div>
+
+    </template>
+    END POPUP -->
+
+</template>

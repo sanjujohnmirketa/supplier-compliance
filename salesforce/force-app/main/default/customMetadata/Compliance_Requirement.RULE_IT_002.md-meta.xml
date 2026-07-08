@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>NIST SP 800-171</label>
+    <protected>false</protected>
+    <values>
+        <field>Document_Type__c</field>
+        <value xsi:type="xsd:string">System Security Plan (SSP); SPRS Self-Assessment Score; Plan of Action &amp; Milestones (POA&amp;M); Incident Response Plan</value>
+    </values>
+    <values>
+        <field>Effective_From__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Effective_To__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Governing_Body__c</field>
+        <value xsi:type="xsd:string">NIST / DoD</value>
+    </values>
+    <values>
+        <field>Human_Review_Required__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Is_Mandatory__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Penalty__c</field>
+        <value xsi:type="xsd:string">False Claims Act liability; Loss of federal contracts</value>
+    </values>
+    <values>
+        <field>Regulation_Standard__c</field>
+        <value xsi:type="xsd:string">NIST SP 800-171 (CUI / Federal Data Protection)</value>
+    </values>
+    <values>
+        <field>Renewal_Frequency_Days__c</field>
+        <value xsi:type="xsd:double">365.0</value>
+    </values>
+    <values>
+        <field>Required_For_Criticality__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Required_For_Direct_Indirect__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Required_For_Industry__c</field>
+        <value xsi:type="xsd:string">IT / Software Vendors</value>
+    </values>
+    <values>
+        <field>Required_For_Region__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Required_For_Tier__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Rule_ID__c</field>
+        <value xsi:type="xsd:string">RULE-IT-002</value>
+    </values>
+    <values>
+        <field>Sector__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Severity_on_Failure__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Source_Regulation__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Vendor_Type__c</field>
+        <value xsi:type="xsd:string">IT / Software Vendors</value>
+    </values>
+</CustomMetadata>

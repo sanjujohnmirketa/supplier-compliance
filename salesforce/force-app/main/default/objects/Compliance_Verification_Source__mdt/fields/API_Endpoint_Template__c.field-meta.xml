@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>API_Endpoint_Template__c</fullName>
+    <description>URL template for the authoritative API call. Use {cert_number} as a placeholder for the extracted certificate number. Should be a Named Credential reference (callout:NamedCred/path) so auth headers are injected automatically. Empty when no API exists.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>API Endpoint Template</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

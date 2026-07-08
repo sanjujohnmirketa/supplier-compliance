@@ -1,0 +1,202 @@
+<template>
+    <lightning-card title="Compliance Documents" icon-name="standard:document">
+
+        <!-- Error state -->
+        <template if:true={hasError}>
+            <div class="slds-notify slds-notify_alert slds-alert_error slds-m-around_small">
+                <lightning-icon icon-name="utility:error" size="x-small"
+                                class="slds-m-right_x-small"></lightning-icon>
+                {errorMessage}
+            </div>
+        </template>
+
+        <!-- Header stats -->
+        <template if:true={hasRows}>
+            <div class="summary-bar">
+                <span class="summary-chip summary-total">
+                    <strong>{totalCount}</strong> requirements
+                </span>
+                <span class="summary-chip summary-uploaded">
+                    <lightning-icon icon-name="utility:check" size="xx-small"
+                                    class="slds-m-right_xx-small"></lightning-icon>
+                    <strong>{uploadedCount}</strong> uploaded
+                </span>
+                <span class="summary-chip summary-pending">
+                    <lightning-icon icon-name="utility:upload" size="xx-small"
+                                    class="slds-m-right_xx-small"></lightning-icon>
+                    <strong>{pendingCount}</strong> pending
+                </span>
+            </div>
+
+            <!-- Checklist rows -->
+            <div class="checklist">
+                <template for:each={rows} for:item="row">
+                    <div key={row.assessmentId} class={row.rowClass}>
+
+                        <!-- Left: requirement info -->
+                        <div class="row-main">
+                            <div class="row-title">
+                                <span class="req-label">{row.requirementLabel}</span>
+                                <template if:true={row.severity}>
+                                    <span class="severity-chip">{row.severity}</span>
+                                </template>
+                            </div>
+
+                            <!-- Uploaded state -->
+                            <template if:true={row.isUploaded}>
+                                <div class="doc-info">
+                                    <a class="doc-link"
+                                       data-document-id={row.documentId}
+                                       onclick={handleDocumentClick}>
+                                        <lightning-icon icon-name="doctype:pdf"
+                                                        size="x-small"
+                                                        class="slds-m-right_xx-small">
+                                        </lightning-icon>
+                                        {row.documentName}
+                                    </a>
+                                    <template if:true={row.uploadedLabel}>
+                                        <span class="doc-meta">Uploaded {row.uploadedLabel}</span>
+                                    </template>
+                                    <template if:true={row.confidenceLabel}>
+                                        <span class="doc-meta">AI confidence: {row.confidenceLabel}</span>
+                                    </template>
+                                    <template if:true={row.expiryLabel}>
+                                        <span class="doc-meta">Expires: {row.expiryLabel}</span>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <!-- Rejected state -->
+                            <template if:true={row.isRejected}>
+                                <div class="rejection-note">
+                                    <lightning-icon icon-name="utility:warning"
+                                                    size="xx-small" variant="error"
+                                                    class="slds-m-right_xx-small">
+                                    </lightning-icon>
+                                    <span>{row.rejectionNote}</span>
+                                </div>
+                            </template>
+
+                            <!-- Assessment reason (for pending) -->
+                            <template if:true={row.isPending}>
+                                <template if:true={row.reasonDetail}>
+                                    <p class="reason-text">{row.reasonDetail}</p>
+                                </template>
+                            </template>
+                        </div>
+
+                        <!-- Right: status badge + actions -->
+                        <div class="row-actions">
+                            <lightning-badge label={row.badgeLabel}
+                                             variant={row.badgeVariant}>
+                            </lightning-badge>
+
+                            <!-- Spinner while uploading -->
+                            <template if:true={row.isUploading}>
+                                <lightning-spinner size="small"
+                                                   alternative-text="Processing...">
+                                </lightning-spinner>
+                            </template>
+
+                            <!-- Replace button (uploaded, not yet validated) -->
+                            <template if:true={row.showReplace}>
+                                <template if:false={row.isUploading}>
+                                    <lightning-button-icon
+                                        icon-name="utility:refresh"
+                                        variant="border-filled"
+                                        size="small"
+                                        title="Replace document"
+                                        data-assessment-id={row.assessmentId}
+                                        data-document-id={row.documentId}
+                                        onclick={handleReplace}>
+                                    </lightning-button-icon>
+                                </template>
+                            </template>
+
+                            <!-- Upload button (pending or rejected) -->
+                            <template if:false={row.isUploaded}>
+                                <template if:false={row.isUploading}>
+                                    <lightning-file-upload
+                                        label={row.uploadLabel}
+                                        name={row.assessmentId}
+                                        accept={row.acceptedFormats}
+                                        record-id={recordId}
+                                        multiple="false"
+                                        data-assessment-id={row.assessmentId}
+                                        data-document-type={row.documentType}
+                                        onuploadfinished={handleUploadFinished}>
+                                    </lightning-file-upload>
+                                </template>
+                            </template>
+
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        <!-- Empty state -->
+        <template if:false={hasRows}>
+            <template if:false={hasError}>
+                <div class="empty-state">
+                    <lightning-icon icon-name="utility:list"
+                                    size="large"
+                                    class="slds-m-bottom_small">
+                    </lightning-icon>
+                    <p class="slds-text-heading_small">No compliance requirements found</p>
+                    <p class="slds-text-body_small slds-text-color_weak">
+                        The supplier onboarding flow must complete before
+                        compliance requirements are generated.
+                    </p>
+                </div>
+            </template>
+        </template>
+
+        <!-- ══ OTHER DOCUMENT ══ -->
+        <div class="checklist slds-m-top_small">
+            <div class={otherRowClass}>
+                <div class="row-main">
+                    <div class="row-title">
+                        <span class="req-label"><strong>Other Document</strong></span>
+                    </div>
+                    <p class="slds-text-body_small slds-text-color_weak" style="margin:4px 0 0;">
+                        Have a document not covered by the list above? Upload it here.
+                    </p>
+                    <template if:true={otherIsDone}>
+                        <div class="doc-info" style="margin-top:6px;">
+                            <template for:each={otherUploadedFiles} for:item="f">
+                                <div key={f.name}>
+                                    <lightning-icon icon-name="doctype:pdf" size="x-small" class="slds-m-right_xx-small"></lightning-icon>
+                                    <span>{f.name}</span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+                <div class="row-actions">
+                    <template if:true={otherIsDone}>
+                        <lightning-badge label="Uploaded" variant="success"></lightning-badge>
+                        <lightning-button-icon
+                            icon-name="utility:refresh"
+                            variant="border-filled"
+                            size="small"
+                            title="Replace document"
+                            onclick={handleOtherRemove}>
+                        </lightning-button-icon>
+                    </template>
+                    <template if:false={otherIsDone}>
+                        <lightning-file-upload
+                            label="Upload"
+                            name="other-document"
+                            accept={otherAcceptedFormats}
+                            record-id={recordId}
+                            multiple="false"
+                            onuploadfinished={handleOtherUploadFinished}>
+                        </lightning-file-upload>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+    </lightning-card>
+</template>

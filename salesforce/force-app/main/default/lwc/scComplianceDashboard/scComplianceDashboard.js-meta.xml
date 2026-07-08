@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <isExposed>false</isExposed>
+    <masterLabel>Compliance Dashboard</masterLabel>
+    <description>
+        Shared 3-card dashboard header (risk score · onboarding progress · score
+        trend) used on the Procurement submission summary and the Analyst
+        Decision &amp; Route screen. Child component — not exposed standalone.
+    </description>
+</LightningComponentBundle>

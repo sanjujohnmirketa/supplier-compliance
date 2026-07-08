@@ -1,0 +1,71 @@
+# ════════════════════════════════════════════════════════════════════════════
+# Run the whole engine in containers:
+#     docker compose up --build
+# Ingest the policy corpus once (first run):
+#     docker compose exec engine python ingest_local.py
+#
+# Copy .env.example → .env and set your own values first. Provider keys come from
+# .env (nothing bundled). For a fully on-prem / air-gapped deployment set
+# LLM_PROVIDER=ollama + a local model — no external key needed.
+# ════════════════════════════════════════════════════════════════════════════
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: compliance-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-compliance}
+      POSTGRES_DB:       ${POSTGRES_DB:-compliance}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-local-db-password}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-compliance} -d ${POSTGRES_DB:-compliance}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # The compliance engine (FastAPI). Containerizing this is what makes the
+  # service deployable on-prem / scalable behind a load balancer.
+  engine:
+    build: .
+    container_name: compliance-engine
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      # DB points at the compose service (overrides any .env DB_URL).
+      DB_URL: postgresql://${POSTGRES_USER:-compliance}:${POSTGRES_PASSWORD:-change-me-local-db-password}@db:5432/${POSTGRES_DB:-compliance}
+      INBOUND_TOKEN:         ${INBOUND_TOKEN:-change-me-shared-bearer-token}
+      EMBED_BACKEND:         ${EMBED_BACKEND:-local}
+      LLM_PROVIDER:          ${LLM_PROVIDER:-openai}
+      LLM_MODEL:             ${LLM_MODEL:-gpt-4o}
+      LLM_TEMPERATURE:       ${LLM_TEMPERATURE:-0}
+      LLM_TIMEOUT:           ${LLM_TIMEOUT:-45}
+      OPENAI_API_KEY:        ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL:       ${OPENAI_BASE_URL:-}
+      ANTHROPIC_API_KEY:     ${ANTHROPIC_API_KEY:-}
+      OLLAMA_BASE_URL:       ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
+      LOCAL_BASE_URL:        ${LOCAL_BASE_URL:-}
+      OPENSANCTIONS_API_KEY: ${OPENSANCTIONS_API_KEY:-}
+      # Free Trade.gov Consolidated Screening List key (api.data.gov). Empty →
+      # sanctions registry validation degrades to manual. Nothing bundled.
+      CSL_API_KEY:           ${CSL_API_KEY:-}
+
+  # Optional local SFTP server for the policy corpus (legacy intake path).
+  # ingest_local.py reads ./policies directly, so SFTP is not required.
+  sftp:
+    image: atmoz/sftp:alpine
+    container_name: compliance-sftp
+    ports:
+      - "2222:22"
+    volumes:
+      - ./policies:/home/compliance/upload
+    command: compliance:${SFTP_PASSWORD:-change-me-local-sftp-password}:1001
+
+volumes:
+  pgdata:

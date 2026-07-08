@@ -1,0 +1,13 @@
+SAFETY DATA SHEET (SDS) + REACH / RoHS DECLARATION
+
+Supplier:        Nordwind Präzisionsguss GmbH
+Product:         Surface-treated casting, chromate-passivated finish
+SDS Revision:    2.0     Revision Date: 04/2019
+
+SECTION 15 — REGULATORY INFORMATION
+  REACH: Contains Hexavalent Chromium (Chromium VI, CAS 18540-29-9) — an SVHC
+  on the REACH Candidate List — at approximately 0.4% w/w in the surface coating.
+  RoHS: Hexavalent chromium EXCEEDS the 0.1% restriction limit.
+  No exemption claimed.
+
+Declared by: (unsigned)

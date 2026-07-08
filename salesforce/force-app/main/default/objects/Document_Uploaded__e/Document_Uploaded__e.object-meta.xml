@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>Published after a supplier uploads a compliance document via the portal. Triggers AIExtractionQueueable via the Document_Upload_Event_Handler flow.</description>
+    <eventType>HighVolume</eventType>
+    <label>Document Uploaded</label>
+    <pluralLabel>Document Uploaded</pluralLabel>
+    <publishBehavior>PublishAfterCommit</publishBehavior>
+</CustomObject>

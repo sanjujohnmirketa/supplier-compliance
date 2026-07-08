@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>61.0</apiVersion>
+    <isExposed>true</isExposed>
+    <targets>
+        <!-- Available in Flow screens (required for use in Screen Flow) -->
+        <target>lightning__FlowScreen</target>
+        <!-- Available on record pages for standalone use -->
+        <target>lightning__RecordPage</target>
+        <!-- Available on Experience Cloud pages -->
+        <target>lightningCommunity__Page</target>
+        <target>lightningCommunity__Default</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__FlowScreen">
+            <!-- Input: Supplier Account Id -->
+            <property
+                name="accountId"
+                type="String"
+                label="Supplier Account Id"
+                description="The Salesforce Id of the Supplier Account record. Files are uploaded to this record and then linked to Compliance_Document__c by the Apex controller."
+                role="inputOnly"
+            />
+            <!-- Input: Checklist JSON from Apex -->
+            <property
+                name="checklistJSON"
+                type="String"
+                label="Compliance Checklist JSON"
+                description="JSON string returned by ComplianceChecklistController.getChecklistJSON(). Array of requirement objects. If empty, a loading state is shown."
+                role="inputOnly"
+            />
+            <!-- Input: Onboarding context flag -->
+            <property
+                name="isOnboarding"
+                type="Boolean"
+                label="Is Onboarding Flow"
+                description="Set to true when used in the supplier onboarding screen flow. Affects progress bar display and messaging."
+                role="inputOnly"
+            />
+        </targetConfig>
+        <targetConfig targets="lightningCommunity__Default,lightning__RecordPage">
+            <property name="accountId"    type="String"  label="Supplier Account Id" />
+            <property name="checklistJSON" type="String" label="Compliance Checklist JSON" />
+            <property name="isOnboarding" type="Boolean" label="Is Onboarding Flow" />
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

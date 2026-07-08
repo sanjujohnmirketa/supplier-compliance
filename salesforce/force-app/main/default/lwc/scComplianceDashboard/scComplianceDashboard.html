@@ -1,0 +1,51 @@
+<template>
+    <div class="cd-row">
+
+        <!-- 1 · Risk score ring -->
+        <div class="cd-card">
+            <div class="cd-card-inner">
+                <div class={ringClass}>
+                    <svg viewBox="0 0 80 80" class="cd-ring-svg">
+                        <circle class="cd-ring-track" cx="40" cy="40" r="34"></circle>
+                        <circle class="cd-ring-fill" cx="40" cy="40" r="34" style={ringDashStyle}></circle>
+                    </svg>
+                    <div class="cd-ring-num">
+                        <span class="cd-ring-score">{riskScore}</span>
+                        <span class="cd-ring-max">/ 100</span>
+                    </div>
+                </div>
+                <div class="cd-card-text">
+                    <div class="cd-card-lbl">{label}</div>
+                    <div class="cd-card-sub">{riskBandLabel}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2 · Onboarding progress -->
+        <div class="cd-card">
+            <div class="cd-card-lbl">Onboarding progress</div>
+            <div class="cd-progress-track">
+                <div class="cd-progress-fill" style={progressBarStyle}></div>
+            </div>
+            <div class="cd-progress-meta">{progressLabel}</div>
+            <div class={progressStatusClass}>{progressStatus}</div>
+        </div>
+
+        <!-- 3 · Score trend -->
+        <div class="cd-card">
+            <div class="cd-card-lbl">Score trend</div>
+            <template if:true={hasTrend}>
+                <div class="cd-trend">
+                    <template for:each={trendBars} for:item="b">
+                        <div key={b.id} class={b.barClass} style={b.style}></div>
+                    </template>
+                </div>
+                <div class="cd-card-sub">Last 5 evaluations</div>
+            </template>
+            <template if:false={hasTrend}>
+                <div class="cd-trend-empty">No evaluations yet</div>
+            </template>
+        </div>
+
+    </div>
+</template>

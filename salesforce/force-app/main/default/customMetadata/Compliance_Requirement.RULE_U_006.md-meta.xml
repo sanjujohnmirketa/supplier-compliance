@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>ISO 14001:2015</label>
+    <protected>false</protected>
+    <values>
+        <field>Document_Type__c</field>
+        <value xsi:type="xsd:string">ISO 14001 Certificate; Environmental Policy Statement; Significant Aspects Register; Legal Compliance Register</value>
+    </values>
+    <values>
+        <field>Effective_From__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Effective_To__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Governing_Body__c</field>
+        <value xsi:type="xsd:string">ISO / Accredited CB</value>
+    </values>
+    <values>
+        <field>Human_Review_Required__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Is_Mandatory__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Penalty__c</field>
+        <value xsi:type="xsd:string">Often required by OEM/retailer contracts</value>
+    </values>
+    <values>
+        <field>Regulation_Standard__c</field>
+        <value xsi:type="xsd:string">ISO 14001:2015 Environmental Management</value>
+    </values>
+    <values>
+        <field>Renewal_Frequency_Days__c</field>
+        <value xsi:type="xsd:double">1095.0</value>
+    </values>
+    <values>
+        <field>Required_For_Criticality__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Required_For_Direct_Indirect__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Required_For_Industry__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Required_For_Region__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Required_For_Tier__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Rule_ID__c</field>
+        <value xsi:type="xsd:string">RULE-U-006</value>
+    </values>
+    <values>
+        <field>Sector__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Severity_on_Failure__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Source_Regulation__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Vendor_Type__c</field>
+        <value xsi:type="xsd:string">All Vendor Types</value>
+    </values>
+</CustomMetadata>

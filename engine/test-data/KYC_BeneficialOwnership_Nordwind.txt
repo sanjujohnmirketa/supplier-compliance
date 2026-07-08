@@ -1,0 +1,16 @@
+KYC + BENEFICIAL OWNERSHIP DECLARATION
+
+Legal Entity:        Nordwind Präzisionsguss GmbH
+Commercial Register: HRB 218450, Amtsgericht München, Germany
+Status:              Active / eingetragen
+Date of Declaration: 02/2026
+
+BENEFICIAL OWNERS (≥ 25% holding):
+  1. Vogel Familienholding GmbH — 62% — UBO: Dr. Katrin Vogel (German national)
+  2. Süddeutsche Beteiligungs AG — 30% — institutional investor
+
+POLITICALLY EXPOSED PERSON (PEP) CHECK:  No PEP among UBOs.
+SANCTIONS SELF-DECLARATION:  No owner/officer on OFAC/EU/UN consolidated lists.
+
+Authorized signatory: Dr. Katrin Vogel
+Foreign Tax ID (Germany): DE811234567

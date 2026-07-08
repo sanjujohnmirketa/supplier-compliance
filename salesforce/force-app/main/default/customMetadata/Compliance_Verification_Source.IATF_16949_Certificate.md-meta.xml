@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <description>IATF 16949 Certificate</description>
+    <label>IATF 16949 Certificate</label>
+    <protected>false</protected>
+    <values>
+        <field>API_Cert_Number_Source__c</field>
+        <value xsi:type="xsd:string">iatf_database_number</value>
+    </values>
+    <values>
+        <field>API_Endpoint_Template__c</field>
+        <value xsi:type="xsd:string">https://back.iatf-customerportal.org/portal/certificate/{cert_number}</value>
+    </values>
+    <values>
+        <field>API_Result_Mapping__c</field>
+        <value xsi:type="xsd:string">{&quot;status_field&quot;:&quot;certStateName&quot;,&quot;name_field&quot;:&quot;name&quot;,&quot;country_field&quot;:&quot;country&quot;,&quot;cert_number_field&quot;:&quot;certNo&quot;,&quot;unique_site_id_field&quot;:&quot;unique_site_id&quot;}</value>
+    </values>
+    <values>
+        <field>API_Valid_States__c</field>
+        <value xsi:type="xsd:string">Valid,Active,Certified</value>
+    </values>
+    <values>
+        <field>Authority__c</field>
+        <value xsi:type="xsd:string">IATF</value>
+    </values>
+    <values>
+        <field>Document_Type__c</field>
+        <value xsi:type="xsd:string">IATF 16949 Certificate</value>
+    </values>
+    <values>
+        <field>Instructions__c</field>
+        <value xsi:type="xsd:string">The IATF Customer Portal API is called automatically with the extracted certificate number. The registry returns the certified site name, country, USI, and current certificate state. If the registry response does not match the extracted fields, or the state is Cancelled / Expired / Not Found, the document is automatically rejected. Manual verification at the public portal remains available as a fallback when the API is unavailable.</value>
+    </values>
+    <values>
+        <field>Notes__c</field>
+        <value xsi:type="xsd:string">Uses the public IATF Customer Portal backend at back.iatf-customerportal.org. ApiKey + Tool headers stored in IATF_Verification named credential. Cached per certificate number — never re-called for the same cert. If the ApiKey rotates, update the named credential.</value>
+    </values>
+    <values>
+        <field>Search_Parameters__c</field>
+        <value xsi:type="xsd:string">[&quot;IATF Certificate number&quot;,&quot;IATF Unique Site Identifier (USI)&quot;,&quot;Manufacturing site name&quot;,&quot;Remote support location name&quot;,&quot;City&quot;,&quot;Street&quot;]</value>
+    </values>
+    <values>
+        <field>Verification_Method__c</field>
+        <value xsi:type="xsd:string">Documented_API</value>
+    </values>
+    <values>
+        <field>Verification_Name__c</field>
+        <value xsi:type="xsd:string">IATF Customer Portal</value>
+    </values>
+    <values>
+        <field>Verification_URL__c</field>
+        <value xsi:type="xsd:string">https://iatf-customerportal.org/</value>
+    </values>
+</CustomMetadata>

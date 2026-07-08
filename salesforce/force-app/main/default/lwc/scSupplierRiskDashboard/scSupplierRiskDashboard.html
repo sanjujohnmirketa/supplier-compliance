@@ -1,0 +1,276 @@
+<template>
+
+    <!-- Loading -->
+    <template if:true={isLoading}>
+        <div class="slds-is-relative" style="min-height:200px;">
+            <lightning-spinner alternative-text="Loading risk profile" size="medium"></lightning-spinner>
+        </div>
+    </template>
+
+    <!-- Error -->
+    <template if:true={hasError}>
+        <div class="slds-notify slds-notify_alert slds-alert_error slds-m-around_medium">
+            <lightning-icon icon-name="utility:error" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+            {errorMessage}
+        </div>
+    </template>
+
+    <!-- No risk data yet -->
+    <template if:true={hasNoSnapshot}>
+        <div class="slds-box slds-theme_shade slds-m-around_medium" style="text-align:center;padding:32px 16px;">
+            <lightning-icon icon-name="utility:info" size="medium" class="slds-m-bottom_small"></lightning-icon>
+            <p class="slds-text-heading_small slds-m-bottom_x-small">Risk evaluation pending</p>
+            <p class="slds-text-body_small slds-text-color_weak">
+                This supplier has not yet been evaluated. Risk data appears here
+                once documents are uploaded and the AI pipeline runs.
+            </p>
+        </div>
+    </template>
+
+    <!-- Main dashboard -->
+    <template if:true={hasSnapshot}>
+        <div class="dashboard">
+
+            <!-- ══ HERO: ring + classification ══ -->
+            <div class="hero">
+                <div class="hero-ring">
+                    <svg viewBox="0 0 100 100" class="ring-svg">
+                        <circle cx="50" cy="50" r="45" class="ring-bg"></circle>
+                        <circle cx="50" cy="50" r="45"
+                                class="ring-fg"
+                                stroke-dasharray={riskRingDasharray}
+                                style={riskRingStyle}></circle>
+                        <text x="50" y="48" class="ring-score" text-anchor="middle">{riskScorePercent}</text>
+                        <text x="50" y="62" class="ring-label" text-anchor="middle">{riskTierLabel}</text>
+                    </svg>
+                </div>
+
+                <div class="hero-meta">
+                    <h2 class="supplier-name">{snapshot.supplierName}</h2>
+                    <div class="badge-row">
+                        <span class={riskTierBadge}>{riskTierLabel} risk</span>
+                        <template if:true={snapshot.complianceStatus}>
+                            <span class="status-pill">{snapshot.complianceStatus}</span>
+                        </template>
+                    </div>
+
+                    <dl class="classification">
+                        <template if:true={snapshot.industry}>
+                            <div><dt>Industry</dt><dd>{snapshot.industry}</dd></div>
+                        </template>
+                        <template if:true={snapshot.vendorType}>
+                            <div><dt>Vendor type</dt><dd>{snapshot.vendorType}</dd></div>
+                        </template>
+                        <template if:true={snapshot.supplierTier}>
+                            <div><dt>Tier</dt><dd>{snapshot.supplierTier}</dd></div>
+                        </template>
+                        <template if:true={snapshot.criticality}>
+                            <div><dt>Criticality</dt><dd>{snapshot.criticality}</dd></div>
+                        </template>
+                        <template if:true={snapshot.region}>
+                            <div><dt>Region</dt><dd>{snapshot.region}</dd></div>
+                        </template>
+                        <template if:true={snapshot.directOrIndirect}>
+                            <div><dt>Supply</dt><dd>{snapshot.directOrIndirect}</dd></div>
+                        </template>
+                    </dl>
+
+                    <p class="freshness">Last evaluated: {lastComputedLabel}</p>
+                </div>
+            </div>
+
+            <!-- ══ STAT GRID ══ -->
+            <div class="stat-grid">
+                <div class="stat-card">
+                    <p class="stat-label">Requirements met</p>
+                    <p class="stat-value stat-success">{snapshot.requirementsMet}<span class="stat-total"> / {snapshot.totalRequirements}</span></p>
+                </div>
+                <div class="stat-card">
+                    <p class="stat-label">Requirements failed</p>
+                    <p class="stat-value stat-error">{snapshot.requirementsFailed}</p>
+                </div>
+                <div class="stat-card">
+                    <p class="stat-label">Documents validated</p>
+                    <p class="stat-value stat-success">{snapshot.documentsValidated}<span class="stat-total"> / {snapshot.documentsTotal}</span></p>
+                </div>
+                <div class="stat-card">
+                    <p class="stat-label">Avg AI confidence</p>
+                    <p class="stat-value">{avgConfidenceLabel}</p>
+                </div>
+            </div>
+
+            <!-- ══ EVALUATION SUMMARY ══ -->
+            <template if:true={snapshot.evaluationSummary}>
+                <div class="section">
+                    <h3 class="section-heading">How this evaluation was reached</h3>
+                    <p class="prose">{snapshot.evaluationSummary}</p>
+                </div>
+            </template>
+
+            <!-- ══ CRITICAL FAILURES ══ -->
+            <template if:true={hasCriticalFailures}>
+                <div class="section">
+                    <h3 class="section-heading section-heading_critical">Critical failures blocking approval</h3>
+                    <ul class="critical-list">
+                        <template for:each={snapshot.criticalFailures} for:item="failure">
+                            <li key={failure}>
+                                <lightning-icon icon-name="utility:error" size="x-small" variant="error" class="slds-m-right_xx-small"></lightning-icon>
+                                {failure}
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+            </template>
+
+            <!-- ══ REMEDIATION ══ -->
+            <template if:true={hasRemediation}>
+                <div class="section">
+                    <h3 class="section-heading">Required remediation</h3>
+                    <pre class="remediation">{snapshot.remediationSteps}</pre>
+                </div>
+            </template>
+
+            <!-- ══ REQUIREMENTS TABLE ══ -->
+            <!-- <div class="section">
+                <h3 class="section-heading">Compliance requirements</h3>
+                <div class="req-list">
+                    <template for:each={snapshot.assessments} for:item="row">
+                        <div key={row.assessmentId}
+                             class="req-row"
+                             data-assessment-id={row.assessmentId}
+                             onclick={handleAssessmentClick}>
+                            <div class="req-main">
+                                <div class="req-label"><strong>{row.requirementLabel}</strong></div>
+
+                                <template if:true={row.hasHeadline}>
+                                    <p class="req-headline">{row.headline}</p>
+                                </template>
+                                <template if:true={row.hasChecks}>
+                                    <div class="req-checks">
+                                        <template for:each={row.checks} for:item="k">
+                                            <div key={k.id} class={k.chkClass}>
+                                                <template if:true={k.pass}>✓ </template>
+                                                <template if:false={k.pass}>✕ </template>{k.text}
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template if:true={row.hasFacts}>
+                                    <ul class="req-facts">
+                                        <template for:each={row.facts} for:item="f">
+                                            <li key={f.id}>{f.text}</li>
+                                        </template>
+                                    </ul>
+                                </template>
+                                <template if:true={row.hasConcerns}>
+                                    <ul class="req-concerns">
+                                        <template for:each={row.concerns} for:item="cc">
+                                            <li key={cc.id}>⚠ {cc.text}</li>
+                                        </template>
+                                    </ul>
+                                </template>
+
+                                <template if:true={row.sourceRegulation}>
+                                    <p class="req-reg">Source: {row.sourceRegulation}</p>
+                                </template>
+                            </div>
+                            <div class="req-meta">
+                                <span class="badge-severity">{row.severity}</span>
+                                <span class="badge-status">{row.status}</span>
+                                <template if:true={row.confidenceLabel}>
+                                    <span class="badge-status">{row.confidenceLabel}</span>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div> -->
+
+            <!-- ══ DOCUMENTS ══ -->
+            <div class="section">
+                <h3 class="section-heading">Compliance requirements</h3>
+                <div class="doc-list">
+                    <template for:each={snapshot.documents} for:item="doc">
+                        <div key={doc.documentId}
+                             class="doc-row"
+                             data-doc-id={doc.documentId}
+                             onclick={handleDocumentClick}>
+
+                            <!-- Head: requirement label + status badge + confidence badge -->
+                            <div class="doc-head">
+                                <strong class="doc-type">{doc.documentType}</strong>
+                                <template if:true={doc.status}>
+                                    <span class={doc.statusVariantClass}>{doc.status}</span>
+                                </template>
+                                <template if:false={doc.status}>
+                                    <span class="badge-status">Pending</span>
+                                </template>
+                                <template if:true={doc.confidenceLabel}>
+                                    <span class="badge-status">{doc.confidenceLabel}</span>
+                                </template>
+                            </div>
+
+                            <!-- Uploaded file name (when it differs from the requirement label) -->
+                            <template if:true={doc.hasFileName}>
+                                <p class="doc-file-name">📎 {doc.documentName}</p>
+                            </template>
+                            <template if:true={doc.uploadedLabel}>
+                                <p class="doc-file-name">{doc.uploadedLabel}</p>
+                            </template>
+
+                            <!-- Structured AI summary: headline → facts → checks → concerns (matches P4 AI Summary column) -->
+                            <template if:true={doc.hasHeadline}>
+                                <div class="vc-assess-headline">{doc.headline}</div>
+                            </template>
+                            <template if:true={doc.hasFacts}>
+                                <ul class="vc-assess-facts">
+                                    <template for:each={doc.facts} for:item="f">
+                                        <li key={f.id}>{f.text}</li>
+                                    </template>
+                                </ul>
+                            </template>
+                            <template if:true={doc.hasChecks}>
+                                <div class="vc-assess-checks">
+                                    <template for:each={doc.checks} for:item="k">
+                                        <div key={k.id} class={k.chkClass}>
+                                            <template if:true={k.pass}>✓ </template>
+                                            <template if:false={k.pass}>✕ </template>{k.text}
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            <template if:true={doc.hasConcerns}>
+                                <ul class="vc-assess-concerns">
+                                    <template for:each={doc.concerns} for:item="cc">
+                                        <li key={cc.id}>⚠ {cc.text}</li>
+                                    </template>
+                                </ul>
+                            </template>
+
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- ══ MATERIALS ══ -->
+            <template if:true={hasRawMaterials}>
+                <div class="section">
+                    <h3 class="section-heading">Materials supplied</h3>
+                    <div class="material-grid">
+                        <template for:each={snapshot.rawMaterials} for:item="m">
+                            <div key={m.materialName} class="material-chip">
+                                <strong>{m.materialName}</strong>
+                                <template if:true={m.category}><span class="material-cat">{m.category}</span></template>
+                                <template if:true={m.complianceImpact}>
+                                    <p class="material-impact">{m.complianceImpact}</p>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+
+        </div>
+    </template>
+
+</template>

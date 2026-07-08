@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Active_Supplier__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>Approved supplier status; Drives ERP integration in Phase 2</description>
+    <label>Active Supplier</label>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>Checkbox</type>
+</CustomField>

@@ -1,0 +1,577 @@
+/* scProcurementConsole — Procurement (Executor) workspace.
+   Shares the vc- design language with scVendorConsole; self-contained so the
+   two consoles deploy independently. */
+
+:host {
+  --font-sans: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'DM Mono', 'Fira Code', monospace;
+  --color-background-primary:   #ffffff;
+  --color-background-secondary: #f5f5f3;
+  --color-background-tertiary:  #eeeeeb;
+  --color-text-primary:   #1a1a1a;
+  --color-text-secondary: #666666;
+  --color-text-tertiary:  #aaaaaa;
+  --color-border-primary:   #cccccc;
+  --color-border-secondary: #d8d8d2;
+  --color-border-tertiary:  #e0e0da;
+  --border-radius-sm: 4px;
+  --border-radius-md: 6px;
+  --border-radius-lg: 8px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-text-primary);
+  background: var(--color-background-secondary);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ─── Top bar ──────────────────────────────────────────────────────────────── */
+.vc-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 20px; height: 44px;
+  background: var(--color-background-primary);
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  flex-shrink: 0;
+}
+.vc-tb-left { display: flex; align-items: center; gap: 8px; }
+.vc-logo-box { width: 24px; height: 24px; border-radius: 5px; flex-shrink: 0; object-fit: contain; display: block; }
+.vc-brand    { font-size: 13px; font-weight: 500; }
+.vc-bread    { font-size: 12px; color: var(--color-text-tertiary); }
+.vc-tb-right { display: flex; align-items: center; gap: 10px; }
+.vc-search {
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  padding: 5px 10px; font-size: 12px; width: 160px;
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary); font-family: var(--font-sans);
+}
+.vc-search:focus { outline: none; border-color: var(--color-border-primary); }
+.vc-persona-chip {
+  font-size: 11px; font-weight: 500; color: #1e3a8a;
+  background: #dbeafe; border-radius: 12px; padding: 3px 10px;
+}
+.vc-av {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: #374151; color: #fff;
+  font-size: 11px; font-weight: 500;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.vc-user-area { position: relative; display: flex; align-items: center; }
+.vc-av-btn { cursor: pointer; }
+.vc-av-btn:hover { opacity: 0.8; }
+.vc-user-menu {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.10); min-width: 110px; z-index: 200; padding: 4px;
+}
+.vc-logout-btn {
+  display: block; width: 100%; background: none; border: none;
+  color: #374151; font-size: 12px; font-weight: 500;
+  padding: 7px 12px; cursor: pointer; text-align: left; border-radius: 4px;
+}
+.vc-logout-btn:hover { background: #f3f4f6; }
+
+/* ─── Body / sidebar ─────────────────────────────────────────────────────────── */
+.vc-body { display: flex; flex: 1; min-height: 0; overflow: visible; }
+.vc-sidebar {
+  width: 180px; flex-shrink: 0;
+  background: var(--color-background-primary);
+  border-right: 0.5px solid var(--color-border-tertiary);
+  padding: 16px 0; overflow-y: auto;
+}
+.vc-sb-section {
+  font-size: 10px; font-weight: 500;
+  color: var(--color-text-tertiary);
+  padding: 4px 16px 6px; letter-spacing: .07em; text-transform: uppercase;
+}
+.vc-sb-note { font-size: 11px; color: var(--color-text-secondary); padding: 2px 16px; line-height: 1.4; }
+.vc-sb-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 16px; font-size: 12px;
+  color: var(--color-text-secondary);
+  cursor: pointer; user-select: none; transition: background .1s;
+}
+.vc-sb-item:hover { background: var(--color-background-secondary); }
+.vc-sb-item.active {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary); font-weight: 500;
+}
+.vc-sb-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  border: 1.5px solid var(--color-border-primary); flex-shrink: 0;
+}
+.vc-sb-dot.curr { background: var(--color-text-primary); border-color: var(--color-text-primary); }
+.vc-sb-divider  { border: none; border-top: 0.5px solid var(--color-border-tertiary); margin: 8px 0; }
+
+/* ─── Main canvas / page header ─────────────────────────────────────────────── */
+.vc-main { flex: 1; min-height: 0; padding: 20px; overflow-y: auto; background: var(--color-background-secondary); }
+.vc-page-hdr { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; gap: 16px; }
+.vc-page-title { font-size: 18px; font-weight: 500; }
+.vc-page-sub   { font-size: 11px; color: var(--color-text-tertiary); margin-top: 2px; max-width: 560px; line-height: 1.45; }
+.vc-pill-owns {
+  font-size: 11px; color: var(--color-text-secondary);
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: 20px; padding: 4px 12px; white-space: nowrap; flex-shrink: 0;
+}
+.vc-footer-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+/* ─── Cards / panels ─────────────────────────────────────────────────────────── */
+.vc-card {
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  padding: 16px; margin-bottom: 12px;
+}
+.vc-card-title {
+  font-size: 10px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: #374151; margin-bottom: 12px;
+}
+.vc-card-title-nomargin { margin-bottom: 0; }
+.vc-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.vc-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.vc-p1-grid { grid-template-columns: 1.5fr 1fr; }
+.vc-p3-grid { grid-template-columns: 1.4fr 1fr; }
+
+/* ─── Forms ──────────────────────────────────────────────────────────────────── */
+.vc-form-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.vc-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.vc-flabel {
+  font-size: 10px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: #374151;
+}
+.vc-req-star { color: #ef4444; }
+.vc-field-error { font-size: 11px; color: #ef4444; margin-top: 2px; }
+.vc-finput {
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 7px 10px; font-size: 12px;
+  background: var(--color-background-primary);
+  color: #111111; font-weight: 500; font-family: var(--font-sans);
+}
+.vc-finput:focus { outline: none; border-color: var(--color-text-primary); }
+.vc-fselect { appearance: auto; cursor: pointer; height: 31px; }
+
+/* ─── Badges / pills ─────────────────────────────────────────────────────────── */
+.vc-ai-badge {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-sm);
+  padding: 2px 7px; font-size: 10px; color: var(--color-text-secondary);
+}
+
+/* ─── Buttons ────────────────────────────────────────────────────────────────── */
+.vc-btn-pri {
+  border: none; border-radius: var(--border-radius-md);
+  padding: 7px 16px; font-size: 12px; font-weight: 500;
+  background: #2563eb; color: #fff;
+  cursor: pointer; font-family: var(--font-sans); transition: background .12s, opacity .1s;
+}
+.vc-btn-pri:hover { background: #1d4ed8; }
+.vc-btn-pri:disabled { background: #93b4f5; cursor: default; }
+.vc-btn-sec {
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 7px 16px; font-size: 12px;
+  background: var(--color-background-primary); color: var(--color-text-primary);
+  cursor: pointer; font-family: var(--font-sans);
+}
+.vc-btn-sec:hover { border-color: var(--color-border-primary); }
+.vc-btn-sm { padding: 4px 12px; font-size: 11px; }
+
+/* ─── Tabs ───────────────────────────────────────────────────────────────────── */
+.vc-tab-row { display: flex; gap: 6px; margin-bottom: 12px; }
+.vc-tab { border: 0.5px solid var(--color-border-tertiary); border-radius: 20px; padding: 4px 12px; font-size: 11px; color: var(--color-text-secondary); background: var(--color-background-primary); cursor: pointer; font-family: var(--font-sans); }
+.vc-tab.active { background: var(--color-text-primary); color: #fff; border-color: var(--color-text-primary); }
+
+/* ─── Tables ─────────────────────────────────────────────────────────────────── */
+.vc-table-wrap { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; }
+.vc-tbl-head { display: grid; padding: 8px 16px; border-bottom: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); }
+.vc-p2-head { grid-template-columns: 1.8fr 1fr 1.1fr 1fr .7fr .8fr 1fr .7fr; }
+.vc-tbl-col { font-size: 10px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--color-text-tertiary); }
+.vc-empty-table { padding: 36px 16px; text-align: center; font-size: 12px; color: var(--color-text-secondary); display: flex; flex-direction: column; gap: 4px; }
+
+/* ─── Empty / placeholder states ─────────────────────────────────────────────── */
+.vc-empty-inline {
+  padding: 22px 14px; text-align: center; font-size: 12px;
+  color: var(--color-text-secondary);
+  border: 0.5px dashed var(--color-border-secondary); border-radius: var(--border-radius-md);
+  display: flex; flex-direction: column; gap: 5px;
+}
+.vc-cl-empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 8px; padding: 24px 16px; min-height: 96px;
+  border: 0.5px dashed var(--color-border-secondary); border-radius: var(--border-radius-md);
+}
+.vc-sm-muted { font-size: 10px; color: var(--color-text-tertiary); }
+
+/* ─── Oversight slider (P1) ──────────────────────────────────────────────────── */
+.vc-oversight { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.vc-os-end { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-tertiary); white-space: nowrap; }
+.vc-os-slider { flex: 1; accent-color: #b45309; cursor: pointer; }
+/* Read-only oversight indicator (CSS-driven so position always matches value). */
+.vc-os-track { position: relative; flex: 1; height: 6px; border-radius: 4px; background: var(--color-background-tertiary, #eee); }
+.vc-os-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 4px; background: #d97706; transition: width .25s ease; }
+.vc-os-thumb { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; background: #fff;
+    border: 2px solid #d97706; transform: translate(-50%, -50%); transition: left .25s ease; }
+.vc-route-hint { font-size: 11px; line-height: 1.4; padding: 8px 10px; border-radius: 6px; }
+.vc-route-hint.analyst { background: #FEF3C7; color: #92400E; }
+
+/* ─── P1 / P3 misc ───────────────────────────────────────────────────────────── */
+.vc-p1-email { width: 100%; margin-top: 12px; }
+.vc-p1-email-sub { margin-top: 6px; text-align: center; }
+.vc-policy-zone {
+  border: 0.5px dashed var(--color-border-secondary);
+  border-radius: var(--border-radius-lg);
+  padding: 14px 16px; background: var(--color-background-secondary);
+  display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+}
+.vc-pz-icon  { font-size: 18px; flex-shrink: 0; }
+.vc-pz-text  { flex: 1; }
+.vc-pz-label { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); }
+.vc-pz-hint  { font-size: 10px; color: var(--color-text-tertiary); font-family: var(--font-mono); margin-top: 2px; }
+.vc-p3-screen { display: flex; flex-direction: column; align-items: flex-start; }
+.vc-p3-screen-sub { margin-bottom: 12px; line-height: 1.5; }
+
+/* ─── Inline notice (placeholder toast) ──────────────────────────────────────── */
+.vc-notice {
+  position: fixed; bottom: 20px; right: 20px; z-index: 500;
+  background: #1a1a1a; color: #fff; border-radius: 8px;
+  padding: 10px 14px; max-width: 320px; box-shadow: 0 6px 20px rgba(0,0,0,.20);
+}
+.vc-notice-title { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+.vc-notice-msg { font-size: 11px; color: #d1d5db; line-height: 1.4; }
+
+/* Wired-pass additions — domains, checklist, queue rows */
+.vc-dom-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0 4px; }
+.vc-dom-chip { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 12px; background: #EEF2FF; color: #3730A3; }
+.vc-dom-chip.sm { font-size: 10px; padding: 1px 7px; }
+.vc-cl-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 2px; border-bottom: 0.5px solid #f0f0ec; }
+.vc-cl-doc { font-size: 12.5px; color: var(--color-text-primary); }
+.vc-row-open { font-size: 11px; font-weight: 600; color: #2563eb; }
+
+/* ─── P2 queue ROW grid — FIX: rows must use the SAME grid as the head, else
+       every cell collapses into column one. ─────────────────────────────────── */
+.vc-tbl-row.vc-p2-row {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr 1.1fr 1fr .7fr .8fr 1fr .7fr;   /* match .vc-p2-head */
+  align-items: center;
+  padding: 11px 16px;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.vc-tbl-row.vc-p2-row:last-child { border-bottom: none; }
+.vc-tbl-row.vc-p2-row:hover { background: var(--color-background-secondary); }
+.vc-tbl-cell { font-size: 12px; color: var(--color-text-secondary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc-tbl-cell.vc-sn { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+
+/* ─── P1 read-only oversight (AI-set) ───────────────────────────────────────── */
+/* Disabled slider keeps a clear AI-set color (amber accent), not greyed out. */
+.vc-oversight.readonly .vc-os-slider { cursor: default; opacity: 1; accent-color: #d97706; }
+.vc-oversight.readonly .vc-os-slider::-webkit-slider-thumb { background: #d97706; }
+.vc-oversight.readonly .vc-os-slider::-moz-range-thumb { background: #d97706; border: none; }
+.vc-os-current {
+  display: inline-block; font-size: 11px; font-weight: 600; color: #92400E;
+  background: #FEF3C7; border-radius: 10px; padding: 2px 10px; margin: 2px 0 10px;
+}
+
+/* ─── P3 back link, uploaded docs, AI summary, note ─────────────────────────── */
+.vc-back-link { background: none; border: none; cursor: pointer; font-family: var(--font-sans); font-size: 12px; color: #2563eb; padding: 0 0 8px; }
+.vc-back-link:hover { text-decoration: underline; }
+.vc-file-input { display: none; }
+.vc-updoc { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 2px; border-bottom: 0.5px solid #f0f0ec; }
+.vc-updoc:last-child { border-bottom: none; }
+.vc-updoc-name { font-size: 12.5px; color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc-updoc-meta { font-size: 10.5px; color: var(--color-text-tertiary); flex-shrink: 0; }
+.vc-ai-summary { display: flex; flex-direction: column; gap: 8px; }
+.vc-ais-line { display: flex; gap: 10px; align-items: baseline; }
+.vc-ais-k { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-tertiary); width: 72px; flex-shrink: 0; }
+.vc-ais-v { font-size: 12px; color: var(--color-text-primary); line-height: 1.4; }
+.vc-ais-note { font-size: 10px; color: var(--color-text-tertiary); margin-top: 4px; font-style: italic; }
+.vc-note-input {
+  width: 100%; min-height: 64px; resize: vertical;
+  border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md);
+  padding: 8px 10px; font-size: 12px; font-family: var(--font-sans);
+  color: var(--color-text-primary); margin: 4px 0 10px; background: var(--color-background-primary);
+}
+.vc-note-input:focus { outline: none; border-color: var(--color-border-primary); }
+
+/* ─── Assign-to-analyst modal ───────────────────────────────────────────────── */
+.vc-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.32); z-index: 600; }
+.vc-modal {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  z-index: 601; width: 420px; max-width: 92vw;
+  background: var(--color-background-primary); border-radius: var(--border-radius-lg);
+  box-shadow: 0 12px 40px rgba(0,0,0,.22); padding: 20px;
+}
+.vc-modal-title { font-size: 15px; font-weight: 600; color: var(--color-text-primary); }
+.vc-modal-sub { font-size: 12px; color: var(--color-text-secondary); margin: 4px 0 14px; line-height: 1.45; }
+.vc-assign-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.vc-assign-row { border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); padding: 9px 12px; cursor: pointer; transition: all 0.12s ease; }
+.vc-assign-row:hover { background: var(--color-background-secondary); }
+.vc-assign-row.selected { border-color: #2563eb; background: #EFF6FF; }
+.vc-assign-name { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+.vc-assign-role { font-size: 11px; color: var(--color-text-tertiary); margin-top: 1px; }
+.vc-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.vc-manual-note { background: #FEF3C7; border: 0.5px solid #FCD34D; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; }
+.vc-manual-note-title { font-size: 11px; font-weight: 600; color: #92400E; margin-bottom: 3px; }
+.vc-manual-note-body { font-size: 11.5px; color: #78350F; line-height: 1.45; }
+
+/* ─── Checklist reasoning + stale + no-match ────────────────────────────────── */
+/* Risk reasoning — minimalistic, readable. Subtle left rule, neutral text,
+   each reason on its own clean line (replaces the dense brown block). */
+.vc-reason-list { list-style: none; margin: 10px 0 2px; padding: 0; }
+.vc-reason-list li {
+  position: relative; font-size: 11.5px; color: var(--color-text-secondary);
+  line-height: 1.5; padding: 4px 0 4px 16px; border-bottom: 0.5px solid #f2f2ee;
+}
+.vc-reason-list li:last-child { border-bottom: none; }
+.vc-reason-list li::before {
+  content: ''; position: absolute; left: 2px; top: 11px;
+  width: 5px; height: 5px; border-radius: 50%; background: #d1a368;
+}
+
+/* Inline spinner for buttons during a callout */
+.vc-spinner {
+  display: inline-block; width: 11px; height: 11px; margin-right: 6px;
+  vertical-align: -1px; border: 2px solid rgba(255,255,255,0.45);
+  border-top-color: #fff; border-radius: 50%;
+  animation: vc-spin 0.7s linear infinite;
+}
+.vc-btn-sec .vc-spinner { border: 2px solid rgba(0,0,0,0.2); border-top-color: #555; }
+@keyframes vc-spin { to { transform: rotate(360deg); } }
+.vc-stale-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: #FEF3C7; border: 0.5px solid #FCD34D; border-radius: 6px;
+  padding: 8px 10px; margin-bottom: 10px; font-size: 11.5px; color: #92400E;
+}
+.vc-stale-regen { background: #92400E; color: #fff; border: none; border-radius: 4px; padding: 3px 10px; font-size: 11px; cursor: pointer; font-family: var(--font-sans); flex-shrink: 0; }
+.vc-nomatch-note {
+  background: #EFF6FF; border: 0.5px solid #BFDBFE; border-radius: 6px;
+  padding: 9px 11px; margin-bottom: 10px; font-size: 11.5px; color: #1E40AF; line-height: 1.5;
+}
+
+/* ─── P3 existing-supplier snapshot ─────────────────────────────────────────── */
+.vc-snap-loading { font-size: 12px; color: var(--color-text-tertiary); padding: 2px 0 8px; }
+.vc-snap-strip {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg); padding: 12px 16px; margin-bottom: 12px;
+}
+.vc-snap-cell { display: flex; flex-direction: column; gap: 2px; }
+.vc-snap-k { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-tertiary); }
+.vc-snap-v { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+
+.vc-subhead { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--color-text-tertiary); margin: 10px 0 4px; }
+.vc-subhead:first-child { margin-top: 0; }
+.vc-updoc-link { color: #2563eb; text-decoration: none; }
+.vc-updoc-link:hover { text-decoration: underline; }
+
+/* ─── P3 past AI summaries ──────────────────────────────────────────────────── */
+.vc-assess { padding: 10px 0; border-bottom: 0.5px solid #f0f0ec; }
+.vc-assess:last-child { border-bottom: none; }
+.vc-assess-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.vc-assess-label { font-size: 12.5px; font-weight: 500; color: var(--color-text-primary); }
+.vc-assess-reason { font-size: 11.5px; color: var(--color-text-secondary); line-height: 1.45; margin-top: 3px; }
+.vc-assess-meta { font-size: 10px; color: var(--color-text-tertiary); margin-top: 3px; }
+.vc-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; white-space: nowrap; flex-shrink: 0; }
+.vc-badge.ok      { background: #DCFCE7; color: #166534; }
+.vc-badge.warn    { background: #FEF3C7; color: #92400E; }
+.vc-badge.bad     { background: #FEE2E2; color: #991B1B; }
+.vc-badge.neutral { background: #E5E7EB; color: #374151; }
+
+/* ─── P3 co-pilot ───────────────────────────────────────────────────────────── */
+.vc-cp-card { margin-bottom: 12px; }
+.vc-cp-thread {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 260px; overflow-y: auto; padding: 4px 2px 10px;
+}
+.vc-cp-empty { font-size: 11.5px; color: var(--color-text-tertiary); line-height: 1.5; padding: 6px 0; }
+.vc-cp-msg { font-size: 12px; line-height: 1.45; padding: 8px 11px; border-radius: 10px; max-width: 86%; }
+.vc-cp-msg.you { align-self: flex-end; background: #2563eb; color: #fff; border-bottom-right-radius: 3px; }
+.vc-cp-msg.ai  { align-self: flex-start; background: var(--color-background-secondary); color: var(--color-text-primary); border-bottom-left-radius: 3px; }
+.vc-cp-typing { font-style: italic; color: var(--color-text-tertiary); }
+.vc-cp-inputrow { display: flex; gap: 8px; align-items: center; }
+/* Co-pilot suggested-action chips */
+.vc-cp-suggest { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 14px 8px; }
+.vc-cp-suggest-lbl { width: 100%; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-tertiary); margin-bottom: 2px; }
+.vc-cp-chip { font-size: 11.5px; color: #2563eb; background: #eef4ff; border: 0.5px solid #cfe0ff;
+    border-radius: 14px; padding: 4px 10px; cursor: pointer; font-family: var(--font-sans, inherit); text-align: left; }
+.vc-cp-chip:hover { background: #e0ecff; border-color: #aecbff; }
+.vc-cp-input {
+  flex: 1; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md);
+  padding: 8px 11px; font-size: 12px; font-family: var(--font-sans); color: var(--color-text-primary);
+  background: var(--color-background-primary);
+}
+.vc-cp-input:focus { outline: none; border-color: var(--color-border-primary); }
+
+/* ─── Sidebar sub-item (Documents & screening under Supplier queue) ─────────── */
+.vc-sb-subitem {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px 7px 26px; margin: 2px 0; border-radius: 6px;
+  font-size: 12px; color: var(--color-text-secondary); cursor: pointer;
+}
+.vc-sb-subitem.active { background: var(--color-background-tertiary); color: var(--color-text-primary); font-weight: 500; }
+.vc-sb-subdot { width: 5px; height: 5px; border-radius: 50%; background: #60a5fa; flex-shrink: 0; }
+
+/* ─── P3 screening results spacing ──────────────────────────────────────────── */
+.vc-screen-results { margin-top: 14px; border-top: 0.5px solid var(--color-border-tertiary); padding-top: 6px; }
+.vc-stored-note { font-size: 11px; color: #166534; background: #F0FDF4; border: 0.5px solid #BBF7D0; border-radius: 6px; padding: 7px 10px; margin: 8px 0; }
+
+/* Per-document Preview / Remove actions + inline viewer */
+.vc-updoc { display: flex; align-items: center; gap: 10px; }
+.vc-updoc-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc-updoc-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.vc-doc-btn {
+  border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary);
+  color: var(--color-text-secondary); border-radius: var(--border-radius-sm);
+  padding: 3px 10px; font-size: 11px; cursor: pointer; font-family: var(--font-sans);
+}
+.vc-doc-btn:hover { border-color: var(--color-border-primary); color: var(--color-text-primary); }
+.vc-doc-btn.danger { color: #b91c1c; border-color: #fecaca; }
+.vc-doc-btn.danger:hover { background: #fef2f2; border-color: #f87171; }
+.vc-doc-preview {
+  margin-top: 12px; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md);
+  overflow: hidden; background: var(--color-background-secondary);
+}
+.vc-doc-preview-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.vc-doc-preview-title { font-size: 12px; font-weight: 500; color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc-doc-frame { width: 100%; height: 460px; border: none; background: #fff; }
+.vc-doc-img   { width: 100%; max-height: 460px; object-fit: contain; background: #fff; display: block; }
+.vc-doc-preview-container { width: 100%; height: 700px; position: relative; background: #fff; }
+.vc-preview-loading { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: var(--color-text-secondary); font-size: 13px; }
+.vc-p3-screen .vc-btn-pri { margin-top: 4px; }
+
+/* ─── Floating co-pilot (FAB + panel) ───────────────────────────────────────── */
+.vc-cp-fab {
+  position: fixed; bottom: 24px; right: 24px; z-index: 540;
+  width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer;
+  background: #1a1a1a; color: #fff; box-shadow: 0 6px 20px rgba(0,0,0,.28);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.12s ease;
+}
+.vc-cp-fab:hover { transform: translateY(-2px); }
+.vc-cp-fab-spark { font-size: 20px; line-height: 1; }
+.vc-cp-fab.nudge::after {
+  content: ''; position: absolute; top: 10px; right: 10px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #ef4444; border: 2px solid #1a1a1a;
+}
+.vc-cp-panel {
+  position: fixed; bottom: 88px; right: 24px; z-index: 541;
+  /* Bigger default + user-resizable (drag the top-left corner) for long prompts. */
+  width: 440px; height: 520px;
+  min-width: 320px; min-height: 280px;
+  max-width: 92vw; max-height: 86vh;
+  resize: both; overflow: auto;
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary); border-radius: 12px;
+  box-shadow: 0 16px 44px rgba(0,0,0,.24);
+  display: flex; flex-direction: column;
+  direction: rtl;   /* puts the native resize handle on the LEFT corner */
+}
+.vc-cp-panel > * { direction: ltr; }
+/* Formatted co-pilot answer blocks */
+.vc-cp-line { display: block; margin: 2px 0; line-height: 1.5; }
+.vc-cp-line.bullet { display: flex; gap: 6px; padding-left: 2px; }
+.vc-cp-bullet { color: #2563eb; flex-shrink: 0; }
+.vc-cp-blocktext { display: inline; }
+.vc-cp-msg.ai strong { font-weight: 600; }
+.vc-cp-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border-bottom: 0.5px solid var(--color-border-tertiary);
+  background: var(--color-background-secondary);
+}
+.vc-cp-panel-title { font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
+.vc-cp-panel-sub { font-weight: 400; color: var(--color-text-tertiary); font-size: 11px; }
+.vc-cp-close { background: none; border: none; font-size: 20px; line-height: 1; color: var(--color-text-tertiary); cursor: pointer; }
+.vc-cp-panel .vc-cp-thread { flex: 1; padding: 12px 14px; max-height: none; overflow-y: auto; }
+.vc-cp-panel .vc-cp-inputrow { padding: 10px 14px; flex-shrink: 0; border-top: 0.5px solid var(--color-border-tertiary); }
+
+/* ─── P4 submission summary table ───────────────────────────────────────────── */
+.vc-sub-table-wrap { overflow-x: auto; margin-top: 4px; }
+.vc-sub-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+/* fixed column widths so long filenames don't crush the AI-summary column */
+.vc-sub-table col.vc-col-doc    { width: 22%; }
+.vc-sub-table col.vc-col-status { width: 12%; }
+.vc-sub-table col.vc-col-sum    { width: 52%; }
+.vc-sub-table col.vc-col-conf   { width: 14%; }
+.vc-sub-th {
+  font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: #374151; padding: 8px 12px; text-align: left;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  background: var(--color-background-secondary);
+}
+.vc-sub-tr { border-bottom: 0.5px solid #f0f0ec; }
+.vc-sub-tr:last-child { border-bottom: none; }
+.vc-sub-tr:hover { background: var(--color-background-secondary); }
+.vc-sub-td { padding: 10px 12px; vertical-align: top; font-size: 12px; color: var(--color-text-secondary); }
+.vc-sub-doc { font-weight: 600; color: var(--color-text-primary); word-break: break-word; overflow-wrap: anywhere; }
+.vc-sub-reason { font-size: 11.5px; line-height: 1.5; word-break: break-word; }
+.vc-sub-conf { text-align: center; color: var(--color-text-tertiary); font-weight: 600; }
+/* ── Required document checklist (tick on upload) ──────────────────────────── */
+.vc-checklist-card { margin-bottom: 12px; }
+.vc-chk-row { display: flex; align-items: center; gap: 10px; padding: 9px 0;
+    border-bottom: 0.5px solid var(--color-border-tertiary, #eee); }
+.vc-chk-row:last-child { border-bottom: none; }
+.vc-chk-label { flex: 1; font-size: 13.5px; }
+.vc-chk-status { font-size: 11px; color: var(--color-text-tertiary, #999); text-transform: uppercase; letter-spacing: .03em; }
+.vc-chk-row.done .vc-chk-status { color: #1e9e6a; }
+.vc-chk { width: 20px; height: 20px; border-radius: 5px; border: 1.5px solid var(--color-border-secondary, #c4c4c4);
+    display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; font-size: 13px; font-weight: 700; color: #fff; }
+.vc-chk.ticked { background: #1e9e6a; border-color: #1e9e6a; }
+
+/* ── Compliance documents (merged checklist + documents row) ───────────────── */
+.vc-cdoc-row { padding: 10px 0; border-bottom: 0.5px solid var(--color-border-tertiary, #eee); }
+.vc-cdoc-row:last-child { border-bottom: none; }
+/* 2-column layout: checkbox · required document | uploaded file | verdict+actions
+   Header and data rows share the SAME explicit column template (the last column
+   is fixed-width, not `auto`) so they line up — an `auto` column sizes to its
+   content and the empty header cell was collapsing, throwing the columns off. */
+.vc-cdoc-cols { display: grid; grid-template-columns: 26px minmax(0, 1.3fr) minmax(0, 1.1fr) 300px; gap: 10px; align-items: center; }
+.vc-cdoc-head { padding: 0 0 6px; border-bottom: 0.5px solid var(--color-border-tertiary, #eee); margin-bottom: 4px; }
+.vc-cdoc-head > span { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--color-text-tertiary, #999); }
+.vc-cdoc-h-req { grid-column: 2; }
+.vc-cdoc-h-file { grid-column: 3; }
+.vc-cdoc-label { font-size: 13.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc-cdoc-file { font-size: 12.5px; color: var(--color-text-secondary, #555); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc-cdoc-nofile { color: var(--color-text-tertiary, #aaa); font-style: italic; }
+.vc-cdoc-right { display: flex; align-items: center; gap: 8px; justify-content: flex-end; min-width: 0; }
+.vc-cdoc-status { font-size: 11px; color: var(--color-text-tertiary, #999); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+.vc-cdoc-conf { font-size: 11px; color: var(--color-text-secondary, #555); background: var(--color-background-secondary, #f2f2ef);
+    border-radius: 10px; padding: 2px 8px; white-space: nowrap; flex-shrink: 0; }
+.vc-cdoc-row.done .vc-cdoc-label { color: var(--color-text-primary, #1a1a1a); }
+.vc-cdoc-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.vc-cdoc-toggle { margin: 6px 0 0 30px; background: none; border: none; padding: 0;
+    font-size: 11.5px; color: #2563eb; cursor: pointer; font-family: var(--font-sans, inherit); }
+.vc-cdoc-toggle:hover { text-decoration: underline; }
+.vc-cdoc-detail { margin: 6px 0 2px 30px; padding: 10px 12px; border-radius: 6px;
+    background: var(--color-background-secondary, #f7f7f5); border: 0.5px solid var(--color-border-tertiary, #eee); }
+
+/* ── Rejected documents ────────────────────────────────────────────────────── */
+.vc-rejected-card { margin-bottom: 12px; border: 0.5px solid #f3c0bb; background: #fff8f7; }
+.vc-rejected-title { color: #b3261e; }
+.vc-ai-badge.danger { background: #fde8e6; color: #b3261e; }
+.vc-rej-row { padding: 9px 0; border-bottom: 0.5px solid #f3d6d3; }
+.vc-rej-row:last-child { border-bottom: none; }
+.vc-rej-top { display: flex; gap: 8px; align-items: baseline; }
+.vc-rej-name { font-weight: 600; font-size: 13.5px; color: #1a1a1a; }
+.vc-rej-for { font-size: 11.5px; color: var(--color-text-tertiary, #999); }
+.vc-rej-reason { font-size: 12.5px; color: #b3261e; margin-top: 2px; }
+
+/* ── Structured AI summary (headline + facts + checks + concerns) ───────────── */
+.vc-assess-headline { font-size: 13px; font-weight: 600; color: var(--color-text-primary, #1a1a1a); line-height: 1.45; margin: 0 0 5px; }
+.vc-assess-facts { margin: 0 0 5px; padding-left: 16px; }
+.vc-assess-facts li { font-size: 12px; color: var(--color-text-secondary, #444); margin: 1px 0; }
+.vc-assess-checks { margin: 4px 0; display: flex; flex-direction: column; gap: 2px; }
+.vc-chkline { font-size: 12px; }
+.vc-chkline.pass { color: #1e7a4f; }
+.vc-chkline.fail { color: #b3261e; font-weight: 600; }
+.vc-assess-concerns { margin: 4px 0 0; padding-left: 16px; }
+.vc-assess-concerns li { font-size: 12px; color: #9a6213; margin: 1px 0; }

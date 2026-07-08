@@ -1,0 +1,24 @@
+<template>
+    <div class="vcu-zone" ondrop={handleDrop} ondragover={handleDragOver}>
+        <input type="file" class="vcu-input" accept={acceptedFormats} onchange={handleFileChange}></input>
+        <button class="vcu-btn" type="button" onclick={triggerPicker} disabled={uploading}>
+            <lightning-icon icon-name="utility:upload" size="xx-small" class="vcu-ico"></lightning-icon>
+            {buttonLabel}
+        </button>
+        <template if:true={uploading}>
+            <lightning-spinner size="x-small" alternative-text="Uploading"></lightning-spinner>
+            <span class="vcu-hint">Uploading&hellip;</span>
+        </template>
+        <template if:false={uploading}>
+            <template if:false={hasFile}>
+                <span class="vcu-hint">or drop a file</span>
+            </template>
+        </template>
+    </div>
+    <template if:true={hasFile}>
+        <div class="vcu-file">✓ {displayName} <span class="vcu-latest">(latest)</span></div>
+    </template>
+    <template if:true={errorMsg}>
+        <div class="vcu-err">{errorMsg}</div>
+    </template>
+</template>

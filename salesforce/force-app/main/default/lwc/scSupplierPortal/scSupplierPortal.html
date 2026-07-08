@@ -1,0 +1,507 @@
+<template>
+
+    <!-- ── TOP BAR ───────────────────────────────────────────────────────────── -->
+    <div class="vc-topbar">
+        <div class="vc-tb-left">
+            <img class="vc-logo-box" src={logoUrl} alt="VERA">
+            <span class="vc-brand">Supplier Portal</span>
+            <span class="vc-bread">{breadcrumb}</span>
+        </div>
+        <div class="vc-tb-right">
+            <span class="vc-persona-chip">Supplier</span>
+            <div class="vc-user-area">
+                <div class="vc-av vc-av-btn" title={userName} onclick={handleAvatarClick}>{userInitials}</div>
+                <template if:true={showUserMenu}>
+                    <div class="vc-user-menu">
+                        <button class="vc-logout-btn" onclick={handleLogout}>Log out</button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <div class="vc-body">
+
+        <!-- ── SIDEBAR ───────────────────────────────────────────────────────── -->
+        <nav class="vc-sidebar">
+            <div class="vc-sb-section">Supplier Portal</div>
+            <div class={sbSp3Active} data-screen="sp3" onclick={handleNav}>
+                <div class={dotSp3}></div> Compliance summary
+            </div>
+            <div class={sbSp4Active} data-screen="sp4" onclick={handleNav}>
+                <div class={dotSp4}></div> My sub-suppliers
+            </div>
+            <hr class="vc-sb-divider">
+            <div class="vc-sb-section">You own</div>
+            <div class="vc-sb-note">Upload required documents · track your compliance status.</div>
+        </nav>
+
+        <!-- ── MAIN CANVAS ───────────────────────────────────────────────────── -->
+        <div class="vc-main">
+
+            <!-- Inline notice (toast substitute) -->
+            <template if:true={showNotice}>
+                <div class={noticeClass}>
+                    <span class="vc-notice-title">{noticeTitle}</span>
+                    <span class="vc-notice-msg">{noticeMessage}</span>
+                </div>
+            </template>
+
+            <!-- ════════════════════════════════════════════════════════════════
+                 SP3 — COMPLIANCE SUMMARY
+            ═══════════════════════════════════════════════════════════════════ -->
+            <template if:true={isSp3}>
+                <div class="vc-page-hdr">
+                    <div>
+                        <div class="vc-page-title">Compliance summary</div>
+                        <div class="vc-page-sub">{snapName} · upload required documents · track your compliance status and risk score.</div>
+                    </div>
+                    <span class="vc-pill-owns">Your compliance snapshot</span>
+                </div>
+
+                <template if:true={snapshotLoading}>
+                    <div class="vc-snap-loading">Loading…</div>
+                </template>
+                <div class="vc-snap-strip">
+                    <div class="vc-snap-cell"><span class="vc-snap-k">Risk tier</span><span class="vc-snap-v">{snapTier}</span></div>
+                    <div class="vc-snap-cell"><span class="vc-snap-k">Status</span><span class="vc-snap-v">{snapStatus}</span></div>
+                    <div class="vc-snap-cell"><span class="vc-snap-k">Oversight</span><span class="vc-snap-v">{oversightLabel}</span></div>
+                    <div class="vc-snap-cell"><span class="vc-snap-k">Documents on file</span><span class="vc-snap-v">{storedDocsCount}</span></div>
+                </div>
+
+                <c-sc-compliance-dashboard
+                    tier={snapTier}
+                    docs={dashboardDocs}
+                    label="My risk score">
+                </c-sc-compliance-dashboard>
+
+                <!-- Upload zone -->
+                <div class="vc-policy-zone">
+                    <div class="vc-pz-icon">⤓</div>
+                    <div class="vc-pz-text">
+                        <div class="vc-pz-label">Upload your documents — one or many</div>
+                        <div class="vc-pz-hint">AI reads each file, matches it to the required checklist, and validates it.</div>
+                    </div>
+                    <button class="vc-btn-pri vc-btn-sm" onclick={handleAddFiles}>＋ Add files</button>
+                    <input type="file" multiple class="vc-file-input" onchange={handleFilesPicked}>
+                </div>
+
+                <!-- Document & screening table -->
+                <template if:true={hasComplianceRows}>
+                    <div class="vc-card vc-checklist-card">
+                        <div class="vc-panel-header">
+                            <div class="vc-card-title vc-card-title-nomargin">Required documents</div>
+                            <span class="vc-ai-badge">✦ {checklistProgressLabel} · AI matched &amp; validated</span>
+                        </div>
+                        <div class="vc-cdoc-cols vc-cdoc-head">
+                            <span></span>
+                            <span class="vc-cdoc-h-req">Required document</span>
+                            <span class="vc-cdoc-h-file">Uploaded file</span>
+                            <span class="vc-cdoc-h-verdict"></span>
+                        </div>
+                        <template for:each={complianceRows} for:item="c">
+                            <div key={c.id} class={c.rowClass}>
+                                <div class="vc-cdoc-cols vc-cdoc-top">
+                                    <span class={c.boxClass}>
+                                        <template if:true={c.ticked}>✓</template>
+                                    </span>
+                                    <span class="vc-cdoc-label">{c.label}</span>
+                                    <span class="vc-cdoc-file">
+                                        <template if:true={c.hasFileName}>{c.fileName}</template>
+                                        <template if:false={c.hasFileName}><span class="vc-cdoc-nofile">— not uploaded —</span></template>
+                                    </span>
+                                    <div class="vc-cdoc-right">
+                                        <template if:true={c.hasVerdict}>
+                                            <span class={c.verdictBadgeClass}>{c.verdict}</span>
+                                            <template if:true={c.hasConfidence}>
+                                                <span class="vc-cdoc-conf">{c.confidenceLabel}</span>
+                                            </template>
+                                        </template>
+                                        <template if:false={c.hasVerdict}>
+                                            <span class="vc-cdoc-status">{c.statusText}</span>
+                                        </template>
+                                        <template if:true={c.hasFile}>
+                                            <div class="vc-cdoc-actions">
+                                                <button class="vc-doc-btn" data-id={c.fileId} onclick={handlePreviewDoc}>Preview</button>
+                                                <button class="vc-doc-btn danger" data-id={c.fileId} onclick={handleRemoveDoc}>Remove</button>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                                <template if:true={c.hasDetail}>
+                                    <button class="vc-cdoc-toggle" data-key={c.key} onclick={handleToggleDetail}>{c.toggleLabel}</button>
+                                    <template if:true={c.expanded}>
+                                        <div class="vc-cdoc-detail">
+                                            <template if:true={c.hasHeadline}>
+                                                <div class="vc-assess-headline">{c.headline}</div>
+                                            </template>
+                                            <template if:true={c.hasChecks}>
+                                                <div class="vc-assess-checks">
+                                                    <template for:each={c.checks} for:item="k">
+                                                        <div key={k.id} class={k.chkClass}>
+                                                            <template if:true={k.pass}>✓ </template>
+                                                            <template if:false={k.pass}>✕ </template>{k.text}
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            <template if:true={c.hasFacts}>
+                                                <ul class="vc-assess-facts">
+                                                    <template for:each={c.facts} for:item="f">
+                                                        <li key={f.id}>{f.text}</li>
+                                                    </template>
+                                                </ul>
+                                            </template>
+                                            <template if:true={c.hasConcerns}>
+                                                <ul class="vc-assess-concerns">
+                                                    <template for:each={c.concerns} for:item="cc">
+                                                        <li key={cc.id}>⚠ {cc.text}</li>
+                                                    </template>
+                                                </ul>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </template>
+                            </div>
+                        </template>
+
+                        <!-- Inline document preview -->
+                        <template if:true={hasPreview}>
+                            <div class="vc-doc-preview">
+                                <div class="vc-doc-preview-head">
+                                    <span class="vc-doc-preview-title">{previewTitle}</span>
+                                    <button class="vc-doc-btn" onclick={closePreview}>Close ×</button>
+                                </div>
+                                <template if:true={showIframe}>
+                                    <div data-preview-container class="vc-doc-preview-container">
+                                        <template if:true={iframeLoading}>
+                                            <div class="vc-preview-loading">Loading preview...</div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template if:false={showIframe}>
+                                    <template if:true={previewIsImage}>
+                                        <img class="vc-doc-img" src={previewUrl} alt={previewTitle}>
+                                    </template>
+                                    <template if:false={previewIsImage}>
+                                        <iframe class="vc-doc-frame" src={previewUrl} title={previewTitle}></iframe>
+                                    </template>
+                                </template>
+                            </div>
+                        </template>
+
+                        <!-- Newly added (uploading / assessing) -->
+                        <template if:true={hasUploadedDocs}>
+                            <div class="vc-subhead">Just added</div>
+                            <template for:each={uploadedDocs} for:item="doc">
+                                <div key={doc.id} class="vc-updoc">
+                                    <span class="vc-updoc-name">{doc.name}</span>
+                                    <span class="vc-updoc-meta">{doc.sizeLabel} · {doc.status}</span>
+                                </div>
+                            </template>
+                        </template>
+                    </div>
+                </template>
+
+                <template if:false={hasComplianceRows}>
+                    <div class="vc-card">
+                        <div class="vc-empty-inline">
+                            No required documents yet.
+                            <span class="vc-sm-muted">Once your procurement contact generates a checklist, required documents will appear here — use "Add files" above to upload them.</span>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Unmatched / rejected documents -->
+                <template if:true={hasRejectedDocs}>
+                    <div class="vc-card vc-rejected-card">
+                        <div class="vc-panel-header">
+                            <div class="vc-card-title vc-card-title-nomargin vc-rejected-title">⚠ Unmatched documents</div>
+                        </div>
+                        <template for:each={rejectedDocs} for:item="r">
+                            <div key={r.id} class="vc-rej-row">
+                                <div class="vc-rej-top">
+                                    <span class="vc-rej-name">{r.title}</span>
+                                    <button class="vc-btn-sec vc-btn-sm" data-id={r.id}
+                                            onclick={handlePromoteRejected} disabled={r.promoting}>
+                                        <template if:true={r.promoting}>Adding…</template>
+                                        <template if:false={r.promoting}>＋ Add to checklist</template>
+                                    </button>
+                                </div>
+                                <div class="vc-rej-reason">{r.reason}</div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </template>
+
+            <!-- ════════════════════════════════════════════════════════════════
+                 SP4 — MY SUB-SUPPLIERS
+            ═══════════════════════════════════════════════════════════════════ -->
+            <template if:true={isSp4}>
+                <div class="vc-page-hdr">
+                    <div>
+                        <div class="vc-page-title">My sub-suppliers</div>
+                        <div class="vc-page-sub">Manage and monitor your Tier 2 and Tier 3 sub-supplier network · invite new suppliers to track their compliance.</div>
+                    </div>
+                    <button class="vc-btn-pri vc-btn-sm" onclick={handleOpenInvite}>＋ Invite sub-supplier</button>
+                </div>
+
+                <!-- Stats strip -->
+                <div class="vc-snap-strip">
+                    <div class="vc-snap-cell"><span class="vc-snap-k">Total sub-suppliers</span><span class="vc-snap-v">{sp4Stats.total}</span></div>
+                    <div class="vc-snap-cell"><span class="vc-snap-k">Active</span><span class="vc-snap-v">{sp4Stats.active}</span></div>
+                    <div class="vc-snap-cell"><span class="vc-snap-k">Pending / onboarding</span><span class="vc-snap-v">{sp4Stats.pending}</span></div>
+                    <div class="vc-snap-cell"><span class="vc-snap-k">Docs submitted</span><span class="vc-snap-v">{sp4Stats.docs}</span></div>
+                </div>
+
+                <!-- Sub-supplier table -->
+                <div class="vc-card">
+                    <div class="vc-panel-header">
+                        <div class="vc-card-title vc-card-title-nomargin">Sub-supplier directory</div>
+                        <template if:true={subSuppliersLoading}>
+                            <span class="vc-snap-loading">Loading…</span>
+                        </template>
+                    </div>
+
+                    <div class="vc-tbl-head vc-sp4-head">
+                        <div class="vc-tbl-col">Company</div>
+                        <div class="vc-tbl-col">Country</div>
+                        <div class="vc-tbl-col">Tier</div>
+                        <div class="vc-tbl-col">Status</div>
+                        <div class="vc-tbl-col">Email</div>
+                        <div class="vc-tbl-col">Docs</div>
+                        <div class="vc-tbl-col">Joined</div>
+                    </div>
+
+                    <template if:true={hasSubSuppliers}>
+                        <template for:each={subSuppliers} for:item="s">
+                            <div key={s.rowId} class="vc-sp4-row">
+                                <div class="vc-sp4-cell-company">
+                                    <span class="vc-sp4-name">{s.company}</span>
+                                </div>
+                                <div>{s.country}</div>
+                                <div>{s.tier}</div>
+                                <div><span class={s.badgeClass}>{s.status}</span></div>
+                                <div class="vc-sp4-email">{s.email}</div>
+                                <div>{s.docCount}</div>
+                                <div class="vc-sp4-age">{s.ageLabel}</div>
+                            </div>
+                        </template>
+                    </template>
+
+                    <template if:false={hasSubSuppliers}>
+                        <template if:false={subSuppliersLoading}>
+                            <div class="vc-empty-table">
+                                No sub-suppliers yet — invite your first sub-supplier using the button above.
+                            </div>
+                        </template>
+                    </template>
+                </div>
+            </template>
+
+        </div><!-- /.vc-main -->
+    </div><!-- /.vc-body -->
+
+    <!-- ── Invite sub-supplier modal ─────────────────────────────────────────── -->
+    <template if:true={showInviteModal}>
+        <div class="vc-modal-backdrop" onclick={handleCloseInvite}></div>
+        <div class="vc-modal vc-invite-modal" role="dialog" aria-modal="true">
+
+            <div class="vc-invite-modal-header">
+                <div>
+                    <div class="vc-modal-title">Invite sub-supplier</div>
+                    <div class="vc-modal-sub">They'll receive a secure registration link to complete their compliance profile.</div>
+                </div>
+                <button class="vc-cp-close" onclick={handleCloseInvite}>×</button>
+            </div>
+
+            <div class="vc-invite-modal-body">
+
+                <!-- Left: form -->
+                <div class="vc-invite-col">
+                    <div class="vc-invite-section-title">Sub-supplier details</div>
+
+                    <div class="vc-flabel">Company name <span class="vc-req-star">*</span></div>
+                    <input class="vc-finput" type="text" value={inviteForm.company}
+                           data-field="company" oninput={handleInviteField}
+                           placeholder="e.g. Alpine Machining Solutions GmbH">
+
+                    <div class="vc-invite-row">
+                        <div>
+                            <div class="vc-flabel">First name <span class="vc-req-star">*</span></div>
+                            <input class="vc-finput" type="text" value={inviteForm.firstName}
+                                   data-field="firstName" oninput={handleInviteField} placeholder="Thomas">
+                        </div>
+                        <div>
+                            <div class="vc-flabel">Last name</div>
+                            <input class="vc-finput" type="text" value={inviteForm.lastName}
+                                   data-field="lastName" oninput={handleInviteField} placeholder="Weber">
+                        </div>
+                    </div>
+
+                    <div class="vc-invite-row">
+                        <div>
+                            <div class="vc-flabel">Business email <span class="vc-req-star">*</span></div>
+                            <input class="vc-finput" type="email" value={inviteForm.email}
+                                   data-field="email" oninput={handleInviteField} placeholder="contact@supplier.com">
+                        </div>
+                        <div>
+                            <div class="vc-flabel">Phone</div>
+                            <input class="vc-finput" type="text" value={inviteForm.phone}
+                                   data-field="phone" oninput={handleInviteField} placeholder="+49 89 1234 5678">
+                        </div>
+                    </div>
+
+                    <div class="vc-invite-row">
+                        <div>
+                            <div class="vc-flabel">Supplier category <span class="vc-req-star">*</span></div>
+                            <select class="vc-finput vc-fselect" data-field="category" onchange={handleInviteField}>
+                                <option value="">Select…</option>
+                                <option value="Raw Materials">Raw Materials</option>
+                                <option value="Machined Components">Machined Components</option>
+                                <option value="Assembly">Assembly &amp; Sub-assembly</option>
+                                <option value="Tooling">Tooling &amp; Fixtures</option>
+                                <option value="Logistics">Logistics &amp; 3PL</option>
+                                <option value="Services">Professional Services</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="vc-flabel">Country <span class="vc-req-star">*</span></div>
+                            <select class="vc-finput vc-fselect" data-field="country" onchange={handleInviteField}>
+                                <option value="">Select…</option>
+                                <option value="Germany">Germany</option>
+                                <option value="Austria">Austria</option>
+                                <option value="Czech Republic">Czech Republic</option>
+                                <option value="Poland">Poland</option>
+                                <option value="United Kingdom">United Kingdom</option>
+                                <option value="United States">United States</option>
+                                <option value="India">India</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="vc-invite-row">
+                        <div>
+                            <div class="vc-flabel">Supplier tier <span class="vc-req-star">*</span></div>
+                            <select class="vc-finput vc-fselect" data-field="tier" onchange={handleInviteField}>
+                                <template for:each={inviteTierOptions} for:item="t">
+                                    <option key={t.value} value={t.value} selected={t.selected}>{t.label}</option>
+                                </template>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="vc-flabel">Invitation expires</div>
+                            <div class="vc-invite-expiry-row">
+                                <template for:each={inviteExpiryOptions} for:item="opt">
+                                    <button key={opt.value} class={opt.cls}
+                                            data-expiry={opt.value} onclick={handleInviteExpiry}>{opt.label}</button>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vc-flabel">Personal message (optional)</div>
+                    <textarea class="vc-note-input" rows="3"
+                              data-field="message" oninput={handleInviteField}
+                              placeholder="Hi Thomas, we'd like to add Alpine Machining as a sub-supplier for our production line…"></textarea>
+                </div>
+
+                <!-- Right: compliance checklist + email preview -->
+                <div class="vc-invite-col">
+
+                    <!-- Checklist -->
+                    <div class="vc-invite-section-title">
+                        Compliance checklist
+                        <template if:true={selectedCount}>
+                            <span class="vc-req-count">{selectedCount} selected</span>
+                        </template>
+                    </div>
+                    <div class="vc-req-hint">Select documents you require from this sub-supplier — they'll be listed in the invitation email and assigned to their compliance profile.</div>
+
+                    <template if:true={requirementsLoading}>
+                        <div class="vc-req-loading">Loading requirements…</div>
+                    </template>
+                    <template if:false={requirementsLoading}>
+                        <template if:true={hasRequirements}>
+                            <div class="vc-req-list">
+                                <template for:each={requirements} for:item="r">
+                                    <label key={r.id} class="vc-req-item">
+                                        <input type="checkbox" class="vc-req-check"
+                                               data-id={r.id}
+                                               checked={r.checked}
+                                               onchange={handleRequirementToggle}>
+                                        <span class="vc-req-label">{r.label}</span>
+                                        <span class={r.severityBadge}>{r.severity}</span>
+                                    </label>
+                                </template>
+                            </div>
+                        </template>
+                        <template if:false={hasRequirements}>
+                            <div class="vc-req-empty">No compliance requirements found on your account. Upload documents in Compliance Summary to generate a checklist.</div>
+                        </template>
+                    </template>
+
+                    <!-- Email preview -->
+                    <div class="vc-invite-section-title" style="margin-top:8px;">Email preview</div>
+                    <div class="vc-email-preview">
+                        <div class="vc-email-chrome">
+                            <div class="vc-email-dot" style="background:#EF4444"></div>
+                            <div class="vc-email-dot" style="background:#F59E0B"></div>
+                            <div class="vc-email-dot" style="background:#22C55E"></div>
+                        </div>
+                        <div class="vc-email-head">
+                            <div class="vc-email-field"><strong>To:</strong> {inviteForm.email}</div>
+                            <div class="vc-email-field"><strong>Subject:</strong> You've been invited to join our supplier network</div>
+                        </div>
+                        <div class="vc-email-body">
+                            <div class="vc-email-logo">SupplierIQ</div>
+                            <div class="vc-email-greeting">
+                                Hi <strong>{inviteForm.firstName}</strong>,<br/>
+                                <strong>{snapName}</strong> has invited <strong>{inviteForm.company}</strong> to join their compliance network as a <strong>{inviteForm.tier}</strong> sub-supplier.
+                            </div>
+                            <template if:true={inviteForm.message}>
+                                <div class="vc-email-note">"{inviteForm.message}"</div>
+                            </template>
+                            <template if:true={hasSelectedRequirements}>
+                                <div class="vc-email-req-preview">
+                                    <div class="vc-email-req-title">Documents required from you ({selectedCount}):</div>
+                                    <template for:each={selectedRequirements} for:item="r">
+                                        <div key={r.id} class="vc-email-req-row">
+                                            <span class={r.severityBadge}>{r.severity}</span>
+                                            <span class="vc-email-req-label">{r.label}</span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            <div class="vc-email-cta-wrap">
+                                <span class="vc-email-cta-btn">Accept &amp; Access Supplier Portal →</span>
+                            </div>
+                            <div class="vc-email-expire">Link expires in {inviteForm.expiry} days</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /.vc-invite-modal-body -->
+
+            <!-- Error -->
+            <template if:true={inviteError}>
+                <div class="vc-em-error" style="margin: 0 24px 12px;">{inviteError}</div>
+            </template>
+
+            <div class="vc-modal-actions" style="padding: 16px 24px; border-top: 0.5px solid var(--color-border-secondary);">
+                <button class="vc-btn-sec" onclick={handleCloseInvite} disabled={inviteSending}>Cancel</button>
+                <button class="vc-btn-pri" onclick={handleInviteSend}
+                        disabled={inviteSending}
+                        style={inviteBtnStyle}>
+                    <template if:true={inviteSending}><span class="vc-spinner"></span></template>
+                    Send invitation
+                </button>
+            </div>
+
+        </div><!-- /.vc-invite-modal -->
+    </template>
+
+</template>

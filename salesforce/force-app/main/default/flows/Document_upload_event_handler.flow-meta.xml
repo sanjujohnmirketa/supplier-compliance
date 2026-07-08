@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <actionCalls>
+        <name>Enqueue_AI_Extraction</name>
+        <label>Enqueue RAG Document Assessment</label>
+        <locationX>176</locationX>
+        <locationY>170</locationY>
+        <actionName>DocAssessQueueable</actionName>
+        <actionType>apex</actionType>
+        <flowTransactionModel>CurrentTransaction</flowTransactionModel>
+        <inputParameters>
+            <name>complianceDocId</name>
+            <value>
+                <elementReference>$Record.Compliance_Document_Id__c</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>contentVersionId</name>
+            <value>
+                <elementReference>$Record.Content_Version_Id__c</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>supplierId</name>
+            <value>
+                <elementReference>$Record.Supplier_Id__c</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>documentTypeHint</name>
+            <value>
+                <elementReference>$Record.Document_Type_Hint__c</elementReference>
+            </value>
+        </inputParameters>
+        <nameSegment>DocAssessQueueable</nameSegment>
+        <offset>0</offset>
+    </actionCalls>
+    <apiVersion>61.0</apiVersion>
+    <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <description>Platform Event subscriber for Document_Uploaded__e. Receives upload events and enqueues AIExtractionQueueable for async GPT-4o document extraction. Contains zero business logic — pure handoff from Platform Event to Apex Queueable.</description>
+    <environments>Default</environments>
+    <label>Document Upload Event Handler</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Enqueue_AI_Extraction</targetReference>
+        </connector>
+        <flowRunAsUser>TriggeringUser</flowRunAsUser>
+        <object>Document_Uploaded__e</object>
+        <triggerType>PlatformEvent</triggerType>
+    </start>
+    <status>Active</status>
+</Flow>

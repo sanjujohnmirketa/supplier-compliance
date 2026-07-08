@@ -1,0 +1,17 @@
+SAFETY DATA SHEET (SDS) + REACH / RoHS DECLARATION OF CONFORMITY
+
+Supplier:        Nordwind Präzisionsguss GmbH
+Product:         Precision investment castings — Ni-Cr alloy (Inconel 718 grade)
+SDS Revision:    4.2     Revision Date: 01/20/2026
+
+SECTION 1 — IDENTIFICATION
+  Material: nickel-chromium superalloy casting; CAS mixture.
+
+SECTION 15 — REGULATORY INFORMATION
+  REACH (EC 1907/2006): No Substances of Very High Concern (SVHC) from the
+  current Candidate List are present above 0.1% w/w. Lead < 0.01%.
+  RoHS (EU 2011/65/EU): Compliant — all ten restricted substances below limits.
+  No REACH Annex XVII restricted substances above threshold.
+
+Declared by: Dr. Katrin Vogel, Quality Director
+Declaration valid through: 01/20/2027

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Event_Type__c</fullName>
+    <description>Type of audit event</description>
+    <label>Event Type</label>
+    <required>true</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Document_Uploaded</fullName>
+                <default>false</default>
+                <label>Document Uploaded</label>
+            </value>
+            <value>
+                <fullName>AI_Extraction</fullName>
+                <default>false</default>
+                <label>AI Extraction</label>
+            </value>
+            <value>
+                <fullName>Compliance_Evaluated</fullName>
+                <default>false</default>
+                <label>Compliance Evaluated</label>
+            </value>
+            <value>
+                <fullName>Manual_Override</fullName>
+                <default>false</default>
+                <label>Manual Override</label>
+            </value>
+            <value>
+                <fullName>Checklist_Generated</fullName>
+                <default>false</default>
+                <label>Checklist Generated</label>
+            </value>
+            <value>
+                <fullName>Status_Changed</fullName>
+                <default>false</default>
+                <label>Status Changed</label>
+            </value>
+            <value>
+                <fullName>Other</fullName>
+                <default>false</default>
+                <label>Other</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

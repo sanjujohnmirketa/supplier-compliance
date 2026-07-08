@@ -1,0 +1,198 @@
+/* scDocumentUploader.css */
+
+/* ── Checklist rows ──────────────────────────────────────────────────── */
+.checklist-row {
+    border: 1px solid #e6e4e0;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    background: #fff;
+    transition: box-shadow 0.15s ease;
+}
+
+.checklist-row:hover { box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+
+.checklist-row_mandatory    { border-left: 3px solid #c23934; }
+.checklist-row_recommended  { border-left: 3px solid #e6e4e0; }
+
+/* Compact, minimalistic badges to match the console */
+.row-label .slds-badge {
+    font-size: 10px;
+    padding: 1px 7px;
+    line-height: 1.5;
+    border-radius: 10px;
+}
+
+/* ── Row header ──────────────────────────────────────────────────────── */
+.row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.row-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.row-status-icon {
+    flex-shrink: 0;
+    width: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.row-label {
+    font-size: 13px;
+    line-height: 1.4;
+    flex: 1;
+    min-width: 0;
+}
+
+.row-regulation {
+    font-size: 11px;
+    color: #706e6b;
+    background: #f3f3f3;
+    border-radius: 3px;
+    padding: 2px 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ── Section headings ────────────────────────────────────────────────── */
+.section-heading {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.section-heading_required { color: #c23934; }
+
+/* ── Upload zone ─────────────────────────────────────────────────────── */
+.row-upload-zone { margin-top: 6px; }
+
+/* ── Error zone ──────────────────────────────────────────────────────── */
+.row-error-zone { margin-top: 6px; }
+.error-text { color: #c23934; font-size: 13px; }
+
+/* ── Uploaded file panel ─────────────────────────────────────────────── */
+.uploaded-file-panel {
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: #f3fbf6;
+    border: 1px solid #04844b33;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.uploaded-file-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+}
+
+.uploaded-file-name {
+    font-size: 13px;
+    color: #04844b;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Remove button ───────────────────────────────────────────────────── */
+.remove-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #706e6b;
+    background: transparent;
+    border: 1px solid #dddbda;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+    flex-shrink: 0;
+}
+
+.remove-btn:hover {
+    background: #fff1f0;
+    color: #c23934;
+    border-color: #c23934;
+}
+
+.remove-btn:active { opacity: 0.8; }
+
+/* ── Uploaded file list (flex column inside the panel) ───────────────── */
+.uploaded-file-list { flex: 1; min-width: 0; }
+
+/* ── AI processing indicator ─────────────────────────────────────────── */
+.ai-processing-panel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #f0f7ff;
+    border: 1px solid #b3d4f5;
+    border-radius: 4px;
+}
+
+.ai-processing-text {
+    font-size: 13px;
+    color: #005fb2;
+}
+
+/* ── AI result panel ─────────────────────────────────────────────────── */
+.ai-result-panel {
+    margin-top: 8px;
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.ai-result-panel_compliant {
+    background: #f3fbf6;
+    border: 1px solid rgba(4, 132, 75, 0.25);
+}
+
+.ai-result-panel_rejected {
+    background: #fff1f0;
+    border: 1px solid rgba(194, 57, 52, 0.25);
+}
+
+.ai-result-panel_review {
+    background: #fffbf0;
+    border: 1px solid rgba(202, 135, 0, 0.25);
+}
+
+.ai-result-panel_neutral {
+    background: #f3f3f3;
+    border: 1px solid #dddbda;
+}
+
+.ai-result-header { margin-bottom: 6px; }
+
+.ai-reason-text {
+    margin: 0;
+    color: #3e3e3c;
+    line-height: 1.5;
+    font-size: 13px;
+}

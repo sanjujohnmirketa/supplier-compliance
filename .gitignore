@@ -1,0 +1,29 @@
+# ── Secrets — never commit ──────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ── Python (engine/) ────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# ── Node / Salesforce CLI (salesforce/) ─────────────────────────────────────
+node_modules/
+.sfdx/
+.sf/
+.localdevserver/
+
+# ── IDE / OS ─────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ── Logs / temp ──────────────────────────────────────────────────────────────
+*.log
+*.tmp

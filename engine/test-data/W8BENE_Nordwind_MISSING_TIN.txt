@@ -1,0 +1,15 @@
+FORM W-8BEN-E — Certificate of Status of Beneficial Owner for United States
+Tax Withholding and Reporting (Entities)
+
+Name of organization (beneficial owner): Nordwind Präzisionsguss GmbH
+Country of incorporation:                 Germany
+Type of entity:                           Corporation
+Permanent residence address:              Industriestrasse 14, 80331 München
+
+Foreign TIN:        (left blank)
+U.S. TIN (if any):  (left blank)
+
+Part XXX — Certification
+Signature: ______________   Date: ____________
+
+NOTE: Taxpayer identification number was not provided on this form.

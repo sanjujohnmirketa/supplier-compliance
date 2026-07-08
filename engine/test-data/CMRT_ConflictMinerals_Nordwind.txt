@@ -1,0 +1,21 @@
+CONFLICT MINERALS DUE DILIGENCE — CMRT (OECD-aligned)
+
+Declaring Company: Nordwind Präzisionsguss GmbH
+Reporting Period:  Calendar Year 2025
+Template:          RMI Conflict Minerals Reporting Template (CMRT) 6.4
+
+A. COMPANY-LEVEL DISCLOSURE
+  1. Do you have a conflict minerals policy?                          Yes
+  2. Is it publicly available?                                        Yes
+  3. Do you require your direct suppliers to be DRC-conflict-free?    Yes
+  4. Do you implement OECD due-diligence (5-step) framework?          Yes
+
+B. 3TG IN SCOPE
+  Tin: No · Tantalum: No · Tungsten: Yes · Gold: No
+
+C. SMELTER LIST
+  Tungsten smelters identified: 2 (both RMI Conformant — CIDs provided).
+  Smelter names/CIDs attached in Annex.
+
+Authorized by: Procurement Compliance, Nordwind Präzisionsguss GmbH
+Date: 02/2026

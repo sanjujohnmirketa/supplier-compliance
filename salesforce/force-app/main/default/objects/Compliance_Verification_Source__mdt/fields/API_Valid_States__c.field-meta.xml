@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>API_Valid_States__c</fullName>
+    <description>Comma-separated list of status values from the API that mean &quot;the certificate is currently valid&quot;. Anything not in this list is treated as invalid and the document status is forced to Rejected. Example for IATF: &quot;Valid,Active,Certified&quot;. For OFAC sanctions: leave blank, since any match means non-compliant.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>API Valid States</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

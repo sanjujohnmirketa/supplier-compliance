@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Supplier_Contact_Email__c</fullName>
+    <description>Primary supplier contact email captured at intake. Used to send the required-document request from the Vendor Portal intake screen.</description>
+    <externalId>false</externalId>
+    <label>Supplier Contact Email</label>
+    <required>false</required>
+    <type>Email</type>
+    <unique>false</unique>
+</CustomField>

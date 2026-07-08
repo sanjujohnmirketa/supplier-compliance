@@ -1,0 +1,16 @@
+<template>
+    <lightning-card title="Upload Documents">
+        <div class="slds-p-around_medium">
+
+            <lightning-file-upload
+                label="Upload Files"
+                name="fileUploader"
+                multiple
+                accept={acceptedFormats}
+                record-id={recordId}
+                onuploadfinished={handleUploadFinished}>
+            </lightning-file-upload>
+
+        </div>
+    </lightning-card>
+</template>

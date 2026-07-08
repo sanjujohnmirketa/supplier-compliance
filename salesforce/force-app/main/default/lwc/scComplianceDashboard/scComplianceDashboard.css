@@ -1,0 +1,78 @@
+/* scComplianceDashboard — shared 3-card dashboard header.
+   Self-contained; mirrors the vc- design language of the parent consoles. */
+
+:host {
+  --cd-bg: #ffffff;
+  --cd-border: #e0e0da;
+  --cd-text: #1a1a1a;
+  --cd-text-2: #666666;
+  --cd-text-3: #aaaaaa;
+  --cd-ok: #16a34a;
+  --cd-warn: #b45309;
+  --cd-bad: #b91c1c;
+  --cd-blue: #2563eb;
+  display: block;
+  font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+}
+
+.cd-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cd-card {
+  background: var(--cd-bg);
+  border: 0.5px solid var(--cd-border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.cd-card-inner { display: flex; align-items: center; gap: 16px; }
+.cd-card-text { display: flex; flex-direction: column; gap: 4px; }
+.cd-card-lbl {
+  font-size: 10px; font-weight: 600; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--cd-text-2); margin-bottom: 8px;
+}
+.cd-card-sub { font-size: 12px; color: var(--cd-text-3); }
+
+/* 1 · Risk ring */
+.cd-ring { position: relative; width: 80px; height: 80px; flex-shrink: 0; }
+.cd-ring-svg { width: 80px; height: 80px; transform: rotate(-90deg); }
+.cd-ring-track { fill: none; stroke: #eeeeeb; stroke-width: 6; }
+.cd-ring-fill  { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dasharray .4s ease; }
+.cd-ring.ok   .cd-ring-fill { stroke: var(--cd-ok); }
+.cd-ring.warn .cd-ring-fill { stroke: var(--cd-warn); }
+.cd-ring.bad  .cd-ring-fill { stroke: var(--cd-bad); }
+.cd-ring-num {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.cd-ring-score { font-size: 22px; font-weight: 600; line-height: 1; color: var(--cd-text); }
+.cd-ring-max { font-size: 10px; color: var(--cd-text-3); margin-top: 1px; }
+
+/* 2 · Progress */
+.cd-progress-track {
+  height: 8px; border-radius: 5px; background: #eeeeeb; overflow: hidden; margin-bottom: 10px;
+}
+.cd-progress-fill { height: 100%; border-radius: 5px; background: var(--cd-blue); transition: width .4s ease; }
+.cd-progress-meta { font-size: 13px; color: var(--cd-text); margin-bottom: 6px; }
+.cd-status { font-size: 12px; font-weight: 600; }
+.cd-status.ok   { color: var(--cd-ok); }
+.cd-status.warn { color: var(--cd-warn); }
+
+/* 3 · Trend */
+.cd-trend {
+  display: flex; align-items: flex-end; gap: 6px;
+  height: 52px; margin-bottom: 8px;
+}
+.cd-trend-bar {
+  flex: 1; min-height: 8px; border-radius: 3px 3px 0 0;
+  background: #c7dbff;
+}
+.cd-trend-bar.last { background: var(--cd-blue); }
+.cd-trend-empty { font-size: 12px; color: var(--cd-text-3); padding: 14px 0; }

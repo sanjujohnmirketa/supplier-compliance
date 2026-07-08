@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Compliance_Document__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>Linked document used for this assessment</description>
+    <label>Compliance Document</label>
+    <referenceTo>Compliance_Document__c</referenceTo>
+    <relationshipName>Compliance_Assessments_Doc</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

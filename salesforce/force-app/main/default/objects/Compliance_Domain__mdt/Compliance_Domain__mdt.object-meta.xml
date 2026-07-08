@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Catalog of compliance risk/scope domains. Single source of truth for the dynamic domain selector on supplier intake (scVendorConsole) and for mapping each domain to its registry verification authority. Domain_Key__c must match the domain slugs used by the Python RAG corpus (quality, conflict, material, cyber, trade, finance, general). Add a record to introduce a new domain with no code change.</description>
+    <label>Compliance Domain</label>
+    <pluralLabel>Compliance Domains</pluralLabel>
+    <visibility>Public</visibility>
+</CustomObject>

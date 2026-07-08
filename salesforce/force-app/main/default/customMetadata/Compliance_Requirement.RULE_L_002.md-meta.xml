@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>C-TPAT</label>
+    <protected>false</protected>
+    <values>
+        <field>Document_Type__c</field>
+        <value xsi:type="xsd:string">C-TPAT Membership Certificate; Security Profile / Assessment; Minimum Security Criteria compliance report</value>
+    </values>
+    <values>
+        <field>Effective_From__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Effective_To__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Governing_Body__c</field>
+        <value xsi:type="xsd:string">CBP / DHS</value>
+    </values>
+    <values>
+        <field>Human_Review_Required__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Is_Mandatory__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Penalty__c</field>
+        <value xsi:type="xsd:string">Loss of trusted trader benefits; increased inspections</value>
+    </values>
+    <values>
+        <field>Regulation_Standard__c</field>
+        <value xsi:type="xsd:string">C-TPAT (Customs-Trade Partnership Against Terrorism)</value>
+    </values>
+    <values>
+        <field>Renewal_Frequency_Days__c</field>
+        <value xsi:type="xsd:double">365.0</value>
+    </values>
+    <values>
+        <field>Required_For_Criticality__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Required_For_Direct_Indirect__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Required_For_Industry__c</field>
+        <value xsi:type="xsd:string">Logistics / 3PL</value>
+    </values>
+    <values>
+        <field>Required_For_Region__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Required_For_Tier__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Rule_ID__c</field>
+        <value xsi:type="xsd:string">RULE-L-002</value>
+    </values>
+    <values>
+        <field>Sector__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Severity_on_Failure__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Source_Regulation__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Vendor_Type__c</field>
+        <value xsi:type="xsd:string">Logistics / 3PL Providers</value>
+    </values>
+</CustomMetadata>

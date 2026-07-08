@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Supplier Compliance Access</label>
+    <!-- Analyst per-document validation fields (new) — Read + Edit so non-admin
+         analysts can add comments and mark documents validated. -->
+    <fieldPermissions>
+        <field>Compliance_Assessment__c.Analyst_Comment__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>Compliance_Assessment__c.Analyst_Validated__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <tabSettings>
+        <tab>Procurement_Console</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
+    <tabSettings>
+        <tab>Analyst_Console</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
+</PermissionSet>

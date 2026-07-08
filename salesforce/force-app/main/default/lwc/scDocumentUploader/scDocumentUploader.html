@@ -1,0 +1,298 @@
+<template>
+
+    <!-- Global error -->
+    <template if:true={hasError}>
+        <div class="slds-notify slds-notify_alert slds-alert_error" role="alert">
+            <lightning-icon icon-name="utility:error" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+            <h2>{globalError}</h2>
+        </div>
+    </template>
+
+    <!-- Spinner -->
+    <template if:true={isLoading}>
+        <div class="slds-is-relative" style="min-height:120px;">
+            <lightning-spinner alternative-text="Loading checklist" size="medium"></lightning-spinner>
+        </div>
+    </template>
+
+    <template if:false={isLoading}>
+
+        <!-- Empty -->
+        <template if:false={hasChecklist}>
+            <div class="slds-box slds-m-around_medium slds-theme_shade" style="text-align:center;padding:24px;">
+                <p class="slds-text-heading_small slds-m-bottom_small">Checklist is loading&hellip;</p>
+                <p class="slds-text-body_small slds-text-color_weak">
+                    Your compliance document list is being generated.
+                    If nothing appears, please go back and re-submit your classification.
+                </p>
+            </div>
+        </template>
+
+        <template if:true={hasChecklist}>
+
+            <!-- Progress -->
+            <div class="slds-m-around_medium">
+                <lightning-progress-bar value={progressValue} size="large"></lightning-progress-bar>
+                <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">{progressLabel}</p>
+            </div>
+
+            <!-- ══ MANDATORY ══ -->
+            <template if:true={mandatoryItems.length}>
+                <div class="slds-m-horizontal_medium slds-m-top_medium">
+                    <h3 class="section-heading section-heading_required">Required Documents</h3>
+                    <p class="slds-text-body_small slds-m-bottom_medium" style="color:#706e6b;">
+                        Your application cannot be approved until all required documents are submitted.
+                    </p>
+
+                    <template for:each={mandatoryItems} for:item="item">
+                        <div key={item.key} class={item.rowClass}>
+
+                            <!-- Row header: status icon + label + badges -->
+                            <div class="row-header">
+                                <div class="row-title-group">
+                                    <span class="row-status-icon">
+                                        <template if:true={item.isPending}>
+                                            <lightning-icon icon-name="utility:upload" size="x-small" variant="bare"></lightning-icon>
+                                        </template>
+                                        <template if:true={item.isUploading}>
+                                            <lightning-spinner size="x-small" alternative-text="Uploading"></lightning-spinner>
+                                        </template>
+                                        <template if:true={item.isRemoving}>
+                                            <lightning-spinner size="x-small" alternative-text="Removing"></lightning-spinner>
+                                        </template>
+                                        <template if:true={item.isDone}>
+                                            <lightning-icon icon-name="utility:success" size="x-small" variant="success"></lightning-icon>
+                                        </template>
+                                        <template if:true={item.isError}>
+                                            <lightning-icon icon-name="utility:error" size="x-small" variant="error"></lightning-icon>
+                                        </template>
+                                    </span>
+                                    <span class="row-label">
+                                        <strong>{item.requirementLabel}</strong>
+                                        &nbsp;<span class={item.severityClass}>{item.severity}</span>
+                                        &nbsp;<span class="slds-badge slds-badge_error">Required</span>
+                                    </span>
+                                </div>
+                                <template if:true={item.regulation}>
+                                    <span class="row-regulation">{item.regulation}</span>
+                                </template>
+                            </div>
+
+                            <!-- Uploader is ALWAYS available — shows the latest file + Replace.
+                                 Upload is instant; AI review runs in the background. -->
+                            <div class="row-upload-zone">
+                                <c-sc-document-uploader-row
+                                    requirement-key={item.requirementKey}
+                                    upload-label="Upload"
+                                    accepted-formats={acceptedFormats}
+                                    record-id={item.uploadRecordId}
+                                    uploaded-name={item.uploadedFileName}
+                                    onuploadfinished={handleUploadFinished}>
+                                </c-sc-document-uploader-row>
+                            </div>
+
+                            <!-- AI verdict shown compactly (full summary lives in the AI risk panel) -->
+                            <template if:true={item.isAiComplete}>
+                                <lightning-badge label={item.assessmentLabel} variant={item.assessmentBadgeVariant}
+                                                 class="slds-m-top_x-small"></lightning-badge>
+                            </template>
+                            <template if:true={item.isError}>
+                                <div class="row-error-zone"><p class="error-text">{item.errorMessage}</p></div>
+                            </template>
+
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- ══ RECOMMENDED ══ -->
+            <template if:true={recommendedItems.length}>
+                <div class="slds-m-horizontal_medium slds-m-top_large">
+                    <h3 class="section-heading slds-text-color_weak">Recommended Documents</h3>
+                    <p class="slds-text-body_small slds-m-bottom_medium slds-text-color_weak">
+                        These improve your compliance score but do not block approval.
+                    </p>
+
+                    <template for:each={recommendedItems} for:item="item">
+                        <div key={item.key} class={item.rowClass}>
+
+                            <div class="row-header">
+                                <div class="row-title-group">
+                                    <span class="row-status-icon">
+                                        <template if:true={item.isPending}>
+                                            <lightning-icon icon-name="utility:upload" size="x-small" variant="bare"></lightning-icon>
+                                        </template>
+                                        <template if:true={item.isUploading}>
+                                            <lightning-spinner size="x-small" alternative-text="Uploading"></lightning-spinner>
+                                        </template>
+                                        <template if:true={item.isRemoving}>
+                                            <lightning-spinner size="x-small" alternative-text="Removing"></lightning-spinner>
+                                        </template>
+                                        <template if:true={item.isDone}>
+                                            <lightning-icon icon-name="utility:success" size="x-small" variant="success"></lightning-icon>
+                                        </template>
+                                        <template if:true={item.isError}>
+                                            <lightning-icon icon-name="utility:error" size="x-small" variant="error"></lightning-icon>
+                                        </template>
+                                    </span>
+                                    <span class="row-label">
+                                        <strong>{item.requirementLabel}</strong>
+                                        &nbsp;<span class="slds-badge">Recommended</span>
+                                    </span>
+                                </div>
+                                <template if:true={item.regulation}>
+                                    <span class="row-regulation">{item.regulation}</span>
+                                </template>
+                            </div>
+
+                            <template if:true={item.isPending}>
+                                <div class="row-upload-zone">
+                                    <c-sc-document-uploader-row
+                                        requirement-key={item.requirementKey}
+                                        upload-label={item.uploadLabel}
+                                        accepted-formats={acceptedFormats}
+                                        record-id={item.uploadRecordId}
+                                        onuploadfinished={handleUploadFinished}>
+                                    </c-sc-document-uploader-row>
+                                </div>
+                            </template>
+
+                            <template if:true={item.isError}>
+                                <div class="row-error-zone">
+                                    <p class="error-text">{item.errorMessage}</p>
+                                    <button
+                                        class="slds-button slds-button_neutral slds-m-top_x-small"
+                                        data-requirement-key={item.requirementKey}
+                                        onclick={handleRetry}>
+                                        Try again
+                                    </button>
+                                </div>
+                            </template>
+
+                            <template if:true={item.isUploading}>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                                    Uploading, please wait&hellip;
+                                </p>
+                            </template>
+
+                            <template if:true={item.isRemoving}>
+                                <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                                    Removing document&hellip;
+                                </p>
+                            </template>
+
+                            <template if:true={item.isDone}>
+
+                                <div class="uploaded-file-panel">
+                                    <div class="uploaded-file-list">
+                                        <template for:each={item.uploadedFiles} for:item="fileObj">
+                                            <div key={fileObj.name} class="uploaded-file-row">
+                                                <lightning-icon icon-name="doctype:pdf" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                                                <span class="uploaded-file-name">{fileObj.name}</span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <template if:true={item.showRemoveBtn}>
+                                        <button
+                                            class="remove-btn"
+                                            data-requirement-key={item.requirementKey}
+                                            onclick={handleRemoveFile}
+                                            title="Remove this document and upload a replacement">
+                                            <lightning-icon icon-name="utility:delete" size="x-small" class="slds-m-right_xx-small"></lightning-icon>
+                                            Remove &amp; replace
+                                        </button>
+                                    </template>
+                                </div>
+
+                                <template if:true={item.isAiProcessing}>
+                                    <div class="ai-processing-panel">
+                                        <lightning-spinner size="x-small" alternative-text="AI reviewing document"></lightning-spinner>
+                                        <span class="ai-processing-text">AI is reviewing your document&hellip;</span>
+                                    </div>
+                                </template>
+
+                                <template if:true={item.isAiComplete}>
+                                    <div class={item.aiResultPanelClass}>
+                                        <div class="ai-result-header">
+                                            <lightning-badge label={item.assessmentLabel} variant={item.assessmentBadgeVariant}></lightning-badge>
+                                        </div>
+                                        <template if:true={item.reasonDetail}>
+                                            <p class="ai-reason-text">{item.reasonDetail}</p>
+                                        </template>
+                                    </div>
+                                </template>
+
+                            </template>
+
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- ══ OTHER DOCUMENT ══ -->
+            <div class="slds-m-horizontal_medium slds-m-top_large">
+                <h3 class="section-heading slds-text-color_weak">Other Document</h3>
+                <p class="slds-text-body_small slds-m-bottom_medium slds-text-color_weak">
+                    Have a document not listed above? Upload it here and your account manager will review it.
+                </p>
+                <div class="checklist-row checklist-row_recommended">
+                    <div class="row-header">
+                        <div class="row-title-group">
+                            <span class="row-status-icon">
+                                <template if:true={otherIsPending}>
+                                    <lightning-icon icon-name="utility:upload" size="x-small" variant="bare"></lightning-icon>
+                                </template>
+                                <template if:true={otherIsDone}>
+                                    <lightning-icon icon-name="utility:success" size="x-small" variant="success"></lightning-icon>
+                                </template>
+                            </span>
+                            <span class="row-label"><strong>Other Document</strong></span>
+                        </div>
+                    </div>
+
+                    <template if:true={otherIsPending}>
+                        <div class="row-upload-zone">
+                            <c-sc-document-uploader-row
+                                requirement-key="other-document"
+                                upload-label="Upload"
+                                accepted-formats={acceptedFormats}
+                                record-id={accountId}
+                                onuploadfinished={handleOtherUploadFinished}>
+                            </c-sc-document-uploader-row>
+                        </div>
+                    </template>
+
+                    <template if:true={otherIsDone}>
+                        <div class="uploaded-file-panel">
+                            <div class="uploaded-file-list">
+                                <template for:each={otherUploadedFiles} for:item="fileObj">
+                                    <div key={fileObj.name} class="uploaded-file-row">
+                                        <lightning-icon icon-name="doctype:pdf" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                                        <span class="uploaded-file-name">{fileObj.name}</span>
+                                    </div>
+                                </template>
+                            </div>
+                            <button
+                                class="remove-btn"
+                                onclick={handleOtherRemove}
+                                title="Remove and upload a different document">
+                                <lightning-icon icon-name="utility:delete" size="x-small" class="slds-m-right_xx-small"></lightning-icon>
+                                Remove &amp; replace
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Upload later callout -->
+            <div class="slds-m-around_medium slds-box slds-theme_shade slds-m-top_large">
+                <p class="slds-text-body_small slds-text-color_weak" style="text-align:center;">
+                    You can upload missing documents later by logging back into this portal.
+                    Your compliance status updates automatically once each document is processed.
+                </p>
+            </div>
+
+        </template>
+    </template>
+
+</template>

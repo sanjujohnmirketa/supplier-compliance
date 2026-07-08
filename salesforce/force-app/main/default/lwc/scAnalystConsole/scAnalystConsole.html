@@ -1,0 +1,474 @@
+<template>
+    <!-- ── TOP BAR ───────────────────────────────────────────────────────────── -->
+    <div class="vc-topbar">
+        <div class="vc-tb-left">
+            <img class="vc-logo-box" src={logoUrl} alt="Compliance">
+            <span class="vc-brand">Compliance · Analyst</span>
+            <span class="vc-bread">{breadcrumb}</span>
+        </div>
+        <div class="vc-tb-right">
+            <span class="vc-persona-chip">Analyst · Advisor</span>
+            <div class="vc-user-area">
+                <div class="vc-av vc-av-btn" title={userName} onclick={handleAvatarClick}>{userInitials}</div>
+                <template if:true={showUserMenu}>
+                    <div class="vc-user-menu">
+                        <button class="vc-logout-btn" onclick={handleLogout}>Log out</button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <div class="vc-body">
+        <!-- ── SIDEBAR ───────────────────────────────────────────────────────── -->
+        <nav class="vc-sidebar">
+            <div class="vc-sb-section">Pre-contract · Analyst</div>
+            <div class={sbA1Active} data-screen="a1" onclick={handleNav}>
+                <div class={dotA1}></div> Analyst queue
+            </div>
+            <!-- Per-supplier screens — only after a supplier is opened.
+                 Decision & route is a SUB-item of Risk analysis: it appears
+                 indented beneath it only while a case is open in analysis. -->
+            <template if:true={hasSelectedCase}>
+                <div class={sbA2Active} data-screen="a2" onclick={handleNav}>
+                    <div class={dotA2}></div> Risk analysis
+                </div>
+                <div class="vc-sb-subitem-wrap" data-screen="a3" onclick={handleNav}>
+                    <div class={sbA3SubActive}>
+                        <div class="vc-sb-subdot"></div> Decision &amp; route
+                    </div>
+                </div>
+            </template>
+            <hr class="vc-sb-divider">
+            <div class="vc-sb-section">You own</div>
+            <div class="vc-sb-note">Validate each document, recommend a tier — not the final approval.</div>
+        </nav>
+
+        <!-- ── MAIN ──────────────────────────────────────────────────────────── -->
+        <div class="vc-main">
+
+            <!-- ═══ A1 — ANALYST QUEUE ═══════════════════════════════════════════ -->
+            <template if:true={isA1}>
+                <div class="vc-page-hdr">
+                    <div>
+                        <div class="vc-page-title">Analyst queue</div>
+                        <div class="vc-page-sub">Supplier requests handed over for risk analysis. Open one to validate its documents and recommend a tier.</div>
+                    </div>
+                    <span class="vc-pill-owns">You own: Risk assessment &amp; recommendation</span>
+                </div>
+
+                <div class="vc-table-wrap">
+                    <div class="vc-tbl-head vc-aq-head">
+                        <div class="vc-tbl-col">Supplier</div>
+                        <div class="vc-tbl-col">Industry</div>
+                        <div class="vc-tbl-col">AI tier</div>
+                        <div class="vc-tbl-col">Flags</div>
+                        <div class="vc-tbl-col">Documents</div>
+                        <div class="vc-tbl-col">Requested by</div>
+                        <div class="vc-tbl-col">Action</div>
+                    </div>
+                    <template if:true={hasQueueRows}>
+                        <template for:each={queueRows} for:item="row">
+                            <div key={row.id} class="vc-tbl-row vc-aq-row" data-id={row.id} onclick={handleOpenCase}>
+                                <div class="vc-tbl-cell vc-sn">{row.name}</div>
+                                <div class="vc-tbl-cell">{row.industry}</div>
+                                <div class="vc-tbl-cell"><span class={row.tierClass}>{row.aiTier}</span></div>
+                                <div class="vc-tbl-cell">{row.flagLabel}</div>
+                                <div class="vc-tbl-cell">{row.docLabel}</div>
+                                <div class="vc-tbl-cell">{row.requestedBy}</div>
+                                <div class="vc-tbl-cell"><span class="vc-row-open">Open →</span></div>
+                            </div>
+                        </template>
+                    </template>
+                    <template if:false={hasQueueRows}>
+                        <div class="vc-empty-table">
+                            <template if:true={queueLoading}>Loading queue…</template>
+                            <template if:false={queueLoading}>No supplier requests in the analyst queue yet.</template>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- ═══ A2 — RISK ANALYSIS (per-document validation) ═════════════════ -->
+            <template if:true={isA2}>
+                <button class="vc-back-link" onclick={handleBackToQueue}>‹ Back to analyst queue</button>
+                <div class="vc-sup-header">
+                    <div class="vc-sup-left">
+                        <div class="vc-sup-logo"></div>
+                        <div>
+                            <div class="vc-sup-name-row">
+                                <span class="vc-sup-name">{caseName}</span>
+                                <span class="vc-badge warn">{caseTier}</span>
+                            </div>
+                            <div class="vc-sup-meta">{caseIndustry} · {caseCountry} · {validationProgress}</div>
+                        </div>
+                    </div>
+                    <button class="vc-btn-pri" onclick={handleTakeToDecision}>Take to decision ›</button>
+                </div>
+
+                <!-- DOCUMENT VALIDATION (only view — Overview tab removed) -->
+                <template if:true={isDocsTab}>
+                    <template if:true={caseLoading}>
+                        <div class="vc-snap-loading">Loading documents…</div>
+                    </template>
+                    <template if:true={hasDocs}>
+                        <div class="vc-a2-doc-layout">
+
+                            <!-- LEFT: document index list -->
+                            <div class="vc-a2-doc-list">
+                                <div class="vc-a2-list-head">
+                                    <span class="vc-a2-list-col-doc">Document</span>
+                                    <span class="vc-a2-list-col-stat">Status</span>
+                                    <span class="vc-a2-list-col-conf">Conf.</span>
+                                </div>
+                                <template for:each={docs} for:item="doc">
+                                    <div key={doc.assessmentId} class={doc.listItemClass} data-id={doc.assessmentId} onclick={handleSelectDoc}>
+                                        <span class="vc-a2-list-doc-name" title={doc.label}>{doc.label}</span>
+                                        <span class={doc.badgeClass} title={doc.aiStatus}>{doc.aiStatus}</span>
+                                        <span class="vc-a2-list-conf">{doc.confidence}</span>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <!-- RIGHT: selected document detail panel -->
+                            <div class="vc-a2-doc-detail">
+                                <template if:true={hasSelectedDoc}>
+                                    <div class="vc-card">
+                                        <div class="vc-doc-top">
+                                            <span class="vc-doc-label">{selectedDoc.label}</span>
+                                            <div class="vc-doc-top-right">
+                                                <template if:true={selectedDoc.hasDoc}>
+                                                    <button class="vc-doc-view" data-id={selectedDoc.assessmentId} onclick={handlePreviewDoc}>
+                                                        <template if:true={selectedDocIsPreviewing}>▾ Hide document</template>
+                                                        <template if:false={selectedDocIsPreviewing}>↗ Preview document</template>
+                                                    </button>
+                                                </template>
+                                                <span class={selectedDoc.badgeClass}>{selectedDoc.aiStatus}</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Inline document preview -->
+                                        <template if:true={hasPreview}>
+                                            <div class="vc-doc-preview">
+                                                <div class="vc-doc-preview-head">
+                                                    <span class="vc-doc-preview-title">{previewTitle}</span>
+                                                    <button class="vc-doc-btn" onclick={closePreview}>Close ×</button>
+                                                </div>
+                                                <template if:true={showIframe}>
+                                                    <!-- Public document URL displayed in iframe -->
+                                                    <div data-preview-container class="vc-doc-preview-container">
+                                                        <template if:true={iframeLoading}>
+                                                            <div class="vc-preview-loading">Loading preview...</div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <template if:false={showIframe}>
+                                                    <!-- Fallback to standard preview -->
+                                                    <template if:true={previewIsImage}>
+                                                        <img class="vc-doc-img" src={previewUrl} alt={previewTitle}>
+                                                    </template>
+                                                    <template if:false={previewIsImage}>
+                                                        <iframe class="vc-doc-frame" src={previewUrl} title={previewTitle}></iframe>
+                                                    </template>
+                                                </template>
+                                            </div>
+                                        </template>
+
+                                        <!-- AI summary -->
+                                        <div class="vc-doc-ai">
+                                            <span class="vc-doc-ai-tag">✦ AI summary</span>
+                                            <template if:true={selectedDoc.hasHeadline}>
+                                                <div class="vc-assess-headline">{selectedDoc.headline}</div>
+                                            </template>
+                                            <template if:false={selectedDoc.hasHeadline}>
+                                                <span class="vc-doc-ai-text">{selectedDoc.aiSummary}</span>
+                                            </template>
+                                            <template if:true={selectedDoc.hasFacts}>
+                                                <ul class="vc-assess-facts">
+                                                    <template for:each={selectedDoc.facts} for:item="f">
+                                                        <li key={f.id}>{f.text}</li>
+                                                    </template>
+                                                </ul>
+                                            </template>
+                                            <template if:true={selectedDoc.hasChecks}>
+                                                <div class="vc-assess-checks">
+                                                    <template for:each={selectedDoc.checks} for:item="k">
+                                                        <div key={k.id} class={k.chkClass}>
+                                                            <template if:true={k.pass}>✓ </template>
+                                                            <template if:false={k.pass}>✕ </template>{k.text}
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            <template if:true={selectedDoc.hasConcerns}>
+                                                <ul class="vc-assess-concerns">
+                                                    <template for:each={selectedDoc.concerns} for:item="c">
+                                                        <li key={c.id}>⚠ {c.text}</li>
+                                                    </template>
+                                                </ul>
+                                            </template>
+                                        </div>
+
+                                        <!-- Analyst comment -->
+                                        <div class="vc-doc-comment-row">
+                                            <textarea class="vc-doc-comment" data-id={selectedDoc.assessmentId}
+                                                      placeholder="Add your validation comment — or type a rough observation and let the co-pilot draft it…"
+                                                      oninput={handleCommentInput}>{selectedDoc.comment}</textarea>
+                                        </div>
+
+                                        <!-- Actions: Summarize · Reject · Approve -->
+                                        <div class="vc-doc-actions">
+                                            <button class="vc-btn-sec vc-btn-sm vc-cp-draft" data-id={selectedDoc.assessmentId}
+                                                    onclick={handleDraftComment} disabled={summarizeDisabled}>
+                                                <template if:true={summarizing}>
+                                                    <span class="vc-spinner"></span>Drafting…
+                                                </template>
+                                                <template if:false={summarizing}>
+                                                    ✦ Summarize
+                                                </template>
+                                            </button>
+                                            <div class="vc-doc-spacer"></div>
+                                            <button class={selectedDoc.rejectBtnClass} onclick={handleRejectDoc}>
+                                                {selectedDoc.rejectLabel}
+                                            </button>
+                                            <button class={selectedDoc.approveBtnClass} onclick={handleApproveDoc}>
+                                                {selectedDoc.approveLabel}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                                <template if:false={hasSelectedDoc}>
+                                    <div class="vc-a2-detail-empty">
+                                        <div class="vc-a2-detail-empty-icon">↖</div>
+                                        <div>Select a document from the list to review its AI summary and validate it.</div>
+                                    </div>
+                                </template>
+                            </div>
+
+                        </div>
+                    </template>
+                    <template if:false={hasDocs}>
+                        <template if:false={caseLoading}>
+                            <div class="vc-empty-inline">No documents/findings to validate for this supplier yet.</div>
+                        </template>
+                    </template>
+                </template>
+
+            </template>
+
+            <!-- ═══ A3 — DECISION & ROUTE ════════════════════════════════════════ -->
+            <template if:true={isA3}>
+                <button class="vc-back-link" onclick={handleBackToQueue}>‹ Back to analyst queue</button>
+                <div class="vc-page-hdr">
+                    <div>
+                        <div class="vc-page-title">Decision &amp; route</div>
+                        <div class="vc-page-sub">{caseName} — confirm the risk tier, add your rationale, and route to the approver.</div>
+                    </div>
+                    <span class="vc-pill-owns">You own: The recommendation (not final approval)</span>
+                </div>
+
+                <div class="vc-accountability">
+                    <div class="vc-acct-cell">
+                        <div class="vc-acct-lbl">Screened by</div>
+                        <div class="vc-acct-who"><span class="vc-acct-av">··</span> Procurement</div>
+                    </div>
+                    <div class="vc-acct-cell vc-acct-mid">
+                        <div class="vc-acct-lbl">Recommended by — you</div>
+                        <div class="vc-acct-who"><span class="vc-acct-av">{userInitials}</span> {userName}</div>
+                    </div>
+                    <div class="vc-acct-cell">
+                        <div class="vc-acct-lbl">Approved by</div>
+                        <div class="vc-acct-who"><span class="vc-acct-av">··</span> Approver <span class="vc-sm-muted">pending</span></div>
+                    </div>
+                </div>
+
+                <!-- Shared dashboard header: risk score · onboarding progress · score trend -->
+                <c-sc-compliance-dashboard tier={caseTier} docs={dashboardDocs}></c-sc-compliance-dashboard>
+
+                <!-- FINAL VERDICT (compact) — sits below the dashboard -->
+                <div class={verdictCardClass}>
+                    <div class="vc-vd-toprow">
+                        <span class="vc-vd-eyebrow">Final Verdict</span>
+                        <div class="vc-vd-readiness">
+                            <span class="vc-vd-readiness-icon">{verdictStatusIcon}</span>
+                            <span>{verdictReadinessLabel}</span>
+                        </div>
+                    </div>
+
+                    <div class="vc-vd-body">
+                        <!-- Status text + tier comparison -->
+                        <div class="vc-vd-status-block">
+                            <div class="vc-vd-status-detail">{verdictStatusLabel}</div>
+                            <div class="vc-vd-tier-row">
+                                <span class="vc-vd-tier-lbl">AI suggested</span>
+                                <span class={caseTierBadgeClass}>{caseTier}</span>
+                                <span class="vc-vd-tier-arrow">→</span>
+                                <span class="vc-vd-tier-lbl">You confirmed</span>
+                                <span class={confirmedTierBadgeClass}>{confirmedTier}</span>
+                            </div>
+                        </div>
+
+                        <!-- Stat tiles -->
+                        <div class="vc-vd-stats">
+                            <div class="vc-vd-stat-tile vc-vd-st-approved">
+                                <span class="vc-vd-stat-num">{verdictApproved}</span>
+                                <span class="vc-vd-stat-lbl">Approved</span>
+                            </div>
+                            <div class="vc-vd-stat-tile vc-vd-st-rejected">
+                                <span class="vc-vd-stat-num">{verdictRejected}</span>
+                                <span class="vc-vd-stat-lbl">Rejected</span>
+                            </div>
+                            <div class="vc-vd-stat-tile vc-vd-st-pending">
+                                <span class="vc-vd-stat-num">{verdictPending}</span>
+                                <span class="vc-vd-stat-lbl">Pending</span>
+                            </div>
+                            <div class="vc-vd-stat-tile vc-vd-st-total">
+                                <span class="vc-vd-stat-num">{verdictTotal}</span>
+                                <span class="vc-vd-stat-lbl">Total</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Segmented progress bar -->
+                    <div class="vc-vd-bar-wrap">
+                        <div class="vc-vd-bar">
+                            <div class="vc-vd-bar-approved" style={verdictApprovedBarStyle}></div>
+                            <div class="vc-vd-bar-rejected" style={verdictRejectedBarStyle}></div>
+                            <div class="vc-vd-bar-pending"  style={verdictPendingBarStyle}></div>
+                        </div>
+                        <span class="vc-vd-bar-lbl">{verdictReviewedPct} reviewed</span>
+                    </div>
+
+                    <!-- Issues list: rejected + pending docs -->
+                    <template if:true={hasVerdictIssues}>
+                        <div class="vc-vd-issues">
+                            <template if:true={hasVerdictRejected}>
+                                <template for:each={verdictRejectedDocs} for:item="doc">
+                                    <div key={doc.assessmentId} class="vc-vd-issue-row vc-vd-issue-rej">
+                                        <span class="vc-vd-issue-icon">✗</span>
+                                        <span class="vc-vd-issue-name" title={doc.label}>{doc.label}</span>
+                                        <span class="vc-badge bad">Rejected</span>
+                                        <span class="vc-vd-issue-conf">{doc.confidence}</span>
+                                    </div>
+                                </template>
+                            </template>
+                            <template if:true={hasVerdictPending}>
+                                <template for:each={verdictPendingDocs} for:item="doc">
+                                    <div key={doc.assessmentId} class="vc-vd-issue-row vc-vd-issue-pend">
+                                        <span class="vc-vd-issue-icon">○</span>
+                                        <span class="vc-vd-issue-name" title={doc.label}>{doc.label}</span>
+                                        <span class="vc-badge neutral">Pending</span>
+                                        <span class="vc-vd-issue-conf">{doc.confidence}</span>
+                                    </div>
+                                </template>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="vc-two-col vc-a3-grid">
+                    <div class="vc-card">
+                        <div class="vc-card-title">Confirm risk tier</div>
+                        <div class="vc-tier-cards">
+                            <div class={cardLowSel} data-tier="LOW" onclick={handleConfirmTier}>
+                                <div class={radioLow}></div><div class="vc-badge ok">LOW</div>
+                                <div class="vc-tc-name">Low</div><div class="vc-tc-desc">Routine — minimal exposure</div>
+                            </div>
+                            <div class={cardMedSel} data-tier="MED" onclick={handleConfirmTier}>
+                                <div class={radioMed}></div><div class="vc-badge warn">MED</div>
+                                <div class="vc-tc-name">Medium</div><div class="vc-tc-desc">Standard mitigations needed</div>
+                            </div>
+                            <div class={cardHighSel} data-tier="HIGH" onclick={handleConfirmTier}>
+                                <div class={radioHigh}></div><div class="vc-badge bad">HIGH</div>
+                                <div class="vc-tc-name">High</div><div class="vc-tc-desc">Elevated — committee review</div>
+                            </div>
+                        </div>
+                        <div class="vc-rat-lbl">Rationale (carried to approver)</div>
+                        <textarea class="vc-finput vc-rat-input" oninput={handleRationaleInput}
+                                  placeholder="Your recommendation rationale — ask the co-pilot to draft it from the validated findings.">{rationale}</textarea>
+                    </div>
+
+                    <div class="vc-card">
+                        <div class="vc-routing-lbl">Routing</div>
+                        <div class="vc-route-resolved">
+                            <div class="vc-route-name">{routeLabel}</div>
+                            <div class="vc-route-sub">Determined by the confirmed tier.</div>
+                        </div>
+                        <div class="vc-appr-lbl">Approver receives</div>
+                        <div class="vc-appr-card">
+                            <div class="vc-sm-muted">A decision packet: confirmed tier, your rationale, and the validated document findings.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="vc-footer-actions">
+                    <button class="vc-btn-sec" onclick={handleSendBack}>Send back to Procurement</button>
+                    <button class="vc-btn-pri" onclick={handleRoute}>Route to approver →</button>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- ── Floating co-pilot (A2/A3 only) ────────────────────────────────────── -->
+    <template if:true={showCopilot}>
+        <template if:true={copilotOpen}>
+            <div class="vc-cp-panel">
+                <div class="vc-cp-panel-head">
+                    <div class="vc-cp-panel-title">✦ Co-pilot <span class="vc-cp-panel-sub">· {caseName}</span></div>
+                    <button class="vc-cp-close" onclick={closeCopilot}>×</button>
+                </div>
+                <div class="vc-cp-thread">
+                    <template if:true={hasCopilotMessages}>
+                        <template for:each={copilotMessages} for:item="m">
+                            <div key={m.id} class={m.rowClass}>
+                                <template for:each={m.blocks} for:item="b">
+                                    <div key={b.id} class={b.blockClass}>
+                                        <template if:true={b.isBullet}><span class="vc-cp-bullet">•</span></template>
+                                        <span class="vc-cp-blocktext">
+                                            <template for:each={b.runs} for:item="r">
+                                                <template if:true={r.bold}><strong key={r.id}>{r.text}</strong></template>
+                                                <template if:false={r.bold}><span key={r.id}>{r.text}</span></template>
+                                            </template>
+                                        </span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </template>
+                    <template if:false={hasCopilotMessages}>
+                        <div class="vc-cp-empty">Ask about this supplier's findings, or have me draft a rationale from the validated documents.</div>
+                    </template>
+                    <template if:true={copilotBusy}>
+                        <div class="vc-cp-msg ai vc-cp-typing">Thinking…</div>
+                    </template>
+                </div>
+                <template if:true={showCopilotSuggestions}>
+                    <div class="vc-cp-suggest">
+                        <div class="vc-cp-suggest-lbl">Suggested</div>
+                        <template for:each={copilotSuggestions} for:item="s">
+                            <button key={s.id} class="vc-cp-chip" data-text={s.text}
+                                    data-local={s.local} data-action={s.action}
+                                    onclick={handleSuggestion}>{s.text}</button>
+                        </template>
+                    </div>
+                </template>
+                <div class="vc-cp-inputrow">
+                    <input type="text" class="vc-cp-input" placeholder="Ask the co-pilot…"
+                           value={copilotInput} oninput={handleCopilotInput} onkeydown={handleCopilotKey}>
+                    <button class="vc-btn-pri vc-btn-sm" disabled={copilotSendDisabled} onclick={handleCopilotSend}>Send</button>
+                </div>
+            </div>
+        </template>
+        <button class={copilotFabClass} onclick={toggleCopilot} title="Co-pilot">
+            <span class="vc-cp-fab-spark">✦</span>
+        </button>
+    </template>
+
+    <!-- ── Inline notice ─────────────────────────────────────────────────────── -->
+    <template if:true={showNotice}>
+        <div class="vc-notice">
+            <div class="vc-notice-title">{noticeTitle}</div>
+            <div class="vc-notice-msg">{noticeMessage}</div>
+        </div>
+    </template>
+</template>

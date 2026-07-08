@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Vendor_Type__c</fullName>
+    <description>Primary trigger field for compliance rule engine (matches matrix)</description>
+    <label>Vendor Type</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>All_Vendor_Types</fullName>
+                <default>false</default>
+                <label>All Vendor Types</label>
+            </value>
+            <value>
+                <fullName>Raw_Material_Supplier</fullName>
+                <default>false</default>
+                <label>Raw Material Supplier</label>
+            </value>
+            <value>
+                <fullName>Contract_Manufacturer</fullName>
+                <default>false</default>
+                <label>Contract Manufacturer</label>
+            </value>
+            <value>
+                <fullName>Logistics_3PL</fullName>
+                <default>false</default>
+                <label>Logistics / 3PL</label>
+            </value>
+            <value>
+                <fullName>IT_Software_Vendor</fullName>
+                <default>false</default>
+                <label>IT / Software Vendor</label>
+            </value>
+            <value>
+                <fullName>Staffing_Labor_Contractor</fullName>
+                <default>false</default>
+                <label>Staffing / Labor Contractor</label>
+            </value>
+            <value>
+                <fullName>Other</fullName>
+                <default>false</default>
+                <label>Other</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Engagement_Type__c</fullName>
+    <externalId>false</externalId>
+    <label>Engagement Type</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>false</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Direct Material - Production (Tier 1)</fullName>
+                <default>false</default>
+                <label>Direct Material - Production (Tier 1)</label>
+            </value>
+            <value>
+                <fullName>Direct Material - Production (Tier 2)</fullName>
+                <default>false</default>
+                <label>Direct Material - Production (Tier 2)</label>
+            </value>
+            <value>
+                <fullName>Indirect / Non-production (MRO)</fullName>
+                <default>false</default>
+                <label>Indirect / Non-production (MRO)</label>
+            </value>
+            <value>
+                <fullName>Raw Materials / Commodities</fullName>
+                <default>false</default>
+                <label>Raw Materials / Commodities</label>
+            </value>
+            <value>
+                <fullName>Services / Consulting</fullName>
+                <default>false</default>
+                <label>Services / Consulting</label>
+            </value>
+            <value>
+                <fullName>Logistics / Distribution</fullName>
+                <default>false</default>
+                <label>Logistics / Distribution</label>
+            </value>
+            <value>
+                <fullName>Capital Equipment / Tooling</fullName>
+                <default>false</default>
+                <label>Capital Equipment / Tooling</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

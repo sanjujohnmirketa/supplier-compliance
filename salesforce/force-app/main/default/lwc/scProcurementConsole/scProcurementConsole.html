@@ -1,0 +1,756 @@
+<template>
+    <!-- ── TOP BAR ───────────────────────────────────────────────────────────── -->
+    <div class="vc-topbar">
+        <div class="vc-tb-left">
+            <img class="vc-logo-box" src={logoUrl} alt="Compliance">
+            <span class="vc-brand">Vendor Portal</span>
+            <span class="vc-bread">{breadcrumb}</span>
+        </div>
+        <div class="vc-tb-right">
+            <template if:true={showSearch}>
+                <input class="vc-search" type="text" placeholder="Search suppliers…"
+                       value={searchTerm} oninput={handleSearch}>
+            </template>
+            <span class="vc-persona-chip">Procurement · Executor</span>
+            <div class="vc-user-area">
+                <div class="vc-av vc-av-btn" title={userName} onclick={handleAvatarClick}>{userInitials}</div>
+                <template if:true={showUserMenu}>
+                    <div class="vc-user-menu">
+                        <button class="vc-logout-btn" onclick={handleLogout}>Log out</button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <div class="vc-body">
+
+        <!-- ── SIDEBAR ───────────────────────────────────────────────────────── -->
+        <nav class="vc-sidebar">
+            <div class="vc-sb-section">Pre-contract · Procurement</div>
+            <div class={sbP1Active} data-screen="p1" onclick={handleNav}>
+                <div class={dotP1}></div> New supplier
+            </div>
+            <div class={sbP2Active} data-screen="p2" onclick={handleNav}>
+                <div class={dotP2}></div> Supplier queue
+            </div>
+            <!-- Documents & screening shows as a sub-item under the queue only
+                 while a supplier is open. -->
+            <template if:true={showP3SubNav}>
+                <div class={sbP3SubActive} onclick={handleP3NavClick}>
+                    <div class="vc-sb-subdot"></div> Documents &amp; screening
+                </div>
+                <div class={sbP4SubActive} onclick={handleP4NavClick}>
+                    <div class="vc-sb-subdot"></div> Submission summary
+                </div>
+            </template>
+            <hr class="vc-sb-divider">
+            <div class="vc-sb-section">You own</div>
+            <div class="vc-sb-note">Intake &amp; document request · screening run · handoff to the analyst.</div>
+        </nav>
+
+        <!-- ── MAIN CANVAS ───────────────────────────────────────────────────── -->
+        <div class="vc-main">
+
+            <!-- ════════════════════════════════════════════════════════════════
+                 P1 — NEW SUPPLIER
+            ═══════════════════════════════════════════════════════════════════ -->
+            <template if:true={isP1}>
+                <div class="vc-page-hdr">
+                    <div>
+                        <div class="vc-page-title">Set up a new supplier</div>
+                        <div class="vc-page-sub">Capture the supplier, let AI build the evidence checklist, and request documents — before anything goes to the analyst.</div>
+                    </div>
+                    <span class="vc-pill-owns">You own: Intake &amp; document request</span>
+                </div>
+
+                <div class="vc-two-col vc-p1-grid">
+                    <!-- LEFT: supplier + risk domains + oversight -->
+                    <div>
+                        <div class="vc-card">
+                            <div class="vc-card-title">Supplier</div>
+                            <div class="vc-form-grid3">
+                                <div class="vc-field">
+                                    <div class="vc-flabel">Legal entity name <span class="vc-req-star">*</span></div>
+                                    <input class="vc-finput" type="text" value={intakeName}
+                                           data-field="intakeName" placeholder="e.g. Meridian Auto Components Ltd."
+                                           oninput={handleIntakeField}>
+                                </div>
+                                <div class="vc-field">
+                                    <div class="vc-flabel">Country / HQ</div>
+                                    <select class="vc-finput vc-fselect"
+                                            data-field="intakeCountry"
+                                            onchange={handleIntakeField}>
+                                        <option value="" selected={isCountryEmpty}>Select…</option>
+                                        <template for:each={countryOptions} for:item="opt">
+                                            <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.value}</option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div class="vc-field">
+                                    <div class="vc-flabel">Industry</div>
+                                    <select class="vc-finput vc-fselect" data-field="intakeIndustry" onchange={handleIntakeField}>
+                                        <option value="" selected={isIndustryEmpty}>Select…</option>
+                                        <template for:each={industryOptions} for:item="opt">
+                                            <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.value}</option>
+                                        </template>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="vc-form-grid3">
+                                <div class="vc-field">
+                                    <div class="vc-flabel">Engagement type <span class="vc-req-star">*</span></div>
+                                    <select class="vc-finput vc-fselect" data-field="intakeEngagement" onchange={handleIntakeField}>
+                                        <option value="" selected={isEngagementEmpty}>Select…</option>
+                                        <template for:each={engagementOptions} for:item="opt">
+                                            <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.value}</option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div class="vc-field">
+                                    <div class="vc-flabel">Annual spend (est.)</div>
+                                    <input class="vc-finput" type="text" value={intakeSpend}
+                                           data-field="intakeSpend" placeholder="e.g. € 2.4M"
+                                           oninput={handleIntakeField}>
+                                </div>
+                                <div class="vc-field">
+                                    <div class="vc-flabel">Supplier email</div>
+                                    <input class="vc-finput" type="email" value={intakeEmail}
+                                           data-field="intakeEmail" placeholder="contact@supplier.com"
+                                           oninput={handleIntakeField}>
+                                    <template if:true={hasEmailError}>
+                                        <div class="vc-field-error">{emailError}</div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Applicable risk domains — AI auto-detected (placeholder, empty) -->
+                        <div class="vc-card">
+                            <div class="vc-panel-header">
+                                <div class="vc-card-title vc-card-title-nomargin">Applicable risk domains</div>
+                                <span class="vc-ai-badge">✦ auto-detected</span>
+                            </div>
+                            <template if:true={hasDomains}>
+                                <div class="vc-dom-row">
+                                    <template for:each={checklistDomains} for:item="d">
+                                        <span key={d.id} class="vc-dom-chip">{d.label}</span>
+                                    </template>
+                                </div>
+                                <div class="vc-sm-muted vc-p1-email-sub">Detected risk tier: <strong>{checklistTier}</strong> · suggested oversight: <strong>{recommendedHitl}</strong></div>
+                                <!-- Why this tier — reasoning from the supplier profile -->
+                                <template if:true={hasRiskReasons}>
+                                    <ul class="vc-reason-list">
+                                        <template for:each={riskReasons} for:item="r">
+                                            <li key={r.id}>{r.text}</li>
+                                        </template>
+                                    </ul>
+                                </template>
+                            </template>
+                            <template if:false={hasDomains}>
+                                <div class="vc-empty-inline">
+                                    Generate the checklist to auto-detect risk domains.
+                                    <span class="vc-sm-muted">Domains drive which documents are required.</span>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Human oversight level — AI-SET, read-only -->
+                        <div class="vc-card">
+                            <div class="vc-panel-header">
+                                <div class="vc-card-title vc-card-title-nomargin">Human oversight level</div>
+                                <span class="vc-ai-badge">✦ AI-set</span>
+                            </div>
+                            <div class="vc-oversight readonly">
+                                <span class="vc-os-end">Auto-clear</span>
+                                <div class="vc-os-track">
+                                    <div class="vc-os-fill" style={oversightFillStyle}></div>
+                                    <div class="vc-os-thumb" style={oversightThumbStyle}></div>
+                                </div>
+                                <span class="vc-os-end">Full review</span>
+                            </div>
+                            <div class="vc-os-current"><strong>{oversightLabel}</strong></div>
+                            <div class="vc-route-hint analyst">
+                                <strong>What this means:</strong> the oversight level is set automatically by AI from
+                                the supplier's risk tier — it isn't adjusted by hand. A higher level means a human
+                                analyst must review and sign off before approval.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: document checklist -->
+                    <div>
+                        <div class="vc-card">
+                            <div class="vc-panel-header">
+                                <div class="vc-card-title vc-card-title-nomargin">Document checklist</div>
+                                <span class="vc-ai-badge">✦ auto-generated</span>
+                            </div>
+                            <!-- Stale banner: a driving input changed since generation -->
+                            <template if:true={checklistStale}>
+                                <div class="vc-stale-banner">
+                                    A supplier detail changed — this checklist may be out of date.
+                                    <button class="vc-stale-regen" onclick={handleGenerateChecklist}>Regenerate</button>
+                                </div>
+                            </template>
+                            <!-- No-policy-match explanation -->
+                            <template if:true={hasChecklistNotes}>
+                                <template for:each={checklistNotes} for:item="n">
+                                    <div key={n.id} class="vc-nomatch-note">{n.text}</div>
+                                </template>
+                            </template>
+                            <template if:true={hasChecklist}>
+                                <template for:each={checklistItems} for:item="item">
+                                    <div key={item.id} class="vc-cl-item">
+                                        <span class="vc-cl-doc">{item.document}</span>
+                                        <span class="vc-dom-chip sm">{item.domain}</span>
+                                    </div>
+                                </template>
+                                <button class="vc-btn-sec vc-btn-sm" onclick={handleGenerateChecklist} disabled={checklistLoading}>
+                                    <template if:true={checklistLoading}><span class="vc-spinner"></span></template>
+                                    {regenerateLabel}
+                                </button>
+                            </template>
+                            <template if:false={hasChecklist}>
+                                <div class="vc-cl-empty">
+                                    <div class="vc-sm-muted">No checklist yet — generate it from the supplier profile.</div>
+                                    <button class="vc-btn-pri vc-btn-sm" onclick={handleGenerateChecklist} disabled={checklistLoading}>
+                                        <template if:true={checklistLoading}><span class="vc-spinner"></span></template>
+                                        {generateLabel}
+                                    </button>
+                                </div>
+                            </template>
+                            <button class="vc-btn-pri vc-p1-email" onclick={handleEmailSupplier} disabled={emailSending}>
+                                <template if:true={emailSending}><span class="vc-spinner"></span></template>
+                                {emailLabel}
+                            </button>
+                            <div class="vc-sm-muted vc-p1-email-sub">
+                                Sends a branded request with upload link · auto-chases after 3 days.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="vc-footer-actions">
+                    <button class="vc-btn-sec" onclick={handleSaveDraft}>Save draft</button>
+                    <button class="vc-btn-pri" onclick={handleSubmit} disabled={submitting}>
+                        <template if:true={submitting}><span class="vc-spinner"></span></template>
+                        {submitLabel}
+                    </button>
+                </div>
+            </template>
+
+            <!-- ════════════════════════════════════════════════════════════════
+                 P2 — SUPPLIER QUEUE
+            ═══════════════════════════════════════════════════════════════════ -->
+            <template if:true={isP2}>
+                <div class="vc-page-hdr">
+                    <div>
+                        <div class="vc-page-title">Supplier queue</div>
+                        <div class="vc-page-sub">Suppliers you've submitted that are in review — track each one's stage, chase missing documents, or resume a draft.</div>
+                    </div>
+                    <span class="vc-pill-owns">You own: Your supplier queue</span>
+                </div>
+
+                <div class="vc-tab-row">
+                    <button class={tabInReviewClass} data-tab="inReview" onclick={handleQueueTab}>In review</button>
+                    <button class={tabDraftsClass} data-tab="drafts" onclick={handleQueueTab}>Drafts</button>
+                    <button class={tabAwaitingClass} data-tab="awaiting" onclick={handleQueueTab}>Awaiting documents</button>
+                    <button class={tabHandedClass} data-tab="handed" onclick={handleQueueTab}>Handed to analyst</button>
+                </div>
+
+                <div class="vc-table-wrap">
+                    <div class="vc-tbl-head vc-p2-head">
+                        <div class="vc-tbl-col">Supplier</div>
+                        <div class="vc-tbl-col">Industry</div>
+                        <div class="vc-tbl-col">Stage</div>
+                        <div class="vc-tbl-col">Checklist</div>
+                        <div class="vc-tbl-col">Duration</div>
+                        <div class="vc-tbl-col">Confidence</div>
+                        <div class="vc-tbl-col">Last activity</div>
+                        <div class="vc-tbl-col">Action</div>
+                    </div>
+                    <template if:true={hasQueueRows}>
+                        <template for:each={queueRows} for:item="row">
+                            <div key={row.id} class="vc-tbl-row vc-p2-row" data-id={row.id} data-name={row.name} onclick={handleOpenSupplier}>
+                                <div class="vc-tbl-cell vc-sn">{row.name}</div>
+                                <div class="vc-tbl-cell vc-ind">{row.industry}</div>
+                                <div class="vc-tbl-cell vc-ind">{row.stageLabel}</div>
+                                <div class="vc-tbl-cell vc-ind">{row.checklistLabel}</div>
+                                <div class="vc-tbl-cell vc-ind">{row.durationLabel}</div>
+                                <div class="vc-tbl-cell vc-ind">{row.confidenceLabel}</div>
+                                <div class="vc-tbl-cell vc-st">{row.lastActivity}</div>
+                                <div class="vc-tbl-cell"><span class="vc-row-open">Open →</span></div>
+                            </div>
+                        </template>
+                    </template>
+                    <template if:false={hasQueueRows}>
+                        <div class="vc-empty-table">No suppliers in this view yet.</div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- ════════════════════════════════════════════════════════════════
+                 P3 — DOCUMENTS & SCREENING
+            ═══════════════════════════════════════════════════════════════════ -->
+            <template if:true={isP3}>
+                <button class="vc-back-link" onclick={handleBackToQueue}>‹ Back to supplier queue</button>
+                <div class="vc-page-hdr">
+                    <div>
+                        <div class="vc-page-title">Documents &amp; screening</div>
+                        <div class="vc-page-sub">{selectedSupplierName} · review evidence &amp; AI summaries · run screening · assign to an analyst.</div>
+                    </div>
+                    <span class="vc-pill-owns">You own: Evidence collection &amp; handoff</span>
+                </div>
+
+                <!-- Existing-supplier detail strip -->
+                <template if:true={snapshotLoading}>
+                    <div class="vc-snap-loading">Loading supplier record…</div>
+                </template>
+                <div class="vc-snap-strip">
+                    <div class="vc-snap-cell"><span class="vc-snap-k">Risk tier</span><span class="vc-snap-v">{snapTier}</span></div>
+                    <div class="vc-snap-cell"><span class="vc-snap-k">Status</span><span class="vc-snap-v">{snapStatus}</span></div>
+                    <div class="vc-snap-cell"><span class="vc-snap-k">Oversight</span><span class="vc-snap-v">{oversightLabel}</span></div>
+                    <div class="vc-snap-cell"><span class="vc-snap-k">Documents on file</span><span class="vc-snap-v">{storedDocsCount}</span></div>
+                </div>
+
+                <!-- P3 tabs: Documents · Screening -->
+                <div class="vc-tab-row">
+                    <button class={docsTabClass} data-tab="documents" onclick={handleP3Tab}>Documents</button>
+                    <button class={screeningTabClass} data-tab="screening" onclick={handleP3Tab}>Screening</button>
+                </div>
+
+                <!-- ─── DOCUMENTS TAB ─────────────────────────────────────────── -->
+                <template if:true={isDocsTab}>
+                    <div class="vc-policy-zone">
+                        <div class="vc-pz-icon">⤓</div>
+                        <div class="vc-pz-text">
+                            <div class="vc-pz-label">Add documents — one or many</div>
+                            <div class="vc-pz-hint">AI reads each file, matches it to the checklist, and validates it.</div>
+                        </div>
+                        <button class="vc-btn-pri vc-btn-sm" onclick={handleAddFiles}>＋ Add files</button>
+                        <input type="file" multiple class="vc-file-input" onchange={handleFilesPicked}>
+                    </div>
+
+                    <!-- ── Compliance documents (merged checklist + documents) ───────
+                         One row per requirement: checkbox (ticks on upload) · label ·
+                         AI verdict chip · expandable AI reasoning · inline preview/remove.
+                         This is where the engine's work is made visible. -->
+                    <template if:true={hasComplianceRows}>
+                        <div class="vc-card vc-checklist-card">
+                            <div class="vc-panel-header">
+                                <div class="vc-card-title vc-card-title-nomargin">Compliance documents</div>
+                                <span class="vc-ai-badge">✦ {checklistProgressLabel} · AI matched &amp; validated</span>
+                            </div>
+                            <!-- column headers: required document | uploaded file -->
+                            <div class="vc-cdoc-cols vc-cdoc-head">
+                                <span></span>
+                                <span class="vc-cdoc-h-req">Required document</span>
+                                <span class="vc-cdoc-h-file">Uploaded file</span>
+                                <span class="vc-cdoc-h-verdict"></span>
+                            </div>
+                            <template for:each={complianceRows} for:item="c">
+                                <div key={c.id} class={c.rowClass}>
+                                    <!-- top line: checkbox · requirement | uploaded file | verdict · actions -->
+                                    <div class="vc-cdoc-cols vc-cdoc-top">
+                                        <span class={c.boxClass}>
+                                            <template if:true={c.ticked}>✓</template>
+                                        </span>
+                                        <span class="vc-cdoc-label">{c.label}</span>
+                                        <span class="vc-cdoc-file">
+                                            <template if:true={c.hasFileName}>{c.fileName}</template>
+                                            <template if:false={c.hasFileName}><span class="vc-cdoc-nofile">— not uploaded —</span></template>
+                                        </span>
+                                        <div class="vc-cdoc-right">
+                                            <template if:true={c.hasVerdict}>
+                                                <span class={c.verdictBadgeClass}>{c.verdict}</span>
+                                                <template if:true={c.hasConfidence}>
+                                                    <span class="vc-cdoc-conf" title="AI engine confidence in this assessment">{c.confidenceLabel}</span>
+                                                </template>
+                                            </template>
+                                            <template if:false={c.hasVerdict}>
+                                                <span class="vc-cdoc-status">{c.statusText}</span>
+                                            </template>
+                                            <template if:true={c.hasFile}>
+                                                <div class="vc-cdoc-actions">
+                                                    <button class="vc-doc-btn" data-id={c.fileId} onclick={handlePreviewDoc}>Preview</button>
+                                                    <button class="vc-doc-btn danger" data-id={c.fileId} onclick={handleRemoveDoc}>Remove</button>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+
+                                    <!-- AI reasoning — collapsed by default, expand on demand -->
+                                    <template if:true={c.hasDetail}>
+                                        <button class="vc-cdoc-toggle" data-key={c.key} onclick={handleToggleDetail}>{c.toggleLabel}</button>
+                                        <template if:true={c.expanded}>
+                                            <div class="vc-cdoc-detail">
+                                                <template if:true={c.hasHeadline}>
+                                                    <div class="vc-assess-headline">{c.headline}</div>
+                                                </template>
+                                                <template if:true={c.hasChecks}>
+                                                    <div class="vc-assess-checks">
+                                                        <template for:each={c.checks} for:item="k">
+                                                            <div key={k.id} class={k.chkClass}>
+                                                                <template if:true={k.pass}>✓ </template>
+                                                                <template if:false={k.pass}>✕ </template>{k.text}
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <template if:true={c.hasFacts}>
+                                                    <ul class="vc-assess-facts">
+                                                        <template for:each={c.facts} for:item="f">
+                                                            <li key={f.id}>{f.text}</li>
+                                                        </template>
+                                                    </ul>
+                                                </template>
+                                                <template if:true={c.hasConcerns}>
+                                                    <ul class="vc-assess-concerns">
+                                                        <template for:each={c.concerns} for:item="cc">
+                                                            <li key={cc.id}>⚠ {cc.text}</li>
+                                                        </template>
+                                                    </ul>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <!-- Inline preview of the selected file -->
+                            <template if:true={hasPreview}>
+                                <div class="vc-doc-preview">
+                                    <div class="vc-doc-preview-head">
+                                        <span class="vc-doc-preview-title">{previewTitle}</span>
+                                        <button class="vc-doc-btn" onclick={closePreview}>Close ×</button>
+                                    </div>
+                                    <template if:true={showIframe}>
+                                        <!-- Public document URL displayed in iframe -->
+                                        <div data-preview-container class="vc-doc-preview-container">
+                                            <template if:true={iframeLoading}>
+                                                <div class="vc-preview-loading">Loading preview...</div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <template if:false={showIframe}>
+                                        <!-- Fallback to standard preview -->
+                                        <template if:true={previewIsImage}>
+                                            <img class="vc-doc-img" src={previewUrl} alt={previewTitle}>
+                                        </template>
+                                        <template if:false={previewIsImage}>
+                                            <iframe class="vc-doc-frame" src={previewUrl} title={previewTitle}></iframe>
+                                        </template>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <!-- newly-added files still uploading/assessing -->
+                            <template if:true={hasUploadedDocs}>
+                                <div class="vc-subhead">Just added</div>
+                                <template for:each={uploadedDocs} for:item="doc">
+                                    <div key={doc.id} class="vc-updoc">
+                                        <span class="vc-updoc-name">{doc.name}</span>
+                                        <span class="vc-updoc-meta">{doc.sizeLabel} · {doc.status}</span>
+                                    </div>
+                                </template>
+                            </template>
+                        </div>
+                    </template>
+
+                    <template if:false={hasComplianceRows}>
+                        <div class="vc-card">
+                            <div class="vc-empty-inline">
+                                No required documents yet.
+                                <span class="vc-sm-muted">Generate the checklist at intake, then use “Add files” above — AI matches each file to the checklist and validates it.</span>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- ── Rejected documents (unmatched upload + AI reason + promote) ── -->
+                    <template if:true={hasRejectedDocs}>
+                        <div class="vc-card vc-rejected-card">
+                            <div class="vc-panel-header">
+                                <div class="vc-card-title vc-card-title-nomargin vc-rejected-title">⚠ Rejected documents</div>
+                            </div>
+                            <template for:each={rejectedDocs} for:item="r">
+                                <div key={r.id} class="vc-rej-row">
+                                    <div class="vc-rej-top">
+                                        <span class="vc-rej-name">{r.title}</span>
+                                        <button class="vc-btn-sec vc-btn-sm" data-id={r.id}
+                                                onclick={handlePromoteRejected} disabled={r.promoting}>
+                                            <template if:true={r.promoting}>Adding…</template>
+                                            <template if:false={r.promoting}>＋ Add to checklist</template>
+                                        </button>
+                                    </div>
+                                    <div class="vc-rej-reason">{r.reason}</div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </template>
+
+                <!-- ─── SCREENING TAB ─────────────────────────────────────────── -->
+                <template if:true={isScreeningTab}>
+                    <div class="vc-card">
+                        <div class="vc-panel-header">
+                            <div class="vc-card-title vc-card-title-nomargin">Registry &amp; watchlist screening</div>
+                            <span class="vc-ai-badge">✦ /verify</span>
+                        </div>
+                        <div class="vc-sm-muted vc-p3-screen-sub">
+                            Runs identity (GLEIF), sanctions / denied-party, conflict-minerals and adverse-media checks
+                            against authoritative sources. Results are saved to this supplier and folded into the AI summary.
+                        </div>
+                        <template if:true={hasScreeningResults}>
+                            <div class="vc-stored-note">✓ Stored screening results shown below — re-run only if the supplier's details changed.</div>
+                        </template>
+                        <button class="vc-btn-pri" disabled={screeningBusy} onclick={handleRunScreening}>
+                            <template if:true={screeningBusy}><span class="vc-spinner"></span>Running screening…</template>
+                            <template if:false={screeningBusy}>
+                                <template if:true={hasScreeningResults}>↻ Re-run screening</template>
+                                <template if:false={hasScreeningResults}>▷ Run screening</template>
+                            </template>
+                        </button>
+
+                        <template if:true={hasScreeningResults}>
+                            <div class="vc-screen-results">
+                                <template for:each={screeningResults} for:item="r">
+                                    <div key={r.id} class="vc-assess">
+                                        <div class="vc-assess-top">
+                                            <span class="vc-assess-label">{r.label}</span>
+                                            <span class={r.badgeClass}>{r.status}</span>
+                                        </div>
+                                        <div class="vc-assess-reason">{r.detail}</div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Note + assign to analyst (separate action) -->
+                    <!-- <div class="vc-card vc-p3-screen">
+                        <div class="vc-panel-header">
+                            <div class="vc-card-title vc-card-title-nomargin">Note &amp; handoff</div>
+                            <span class="vc-ai-badge">✦ to analyst</span>
+                        </div>
+                        <div class="vc-flabel">Note for the analyst (optional)</div>
+                        <textarea class="vc-note-input" placeholder="Add context, flags, or anything the analyst should know…"
+                                  onchange={handleNoteChange}>{procNote}</textarea>
+                        <div class="vc-sm-muted vc-p3-screen-sub">
+                            Assigning attaches your note and routes the supplier to the chosen analyst, then returns you to the queue.
+                        </div>
+                        <button class="vc-btn-pri" onclick={handleOpenAssign}>Assign to analyst ›</button>
+                    </div> -->
+                </template>
+
+                <!-- Navigate to Submission Summary from Documents & Screening -->
+                <div class="vc-footer-actions">
+                    <button class="vc-btn-sec" onclick={handleGoToSubmission}>Review submission summary ›</button>
+                </div>
+            </template>
+
+            <!-- ════════════════════════════════════════════════════════════════
+                 P4 — SUBMISSION SUMMARY
+            ═══════════════════════════════════════════════════════════════════ -->
+            <template if:true={isP4}>
+                <button class="vc-back-link" onclick={handleBackToDocuments}>‹ Back to documents &amp; screening</button>
+                <div class="vc-page-hdr">
+                    <div>
+                        <div class="vc-page-title">Submission summary</div>
+                        <div class="vc-page-sub">{selectedSupplierName} · checklist compliance overview ready for analyst handoff.</div>
+                    </div>
+                    <span class="vc-pill-owns">You own: Review &amp; handoff</span>
+                </div>
+
+                <!-- Shared dashboard header: risk score · onboarding progress · score trend -->
+                <c-sc-compliance-dashboard tier={snapTier} docs={dashboardDocs}></c-sc-compliance-dashboard>
+
+                <div class="vc-card">
+                    <div class="vc-panel-header">
+                        <div class="vc-card-title vc-card-title-nomargin">Document checklist status</div>
+                        <span class="vc-ai-badge">✦ AI assessed</span>
+                    </div>
+                    <template if:true={hasSubmissionRows}>
+                        <div class="vc-sub-table-wrap">
+                            <table class="vc-sub-table">
+                                <colgroup>
+                                    <col class="vc-col-doc">
+                                    <col class="vc-col-status">
+                                    <col class="vc-col-sum">
+                                    <col class="vc-col-conf">
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th class="vc-sub-th">Document</th>
+                                        <th class="vc-sub-th">Status</th>
+                                        <th class="vc-sub-th">AI Summary</th>
+                                        <th class="vc-sub-th">Confidence</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={submissionRows} for:item="row">
+                                        <tr key={row.id} class="vc-sub-tr">
+                                            <td class="vc-sub-td vc-sub-doc">{row.label}</td>
+                                            <td class="vc-sub-td"><span class={row.badgeClass}>{row.status}</span></td>
+                                            <td class="vc-sub-td vc-sub-reason">
+                                                <!-- Structured AI summary: headline + facts + checks + concerns -->
+                                                <template if:true={row.hasHeadline}>
+                                                    <div class="vc-assess-headline">{row.headline}</div>
+                                                </template>
+                                                <template if:false={row.hasHeadline}>
+                                                    <div>{row.reason}</div>
+                                                </template>
+                                                <template if:true={row.hasFacts}>
+                                                    <ul class="vc-assess-facts">
+                                                        <template for:each={row.facts} for:item="f">
+                                                            <li key={f.id}>{f.text}</li>
+                                                        </template>
+                                                    </ul>
+                                                </template>
+                                                <template if:true={row.hasChecks}>
+                                                    <div class="vc-assess-checks">
+                                                        <template for:each={row.checks} for:item="k">
+                                                            <div key={k.id} class={k.chkClass}>
+                                                                <template if:true={k.pass}>✓ </template>
+                                                                <template if:false={k.pass}>✕ </template>{k.text}
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <template if:true={row.hasConcerns}>
+                                                    <ul class="vc-assess-concerns">
+                                                        <template for:each={row.concerns} for:item="c">
+                                                            <li key={c.id}>⚠ {c.text}</li>
+                                                        </template>
+                                                    </ul>
+                                                </template>
+                                            </td>
+                                            <td class="vc-sub-td vc-sub-conf">{row.confidence}</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+                    <template if:false={hasSubmissionRows}>
+                        <div class="vc-empty-inline">
+                            No document assessments recorded yet.
+                            <span class="vc-sm-muted">Upload documents first — AI assessments will appear here.</span>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="vc-card vc-p3-screen">
+                    <div class="vc-panel-header">
+                        <div class="vc-card-title vc-card-title-nomargin">Note &amp; handoff</div>
+                        <span class="vc-ai-badge">✦ to analyst</span>
+                    </div>
+                    <div class="vc-flabel">Note for the analyst (optional)</div>
+                    <textarea class="vc-note-input" placeholder="Add context, flags, or anything the analyst should know…"
+                              onchange={handleNoteChange}>{procNote}</textarea>
+                    <div class="vc-sm-muted vc-p3-screen-sub">
+                        Assigning attaches your note and routes the supplier to the chosen analyst, then returns you to the queue.
+                    </div>
+                </div>
+                <div class="vc-footer-actions">
+                    <button class="vc-btn-sec" onclick={handleBackToDocuments}>‹ Back</button>
+                    <button class="vc-btn-pri" onclick={handleOpenAssign}>Assign to analyst ›</button>
+                </div>
+            </template>
+
+        </div>
+    </div>
+
+    <!-- ── Floating co-pilot (P3 only) — FAB + slide-up panel ────────────────── -->
+    <template if:true={showCopilotFab}>
+        <template if:true={copilotOpen}>
+            <div class="vc-cp-panel">
+                <div class="vc-cp-panel-head">
+                    <div class="vc-cp-panel-title">✦ Co-pilot <span class="vc-cp-panel-sub">· {selectedSupplierName}</span></div>
+                    <button class="vc-cp-close" onclick={closeCopilot}>×</button>
+                </div>
+                <div class="vc-cp-thread">
+                    <template if:true={hasCopilotMessages}>
+                        <template for:each={copilotMessages} for:item="m">
+                            <div key={m.id} class={m.rowClass}>
+                                <template for:each={m.blocks} for:item="b">
+                                    <div key={b.id} class={b.blockClass}>
+                                        <template if:true={b.isBullet}><span class="vc-cp-bullet">•</span></template>
+                                        <span class="vc-cp-blocktext">
+                                            <template for:each={b.runs} for:item="r">
+                                                <template if:true={r.bold}><strong key={r.id}>{r.text}</strong></template>
+                                                <template if:false={r.bold}><span key={r.id}>{r.text}</span></template>
+                                            </template>
+                                        </span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </template>
+                    <template if:false={hasCopilotMessages}>
+                        <div class="vc-cp-empty">Ask about this supplier's documents, findings, or screening — e.g. “Is the insurance certificate still valid?” or “What’s blocking approval?”</div>
+                    </template>
+                    <template if:true={copilotBusy}>
+                        <div class="vc-cp-msg ai vc-cp-typing">Thinking…</div>
+                    </template>
+                </div>
+                <!-- Persona-aware suggested actions — always available (suggestive co-pilot) -->
+                <template if:true={showCopilotSuggestions}>
+                    <div class="vc-cp-suggest">
+                        <div class="vc-cp-suggest-lbl">Suggested</div>
+                        <template for:each={copilotSuggestions} for:item="s">
+                            <button key={s.id} class="vc-cp-chip" data-text={s.text}
+                                    data-local={s.local} data-action={s.action}
+                                    onclick={handleSuggestion}>{s.text}</button>
+                        </template>
+                    </div>
+                </template>
+                <div class="vc-cp-inputrow">
+                    <input type="text" class="vc-cp-input" placeholder="Ask the co-pilot…"
+                           value={copilotInput} oninput={handleCopilotInput} onkeydown={handleCopilotKey}>
+                    <button class="vc-btn-pri vc-btn-sm" disabled={copilotSendDisabled} onclick={handleCopilotSend}>Send</button>
+                </div>
+            </div>
+        </template>
+        <button class={copilotFabClass} onclick={toggleCopilot} title="Co-pilot">
+            <span class="vc-cp-fab-spark">✦</span>
+        </button>
+    </template>
+
+    <!-- ── Assign-to-analyst modal ───────────────────────────────────────────── -->
+    <template if:true={showAssign}>
+        <div class="vc-modal-backdrop" onclick={handleCancelAssign}></div>
+        <div class="vc-modal" role="dialog" aria-modal="true">
+            <div class="vc-modal-title">Assign to an analyst</div>
+            <div class="vc-modal-sub">Choose who reviews {selectedSupplierName}. Your note is attached on assign.</div>
+            <template if:true={hasManualChecks}>
+                <div class="vc-manual-note">
+                    <div class="vc-manual-note-title">⚠ Manual verification required</div>
+                    <div class="vc-manual-note-body">{manualChecksNote}</div>
+                </div>
+            </template>
+            <div class="vc-assign-list">
+                <template for:each={analystRows} for:item="a">
+                    <div key={a.id} class={a.rowClass} data-id={a.id} onclick={handlePickAnalyst}>
+                        <div class="vc-assign-name">{a.name}</div>
+                        <div class="vc-assign-role">{a.role}</div>
+                    </div>
+                </template>
+            </div>
+            <div class="vc-modal-actions">
+                <button class="vc-btn-sec" onclick={handleCancelAssign}>Cancel</button>
+                <button class="vc-btn-pri" disabled={assignDisabled} onclick={handleConfirmAssign}>
+                    <template if:true={assigning}><span class="vc-spinner"></span></template>
+                    Assign to analyst
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <!-- ── Inline notice (placeholder for toast) ─────────────────────────────── -->
+    <template if:true={showNotice}>
+        <div class="vc-notice">
+            <div class="vc-notice-title">{noticeTitle}</div>
+            <div class="vc-notice-msg">{noticeMessage}</div>
+        </div>
+    </template>
+</template>

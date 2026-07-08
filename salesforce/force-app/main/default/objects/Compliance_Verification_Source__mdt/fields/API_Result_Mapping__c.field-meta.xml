@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>API_Result_Mapping__c</fullName>
+    <description>JSON describing how to interpret the API response. Specifies which response field holds the status, name, country, etc. Example: {&quot;status_field&quot;:&quot;certStateName&quot;,&quot;name_field&quot;:&quot;name&quot;,&quot;country_field&quot;:&quot;country&quot;,&quot;cert_number_field&quot;:&quot;certNo&quot;}. Lets the service handle different APIs without code changes.</description>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>API Result Mapping</label>
+    <length>4000</length>
+    <type>LongTextArea</type>
+    <visibleLines>5</visibleLines>
+</CustomField>

@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+.env
+*.md
+supplierCompliance/
+.sfdx/
+.sf/
+node_modules/
+*.log

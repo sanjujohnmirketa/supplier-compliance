@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 760" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="fa" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect width="1400" height="760" fill="#F8FAFC"/>
+  <text x="30" y="34" font-size="20" font-weight="700" fill="#0F172A">Future-State Deployment Topology — Engine on Azure · Salesforce 2GP Package</text>
+  <text x="30" y="55" font-size="12" fill="#64748B">TARGET ARCHITECTURE — not yet built. Replaces local Docker + VS Code dev tunnel.</text>
+
+  <rect x="30" y="75" width="1340" height="26" rx="5" fill="#FEE2E2" stroke="#FCA5A5"/>
+  <text x="700" y="93" font-size="11" fill="#B91C1C" text-anchor="middle" font-weight="700">⚠ DESIGN INTENT — mark every claim below as target-state, not current, in the technical doc</text>
+
+  <!-- Salesforce zone -->
+  <rect x="30" y="120" width="420" height="560" rx="10" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1.5"/>
+  <text x="50" y="148" font-size="14" font-weight="700" fill="#1D4ED8">SALESFORCE (2GP PACKAGE)</text>
+
+  <rect x="50" y="165" width="380" height="90" rx="8" fill="#FFFFFF" stroke="#93C5FD"/>
+  <text x="240" y="188" font-size="11.5" font-weight="700" fill="#1E293B" text-anchor="middle">2GP Unlocked Package</text>
+  <text x="240" y="206" font-size="9" fill="#64748B" text-anchor="middle">objects · Apex · LWC · perm sets</text>
+  <text x="240" y="220" font-size="9" fill="#64748B" text-anchor="middle">namespace: TBD · dependency-ordered</text>
+  <text x="240" y="238" font-size="9" fill="#64748B" text-anchor="middle">sfdx-project.json package dirs</text>
+
+  <rect x="50" y="270" width="380" height="70" rx="8" fill="#FFFFFF" stroke="#93C5FD"/>
+  <text x="240" y="292" font-size="10.5" font-weight="700" fill="#1E293B" text-anchor="middle">4 LWC Consoles + VendorPortalController</text>
+  <text x="240" y="310" font-size="9" fill="#64748B" text-anchor="middle">unchanged from current-state</text>
+  <text x="240" y="325" font-size="9" fill="#64748B" text-anchor="middle">(consumer of the package)</text>
+
+  <rect x="50" y="356" width="380" height="60" rx="8" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="240" y="380" font-size="11" font-weight="700" fill="#92400E" text-anchor="middle">Named / External Credential</text>
+  <text x="240" y="397" font-size="9" fill="#92400E" text-anchor="middle">points at Azure URL (was: dev tunnel)</text>
+
+  <rect x="50" y="432" width="380" height="90" rx="8" fill="#FFFFFF" stroke="#93C5FD"/>
+  <text x="240" y="454" font-size="10.5" font-weight="700" fill="#1E293B" text-anchor="middle">Same data model</text>
+  <text x="240" y="472" font-size="9" fill="#64748B" text-anchor="middle">Account · Compliance_Assessment__c</text>
+  <text x="240" y="486" font-size="9" fill="#64748B" text-anchor="middle">Compliance_Document__c · Audit_Log__c</text>
+  <text x="240" y="504" font-size="9" fill="#64748B" text-anchor="middle">no change from current-state</text>
+
+  <rect x="50" y="538" width="380" height="80" rx="8" fill="#F1F5F9" stroke="#CBD5E1"/>
+  <text x="240" y="560" font-size="10.5" font-weight="700" fill="#334155" text-anchor="middle">Git Repo — monorepo</text>
+  <text x="240" y="578" font-size="9" fill="#64748B" text-anchor="middle">/salesforce  (this 2GP package source)</text>
+  <text x="240" y="592" font-size="9" fill="#64748B" text-anchor="middle">/engine  /docs — secrets scrubbed</text>
+  <text x="240" y="606" font-size="8.3" fill="#94A3B8" text-anchor="middle" font-style="italic">CI: package build + deploy validate</text>
+
+  <!-- Azure zone -->
+  <rect x="490" y="120" width="880" height="560" rx="10" fill="#F0F9FF" stroke="#BAE6FD" stroke-width="1.5"/>
+  <text x="510" y="148" font-size="14" font-weight="700" fill="#0369A1">MICROSOFT AZURE</text>
+
+  <!-- Container Apps -->
+  <rect x="510" y="165" width="380" height="150" rx="8" fill="#FFFFFF" stroke="#7DD3FC" stroke-width="1.3"/>
+  <text x="700" y="188" font-size="11.5" font-weight="700" fill="#0C4A6E" text-anchor="middle">Azure Container Apps (or App Service)</text>
+  <rect x="525" y="200" width="350" height="100" rx="6" fill="#E0F2FE"/>
+  <text x="700" y="222" font-size="10" font-weight="700" fill="#0369A1" text-anchor="middle">FastAPI Compliance Engine (containerized)</text>
+  <text x="700" y="240" font-size="8.7" fill="#334155" text-anchor="middle">/scope /assess /verify /cases /copilot</text>
+  <text x="700" y="255" font-size="8.7" fill="#334155" text-anchor="middle">LangGraph agent supervisor (unchanged)</text>
+  <text x="700" y="272" font-size="8.7" fill="#0369A1" text-anchor="middle" font-weight="700">auto-scale · zero laptop dependency</text>
+  <text x="700" y="288" font-size="8.3" fill="#64748B" text-anchor="middle">HTTPS ingress · managed TLS</text>
+
+  <!-- Key Vault -->
+  <rect x="910" y="165" width="270" height="150" rx="8" fill="#FFFFFF" stroke="#7DD3FC" stroke-width="1.3"/>
+  <text x="1045" y="188" font-size="11.5" font-weight="700" fill="#0C4A6E" text-anchor="middle">Azure Key Vault</text>
+  <text x="1045" y="212" font-size="9" fill="#334155" text-anchor="middle">OPENAI_API_KEY</text>
+  <text x="1045" y="228" font-size="9" fill="#334155" text-anchor="middle">INBOUND_TOKEN</text>
+  <text x="1045" y="244" font-size="9" fill="#334155" text-anchor="middle">DB connection secret</text>
+  <text x="1045" y="260" font-size="9" fill="#334155" text-anchor="middle">CSL_API_KEY</text>
+  <text x="1045" y="280" font-size="8.3" fill="#94A3B8" text-anchor="middle" font-style="italic">no secrets in container image</text>
+  <text x="1045" y="294" font-size="8.3" fill="#94A3B8" text-anchor="middle" font-style="italic">or docker-compose.yml</text>
+
+  <!-- Postgres -->
+  <rect x="510" y="335" width="380" height="130" rx="8" fill="#FFFFFF" stroke="#7DD3FC" stroke-width="1.3"/>
+  <text x="700" y="358" font-size="11.5" font-weight="700" fill="#0C4A6E" text-anchor="middle">Azure Database for PostgreSQL</text>
+  <text x="700" y="374" font-size="10" fill="#0369A1" text-anchor="middle" font-weight="700">Flexible Server + pgvector extension</text>
+  <text x="700" y="396" font-size="9" fill="#334155" text-anchor="middle">policy_chunk (RAG corpus, 384-dim)</text>
+  <text x="700" y="412" font-size="9" fill="#334155" text-anchor="middle">LangGraph checkpoint tables (agent state)</text>
+  <text x="700" y="428" font-size="9" fill="#334155" text-anchor="middle">automated backups · private endpoint</text>
+  <text x="700" y="448" font-size="8.3" fill="#94A3B8" text-anchor="middle" font-style="italic">replaces local Docker Postgres</text>
+
+  <!-- Ingress -->
+  <rect x="910" y="335" width="270" height="130" rx="8" fill="#FFFFFF" stroke="#7DD3FC" stroke-width="1.3"/>
+  <text x="1045" y="358" font-size="11.5" font-weight="700" fill="#0C4A6E" text-anchor="middle">Networking</text>
+  <text x="1045" y="380" font-size="9" fill="#334155" text-anchor="middle">Private endpoint / VNet</text>
+  <text x="1045" y="396" font-size="9" fill="#334155" text-anchor="middle">between Container App</text>
+  <text x="1045" y="412" font-size="9" fill="#334155" text-anchor="middle">and PostgreSQL</text>
+  <text x="1045" y="432" font-size="8.3" fill="#94A3B8" text-anchor="middle" font-style="italic">public HTTPS only for SF callout</text>
+
+  <!-- External providers -->
+  <rect x="510" y="490" width="670" height="90" rx="8" fill="#FFFFFF" stroke="#7DD3FC" stroke-width="1.3"/>
+  <text x="845" y="513" font-size="11.5" font-weight="700" fill="#0C4A6E" text-anchor="middle">External Providers (unchanged, called from Azure now)</text>
+  <text x="600" y="538" font-size="9.5" fill="#334155" text-anchor="middle">LLM: OpenAI / Azure OpenAI /</text>
+  <text x="600" y="552" font-size="9.5" fill="#334155" text-anchor="middle">Anthropic / on-prem Ollama</text>
+  <text x="845" y="538" font-size="9.5" fill="#334155" text-anchor="middle">GLEIF · sanctions.network</text>
+  <text x="845" y="552" font-size="9.5" fill="#334155" text-anchor="middle">GDELT (screening)</text>
+  <text x="1090" y="538" font-size="9.5" fill="#334155" text-anchor="middle">Trade.gov CSL</text>
+  <text x="1090" y="552" font-size="9.5" fill="#334155" text-anchor="middle">(registry validation)</text>
+
+  <!-- Ops -->
+  <rect x="510" y="600" width="670" height="60" rx="8" fill="#F0F9FF" stroke="#7DD3FC"/>
+  <text x="845" y="623" font-size="10.5" font-weight="700" fill="#0C4A6E" text-anchor="middle">Ops: Azure Monitor / App Insights · CI/CD deploys container on push to main</text>
+  <text x="845" y="641" font-size="9" fill="#64748B" text-anchor="middle">eval harness (8/8 gate) runs in CI before promote</text>
+
+  <!-- Connecting arrow -->
+  <path d="M430,390 L510,240" stroke="#1D4ED8" stroke-width="2" marker-end="url(#fa)"/>
+  <text x="435" y="330" font-size="10" fill="#1D4ED8" transform="rotate(-53 435,330)" font-weight="700">HTTPS callout (SF → Azure URL)</text>
+
+  <path d="M700,315 L700,335" stroke="#0369A1" stroke-width="1.5" marker-end="url(#fa)"/>
+  <path d="M1045,315 L1045,335" stroke="#0369A1" stroke-width="1.5" marker-end="url(#fa)"/>
+  <path d="M700,465 L700,490" stroke="#0369A1" stroke-width="1.5" marker-end="url(#fa)"/>
+  <path d="M900,240 L910,240" stroke="#0369A1" stroke-width="1.5" marker-end="url(#fa)"/>
+
+  <text x="30" y="710" font-size="10.5" fill="#64748B" font-style="italic">Key change from today: engine no longer depends on a developer's laptop being on —</text>
+  <text x="30" y="726" font-size="10.5" fill="#64748B" font-style="italic">it runs continuously in Azure, reachable by any Salesforce org via a stable HTTPS URL.</text>
+</svg>

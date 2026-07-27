@@ -1,8 +1,9 @@
 """
 app.py — the local compliance service Salesforce calls.
 
-POST /scope    -> RAG retrieval over policy_chunk -> {riskTier, riskSummary, checklist[]}
-POST /extract  -> (stub) pull structured fields out of an uploaded document
+POST /scope         -> RAG retrieval over policy_chunk -> {riskTier, riskSummary, checklist[]}
+POST /policy/ingest -> parse/chunk/embed/upsert an uploaded company policy doc into policy_chunk
+POST /extract       -> (stub) pull structured fields out of an uploaded document
 
 Run:  uvicorn app:app --reload --port 8000
 """
@@ -17,7 +18,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-from common import get_conn, embed_text, to_pgvector, guess_domain
+from common import get_conn, embed_text, to_pgvector, guess_domain, ingest_policy_document
 from config import settings
 import llm
 
@@ -54,6 +55,12 @@ class ScopeRequest(BaseModel):
     country: Optional[str] = None
     commodity: Optional[str] = None
     jurisdictions: List[str] = []
+    # Optional — sharpen domain selection beyond what industry/engagement text
+    # alone implies (e.g. an "Electronics" supplier whose actual raw material is
+    # conflict-mineral-bearing metal vs. one that only assembles plastics).
+    # Additive: when blank, behavior is identical to before these fields existed.
+    materialType: Optional[str] = None
+    serviceCategory: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -203,6 +210,39 @@ def industry_domains(commodity: str):
         if key in hay:
             return domains
     return []
+
+
+# Deterministic material/service-category → required domains. Industry text
+# alone can be generic ("Electronics") while the ACTUAL raw material tells you
+# far more precisely which domains apply (e.g. conflict minerals vs. plastics-only
+# assembly). Optional and additive to INDUSTRY_DOMAINS — never replaces it.
+MATERIAL_TYPE_DOMAINS = {
+    "conflict-mineral-bearing metals": ["conflict", "material", "trade"],
+    "chemicals":                       ["material", "quality"],
+    "electronics components":          ["material", "cyber", "quality"],
+    "packaging":                       ["material", "quality"],
+    "textiles":                        ["material", "quality"],
+}
+
+SERVICE_CATEGORY_DOMAINS = {
+    "logistics":                ["trade", "quality"],
+    "it/software":              ["cyber", "finance"],
+    "professional services":    ["cyber", "finance"],
+    "manufacturing-subcontract":["quality", "material"],
+}
+
+
+def material_domains(material_type: Optional[str], service_category: Optional[str]):
+    """Return the guaranteed domains implied by the supplier's declared raw
+    material type and/or service category (exact match against the picklist
+    values above). Either or both may be blank — returns [] when neither is set
+    or matches, same 'no-op when absent' behavior as industry_domains."""
+    domains = set()
+    if material_type and material_type in MATERIAL_TYPE_DOMAINS:
+        domains.update(MATERIAL_TYPE_DOMAINS[material_type])
+    if service_category and service_category in SERVICE_CATEGORY_DOMAINS:
+        domains.update(SERVICE_CATEGORY_DOMAINS[service_category])
+    return sorted(domains)
 
 
 # ── Engagement-type rules (deterministic, explainable) ──────────────────────
@@ -411,11 +451,17 @@ def scope(req: ScopeRequest, authorization: Optional[str] = Header(None)):
     # different evidence than Tier-1 production (data/finance vs material/conflict).
     eng_add, eng_remove = engagement_domains(req.commodity)
 
+    # Material type / service category, if the caller supplied them, sharpen the
+    # set further — e.g. an "Electronics" supplier whose declared material is
+    # conflict-mineral-bearing metal guarantees 'conflict' even if the blended
+    # industry/engagement text alone wouldn't have surfaced it strongly enough.
+    mat_domains = set(material_domains(req.materialType, req.serviceCategory))
+
     no_specific_match = (len(matched_specific) == 0 and len(ind_domains) == 0
-                         and len(eng_add) == 0)
-    # Union industry + RAG + engagement adds + baseline, then subtract the
-    # engagement removals — but NEVER drop a baseline domain.
-    selected = (set(matched_specific) | ind_domains | eng_add | BASELINE_DOMAINS)
+                         and len(eng_add) == 0 and len(mat_domains) == 0)
+    # Union industry + RAG + engagement adds + material/service adds + baseline,
+    # then subtract the engagement removals — but NEVER drop a baseline domain.
+    selected = (set(matched_specific) | ind_domains | eng_add | mat_domains | BASELINE_DOMAINS)
     selected -= (eng_remove - BASELINE_DOMAINS)
 
     ordered = [h for d, h in sorted(best_by_domain.items(), key=lambda kv: -kv[1]["score"])
@@ -452,6 +498,9 @@ def scope(req: ScopeRequest, authorization: Optional[str] = Header(None)):
     for d in eng_add:
         if d in selected:
             domain_reasons[d] = f"Added by engagement type — this relationship requires “{d}”."
+    for d in mat_domains:
+        if d in selected:
+            domain_reasons[d] = f"Added by declared material/service type — requires “{d}”."
 
     notes = []
     if no_specific_match:
@@ -472,6 +521,49 @@ def scope(req: ScopeRequest, authorization: Optional[str] = Header(None)):
         "noPolicyMatch": no_specific_match, # true → only baseline applied
         "notes": notes,                     # human-readable explanations
         "corpusVersion": settings.CORPUS_VERSION,
+    }
+
+
+# ---------------------------------------------------------------------------
+# /policy/ingest — internal Procurement upload path for company policy docs.
+#
+# Same parse -> chunk -> embed -> upsert pipeline as the SFTP bulk script
+# (ingest_policies.py), reused via common.ingest_policy_document() so a policy
+# uploaded through Salesforce is indistinguishable, once ingested, from one
+# ingested via SFTP. /scope's retrieval is unaware of and unaffected by which
+# path a chunk came from.
+# ---------------------------------------------------------------------------
+from datetime import date as _date  # local alias — avoid clashing with any 'date' var
+
+
+class PolicyIngestRequest(BaseModel):
+    fileName: str
+    documentBase64: str
+    domainHint: Optional[str] = None   # None/blank -> engine auto-detects via guess_domain
+
+
+@app.post("/policy/ingest")
+def policy_ingest(req: PolicyIngestRequest, authorization: Optional[str] = Header(None)):
+    require_token(authorization)
+
+    try:
+        data = base64.b64decode(req.documentBase64)
+    except Exception:
+        raise HTTPException(status_code=422, detail="documentBase64 is not valid base64")
+
+    domain_override = req.domainHint if req.domainHint and req.domainHint != "Auto-Detect" else None
+    version = _date.today().isoformat()  # same ingest-date versioning as the SFTP script
+
+    try:
+        result = ingest_policy_document(req.fileName, data, version, domain_override)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    return {
+        "fileName": req.fileName,
+        "domain": result["domain"],
+        "chunkCount": result["chunkCount"],
+        "version": result["version"],
     }
 
 

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Domain__c</fullName>
+    <description>Compliance domain this policy belongs to. Leave blank to let the engine auto-detect via keyword scoring (guess_domain); set explicitly to override.</description>
+    <label>Domain</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Auto-Detect</fullName>
+                <default>true</default>
+                <label>Auto-Detect</label>
+            </value>
+            <value>
+                <fullName>conflict</fullName>
+                <default>false</default>
+                <label>Conflict Minerals</label>
+            </value>
+            <value>
+                <fullName>trade</fullName>
+                <default>false</default>
+                <label>Trade / Sanctions</label>
+            </value>
+            <value>
+                <fullName>finance</fullName>
+                <default>false</default>
+                <label>Finance / KYC</label>
+            </value>
+            <value>
+                <fullName>quality</fullName>
+                <default>false</default>
+                <label>Quality</label>
+            </value>
+            <value>
+                <fullName>material</fullName>
+                <default>false</default>
+                <label>Material Safety</label>
+            </value>
+            <value>
+                <fullName>cyber</fullName>
+                <default>false</default>
+                <label>Cyber / Data Protection</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

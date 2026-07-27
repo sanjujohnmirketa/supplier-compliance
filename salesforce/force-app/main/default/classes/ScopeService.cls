@@ -64,7 +64,17 @@ public with sharing class ScopeService {
         // FastAPI Optional defaults apply.
         httpReq.setBody(JSON.serialize(req, true));
 
-        HttpResponse res = new Http().send(httpReq);
+        // The dev tunnel occasionally stalls a connection with no bytes back
+        // (CalloutException: Read timed out) even though the engine itself
+        // responds in well under a second. One retry masks that transient
+        // tunnel flake from the user without hiding a REAL engine error
+        // (4xx/5xx), which is handled below, outside this retry.
+        HttpResponse res;
+        try {
+            res = new Http().send(httpReq);
+        } catch (CalloutException ce) {
+            res = new Http().send(httpReq);   // one retry, same request
+        }
 
         if (res.getStatusCode() != 200) {
             throw new ScopeException(

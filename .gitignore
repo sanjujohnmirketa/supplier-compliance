@@ -24,6 +24,9 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# ── Claude Code local cache (can contain secrets via Bash command history) ───
+.claude/
+
 # ── Logs / temp ──────────────────────────────────────────────────────────────
 *.log
 *.tmp

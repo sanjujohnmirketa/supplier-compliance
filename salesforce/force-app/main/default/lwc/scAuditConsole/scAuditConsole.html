@@ -1,0 +1,268 @@
+<template>
+    <div class="audit-wrap">
+
+        <!-- ── Page header ── -->
+        <div class="page-header slds-p-around_medium">
+            <h1 class="slds-text-heading_large">Compliance Audit Report</h1>
+            <p class="slds-text-body_small slds-m-top_xx-small">
+                Tamper-proof audit trail — document uploads, AI evaluations, human overrides, status changes.
+                Generates regulator-ready PDF and CSV exports.
+            </p>
+        </div>
+
+        <!-- ── Filter card ── -->
+        <lightning-card icon-name="utility:filter" class="slds-m-around_small">
+            <h2 slot="title">Report Filters</h2>
+            <div class="slds-p-horizontal_medium slds-p-bottom_medium">
+
+                <!-- Row 1: dates + supplier + actor -->
+                <div class="slds-grid slds-gutters slds-wrap slds-m-bottom_small">
+                    <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                        <lightning-input
+                            type="date"
+                            label="From Date"
+                            value={filter.dateFrom}
+                            onchange={handleDateFromChange}>
+                        </lightning-input>
+                    </div>
+                    <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                        <lightning-input
+                            type="date"
+                            label="To Date (inclusive)"
+                            value={filter.dateTo}
+                            onchange={handleDateToChange}>
+                        </lightning-input>
+                    </div>
+                    <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                        <lightning-input
+                            label="Supplier Name"
+                            placeholder="Partial name search…"
+                            value={filter.supplierName}
+                            onchange={handleSupplierChange}>
+                        </lightning-input>
+                    </div>
+                    <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                        <lightning-combobox
+                            label="Actor Type"
+                            options={actorTypeOptions}
+                            value={filter.actorType}
+                            onchange={handleActorTypeChange}>
+                        </lightning-combobox>
+                    </div>
+                </div>
+
+                <!-- Row 2: requirement key + event types -->
+                <div class="slds-grid slds-gutters slds-wrap slds-m-bottom_medium">
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                        <lightning-input
+                            label="Requirement / Rule ID"
+                            placeholder="e.g. ISO_9001 or leave blank for all"
+                            value={filter.requirementKey}
+                            onchange={handleRequirementChange}>
+                        </lightning-input>
+                    </div>
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-3">
+                        <lightning-checkbox-group
+                            name="eventTypes"
+                            label="Event Types (leave all unchecked for all)"
+                            options={eventTypeOptions}
+                            value={filter.eventTypes}
+                            onchange={handleEventTypeChange}>
+                        </lightning-checkbox-group>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="slds-grid slds-gutters">
+                    <div class="slds-col">
+                        <lightning-button
+                            variant="brand"
+                            label="Generate Report"
+                            icon-name="utility:search"
+                            onclick={handleGenerate}
+                            disabled={isLoading}>
+                        </lightning-button>
+                        <lightning-button
+                            class="slds-m-left_x-small"
+                            label="Clear"
+                            onclick={handleClear}
+                            disabled={isLoading}>
+                        </lightning-button>
+                    </div>
+                </div>
+            </div>
+        </lightning-card>
+
+        <!-- ── Loading ── -->
+        <template if:true={isLoading}>
+            <div class="slds-align_absolute-center slds-p-around_medium">
+                <lightning-spinner alternative-text="Generating report…" size="medium"></lightning-spinner>
+            </div>
+        </template>
+
+        <!-- ── Error ── -->
+        <template if:true={error}>
+            <div class="slds-m-around_small">
+                <div class="slds-notify slds-notify_alert slds-alert_error" role="alert">
+                    <span class="slds-assistive-text">error</span>
+                    <lightning-icon icon-name="utility:error" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                    {error}
+                </div>
+            </div>
+        </template>
+
+        <!-- ── Results ── -->
+        <template if:true={reportGenerated}>
+            <lightning-card class="slds-m-around_small">
+
+                <!-- Card title + export actions -->
+                <div slot="title" class="results-title-row">
+                    <span class="slds-text-heading_small">
+                        <strong>{totalCount}</strong> record<template if:true={pluralRecords}>s</template>
+                    </span>
+                    <span class="slds-text-body_small slds-m-left_small generated-at">
+                        Generated {generatedAt}
+                    </span>
+                </div>
+
+                <div slot="actions">
+                    <lightning-button-group>
+                        <lightning-button
+                            label="Export CSV"
+                            icon-name="utility:download"
+                            onclick={handleExportCSV}
+                            disabled={isLoading}>
+                        </lightning-button>
+                        <lightning-button
+                            label="Export PDF"
+                            icon-name="utility:pdf_ext"
+                            onclick={handleExportPDF}>
+                        </lightning-button>
+                    </lightning-button-group>
+                </div>
+
+                <!-- Table -->
+                <template if:true={hasRows}>
+                    <lightning-datatable
+                        key-field="id"
+                        data={rows}
+                        columns={columns}
+                        hide-checkbox-column
+                        resize-column-disabled
+                        wrap-text-max-lines="3"
+                        onrowaction={handleRowAction}>
+                    </lightning-datatable>
+                    <div class="slds-p-around_small slds-text-body_small slds-text-color_weak">
+                        Showing up to 2,000 most recent records. Use date and supplier filters to narrow results.
+                    </div>
+                </template>
+
+                <!-- Empty state -->
+                <template if:false={hasRows}>
+                    <div class="slds-illustration slds-illustration_small slds-p-around_large">
+                        <div class="slds-illustration__figure">
+                            <lightning-icon icon-name="utility:search" size="large" class="slds-illustration__svg"></lightning-icon>
+                        </div>
+                        <div class="slds-illustration__body slds-m-top_medium">
+                            <p class="slds-text-body_regular">No audit records match your filters.</p>
+                            <p class="slds-text-body_small slds-text-color_weak">
+                                Try expanding the date range or removing filters.
+                            </p>
+                        </div>
+                    </div>
+                </template>
+
+            </lightning-card>
+        </template>
+
+        <!-- ── Detail modal ── -->
+        <template if:true={showDetailModal}>
+            <section role="dialog" tabindex="-1" aria-modal="true"
+                     class="slds-modal slds-fade-in-open slds-modal_medium">
+                <div class="slds-modal__container">
+                    <header class="slds-modal__header">
+                        <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse"
+                                title="Close" onclick={closeDetailModal}>
+                            <lightning-icon icon-name="utility:close" size="small"
+                                            alternative-text="Close"></lightning-icon>
+                        </button>
+                        <h2 class="slds-modal__title slds-hyphenate">
+                            {selectedRow.auditId} &mdash; {selectedRow.eventType}
+                        </h2>
+                        <p class="slds-m-top_xx-small slds-text-body_small" style="color:#e8f0fc">
+                            {selectedRow.eventDateTime} &bull; {selectedRow.actorName}
+                        </p>
+                    </header>
+
+                    <div class="slds-modal__content slds-p-around_medium">
+
+                        <!-- Meta grid -->
+                        <dl class="detail-dl slds-m-bottom_medium">
+                            <div class="detail-dl__item">
+                                <dt>Event Type</dt>
+                                <dd>{selectedRow.eventType}</dd>
+                            </div>
+                            <div class="detail-dl__item">
+                                <dt>Actor</dt>
+                                <dd>{selectedRow.actorName} ({selectedRow.actorType})</dd>
+                            </div>
+                            <div class="detail-dl__item">
+                                <dt>Related Object</dt>
+                                <dd>{selectedRow.relatedObject}</dd>
+                            </div>
+                            <div class="detail-dl__item">
+                                <dt>Related Record ID</dt>
+                                <dd>{selectedRow.relatedRecordId}</dd>
+                            </div>
+                            <template if:true={selectedRow.aiModelName}>
+                                <div class="detail-dl__item">
+                                    <dt>AI Model</dt>
+                                    <dd>{selectedRow.aiModelName}</dd>
+                                </div>
+                                <div class="detail-dl__item">
+                                    <dt>AI Confidence</dt>
+                                    <dd>{selectedRow.aiConfidence}%</dd>
+                                </div>
+                            </template>
+                            <div class="detail-dl__item">
+                                <dt>Source System</dt>
+                                <dd>{selectedRow.sourceSystem}</dd>
+                            </div>
+                        </dl>
+
+                        <!-- Original value (before override) -->
+                        <template if:true={selectedRow.originalValue}>
+                            <div class="detail-section slds-m-bottom_small">
+                                <p class="detail-section__label">Original Value (before override)</p>
+                                <pre class="detail-pre">{selectedRow.originalValue}</pre>
+                            </div>
+                        </template>
+
+                        <!-- New / current value -->
+                        <template if:true={selectedRow.newValue}>
+                            <div class="detail-section slds-m-bottom_small">
+                                <p class="detail-section__label">Details / New Value</p>
+                                <pre class="detail-pre">{selectedRow.newValue}</pre>
+                            </div>
+                        </template>
+
+                        <!-- Reason -->
+                        <template if:true={selectedRow.reason}>
+                            <div class="detail-section">
+                                <p class="detail-section__label">Reason / Notes</p>
+                                <pre class="detail-pre">{selectedRow.reason}</pre>
+                            </div>
+                        </template>
+
+                    </div>
+
+                    <footer class="slds-modal__footer">
+                        <lightning-button label="Close" onclick={closeDetailModal}></lightning-button>
+                    </footer>
+                </div>
+            </section>
+            <div class="slds-backdrop slds-backdrop_open"></div>
+        </template>
+
+    </div>
+</template>

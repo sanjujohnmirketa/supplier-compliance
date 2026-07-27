@@ -1,0 +1,49 @@
+# fly.toml — Supplier Compliance Engine on Fly.io
+#
+# Deploy:        flyctl deploy
+# One-off shell: flyctl ssh console
+# Secrets:       flyctl secrets set KEY=value   (never commit keys here)
+#
+# The app name is set by `flyctl launch`; adjust if you rename the app.
+
+app = "supplier-compliance-engine"
+primary_region = "iad"   # change to the region nearest you/your users
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  # Non-secret runtime config. Secrets (DB_URL, OPENAI_API_KEY, INBOUND_TOKEN)
+  # are set with `flyctl secrets set` and injected as env vars at runtime.
+  EMBED_BACKEND   = "local"
+  LLM_PROVIDER    = "openai"
+  LLM_MODEL       = "gpt-4o"
+  LLM_TEMPERATURE = "0"
+  LLM_TIMEOUT     = "45"
+  POLICIES_DIR    = "policies"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  # Scale to zero when idle, wake on the next request → ~$0 when nobody's using it.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 20
+    hard_limit = 25
+
+# Readiness gate — Fly routes traffic only once /ready returns 200.
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "20s"
+  method = "get"
+  path = "/ready"
+
+[[vm]]
+  # torch + baked MiniLM/spaCy models need headroom. Bump memory if /ready is slow.
+  size = "shared-cpu-1x"
+  memory = "1gb"

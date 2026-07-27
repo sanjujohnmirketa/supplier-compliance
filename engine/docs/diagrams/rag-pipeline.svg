@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 620" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="a1" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect width="1400" height="620" fill="#F8FAFC"/>
+  <text x="30" y="34" font-size="20" font-weight="700" fill="#0F172A">RAG Mechanism — Vectorization, Storage &amp; Deterministic Retrieval</text>
+  <text x="30" y="55" font-size="12" fill="#64748B">Policy corpus &#8594; embeddings &#8594; pgvector &#8594; hybrid retrieval &#8594; deterministic risk/checklist logic</text>
+
+  <!-- Stage 1: Ingest -->
+  <rect x="30" y="90" width="230" height="160" rx="8" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.3"/>
+  <text x="145" y="112" font-size="12" font-weight="700" fill="#1E293B" text-anchor="middle">1 · Policy Corpus</text>
+  <text x="145" y="132" font-size="9.5" fill="#64748B" text-anchor="middle">policies/*.md</text>
+  <rect x="45" y="142" width="200" height="18" rx="3" fill="#F1F5F9"/><text x="145" y="155" font-size="8.3" text-anchor="middle" fill="#334155">MDS-PROC-GEN-001_general.md</text>
+  <rect x="45" y="164" width="200" height="18" rx="3" fill="#F1F5F9"/><text x="145" y="177" font-size="8.3" text-anchor="middle" fill="#334155">MDS-STD-FIN-006_finance.md</text>
+  <rect x="45" y="186" width="200" height="18" rx="3" fill="#F1F5F9"/><text x="145" y="199" font-size="8.3" text-anchor="middle" fill="#334155">std_conflict_minerals...md</text>
+  <rect x="45" y="208" width="200" height="18" rx="3" fill="#F1F5F9"/><text x="145" y="221" font-size="8.3" text-anchor="middle" fill="#334155">+ 6 more domain policies</text>
+  <text x="145" y="240" font-size="8.5" fill="#94A3B8" text-anchor="middle" font-style="italic">chunked by clause</text>
+
+  <path d="M260,170 L305,170" stroke="#475569" stroke-width="1.5" marker-end="url(#a1)"/>
+
+  <!-- Stage 2: Embed -->
+  <rect x="305" y="90" width="230" height="160" rx="8" fill="#EEF2FF" stroke="#C7D2FE" stroke-width="1.3"/>
+  <text x="420" y="112" font-size="12" font-weight="700" fill="#3730A3" text-anchor="middle">2 · Vectorize</text>
+  <text x="420" y="140" font-size="10.5" font-weight="700" fill="#1E293B" text-anchor="middle">all-MiniLM-L6-v2</text>
+  <text x="420" y="158" font-size="9" fill="#4338CA" text-anchor="middle">sentence-transformers</text>
+  <text x="420" y="176" font-size="9" fill="#4338CA" text-anchor="middle">384-dim dense vector</text>
+  <text x="420" y="194" font-size="9" fill="#4338CA" text-anchor="middle">local — no external API key</text>
+  <text x="420" y="212" font-size="9" fill="#4338CA" text-anchor="middle">offline-capable (air-gapped)</text>
+  <text x="420" y="232" font-size="8.3" fill="#94A3B8" text-anchor="middle" font-style="italic">EMBED_BACKEND=local</text>
+
+  <path d="M535,170 L580,170" stroke="#475569" stroke-width="1.5" marker-end="url(#a1)"/>
+
+  <!-- Stage 3: Store -->
+  <rect x="580" y="90" width="260" height="160" rx="8" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1.3"/>
+  <text x="710" y="112" font-size="12" font-weight="700" fill="#166534" text-anchor="middle">3 · Store — Postgres + pgvector</text>
+  <rect x="595" y="126" width="230" height="108" rx="5" fill="#FFFFFF" stroke="#86EFAC"/>
+  <text x="710" y="144" font-size="10.5" font-weight="700" text-anchor="middle" fill="#166534" font-family="monospace">policy_chunk</text>
+  <text x="605" y="160" font-size="8.7" fill="#334155" font-family="monospace">source, version, clause_id,</text>
+  <text x="605" y="173" font-size="8.7" fill="#334155" font-family="monospace">domain, text,</text>
+  <text x="605" y="186" font-size="8.7" fill="#166534" font-family="monospace" font-weight="700">embedding vector(384)</text>
+  <text x="605" y="203" font-size="8.3" fill="#64748B" font-family="monospace">tsvector column (sparse index)</text>
+  <text x="605" y="218" font-size="8.3" fill="#64748B" font-family="monospace">cosine distance op: &lt;=&gt;</text>
+
+  <path d="M840,170 L885,170" stroke="#475569" stroke-width="1.5" marker-end="url(#a1)"/>
+
+  <!-- Stage 4: Hybrid retrieval -->
+  <rect x="885" y="90" width="280" height="330" rx="8" fill="#FEF3C7" stroke="#FDE68A" stroke-width="1.3"/>
+  <text x="1025" y="112" font-size="12" font-weight="700" fill="#92400E" text-anchor="middle">4 · Hybrid Retrieval (query time)</text>
+
+  <rect x="900" y="126" width="120" height="60" rx="5" fill="#FFFFFF" stroke="#FCD34D"/>
+  <text x="960" y="145" font-size="9.5" font-weight="700" text-anchor="middle" fill="#1E293B">Dense</text>
+  <text x="960" y="160" font-size="8" fill="#64748B" text-anchor="middle">pgvector cosine</text>
+  <text x="960" y="172" font-size="8" fill="#64748B" text-anchor="middle">floor: 0.32</text>
+
+  <rect x="1030" y="126" width="120" height="60" rx="5" fill="#FFFFFF" stroke="#FCD34D"/>
+  <text x="1090" y="145" font-size="9.5" font-weight="700" text-anchor="middle" fill="#1E293B">Sparse</text>
+  <text x="1090" y="160" font-size="8" fill="#64748B" text-anchor="middle">tsvector BM25-style</text>
+  <text x="1090" y="172" font-size="8" fill="#64748B" text-anchor="middle">keyword match</text>
+
+  <path d="M960,186 L960,206 L1025,206" stroke="#92400E" stroke-width="1.3"/>
+  <path d="M1090,186 L1090,206 L1025,206" stroke="#92400E" stroke-width="1.3"/>
+  <path d="M1025,206 L1025,220" stroke="#92400E" stroke-width="1.3" marker-end="url(#a1)"/>
+
+  <rect x="915" y="222" width="220" height="46" rx="5" fill="#FFFFFF" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="1025" y="242" font-size="10" font-weight="700" text-anchor="middle" fill="#92400E">RRF Fusion (k = 60)</text>
+  <text x="1025" y="258" font-size="8.3" fill="#64748B" text-anchor="middle">Reciprocal Rank Fusion — combines both</text>
+
+  <path d="M1025,268 L1025,285" stroke="#92400E" stroke-width="1.3" marker-end="url(#a1)"/>
+
+  <rect x="900" y="287" width="250" height="55" rx="5" fill="#FFFFFF" stroke="#FCD34D"/>
+  <text x="1025" y="307" font-size="9.5" font-weight="700" text-anchor="middle" fill="#1E293B">Deterministic industry rules</text>
+  <text x="1025" y="323" font-size="8" fill="#64748B" text-anchor="middle">INDUSTRY_DOMAINS + BASELINE_DOMAINS</text>
+  <text x="1025" y="335" font-size="8" fill="#64748B" text-anchor="middle">guarantee core domains per industry</text>
+
+  <path d="M1025,342 L1025,358" stroke="#92400E" stroke-width="1.3" marker-end="url(#a1)"/>
+
+  <rect x="900" y="360" width="250" height="50" rx="5" fill="#FDF2C4" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="1025" y="380" font-size="9.5" font-weight="700" text-anchor="middle" fill="#92400E">Ranked clauses + selected domains</text>
+  <text x="1025" y="396" font-size="8" fill="#78350F" text-anchor="middle">→ risk tier · checklist · citations</text>
+
+  <path d="M1165,170 L1210,170" stroke="#475569" stroke-width="1.5" marker-end="url(#a1)"/>
+
+  <!-- Stage 5: LLM narrates -->
+  <rect x="1210" y="90" width="160" height="160" rx="8" fill="#FAF5FF" stroke="#E9D5FF" stroke-width="1.3"/>
+  <text x="1290" y="112" font-size="11.5" font-weight="700" fill="#7C3AED" text-anchor="middle">5 · LLM</text>
+  <text x="1290" y="135" font-size="9" fill="#5B21B6" text-anchor="middle">grounded ONLY in</text>
+  <text x="1290" y="150" font-size="9" fill="#5B21B6" text-anchor="middle">retrieved clauses</text>
+  <text x="1290" y="175" font-size="9.5" font-weight="700" fill="#1E293B" text-anchor="middle">Narrates the</text>
+  <text x="1290" y="190" font-size="9.5" font-weight="700" fill="#1E293B" text-anchor="middle">"why", cites</text>
+  <text x="1290" y="205" font-size="9.5" font-weight="700" fill="#1E293B" text-anchor="middle">clause ids</text>
+  <text x="1290" y="228" font-size="8.3" fill="#94A3B8" text-anchor="middle" font-style="italic">never decides</text>
+  <text x="1290" y="240" font-size="8.3" fill="#94A3B8" text-anchor="middle" font-style="italic">verdict/tier</text>
+
+  <!-- Determinism explanation strip -->
+  <rect x="30" y="440" width="1340" height="150" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.3"/>
+  <text x="55" y="466" font-size="13" font-weight="700" fill="#0F172A">How outcomes stay deterministic (the same supplier profile always yields the same risk tier &amp; checklist)</text>
+
+  <rect x="55" y="480" width="410" height="90" rx="6" fill="#F0FDF4" stroke="#BBF7D0"/>
+  <text x="70" y="500" font-size="10.5" font-weight="700" fill="#166534">1. Math decides, not the LLM</text>
+  <text x="70" y="516" font-size="9" fill="#334155">Risk tier &amp; checklist computed by explicit Python</text>
+  <text x="70" y="530" font-size="9" fill="#334155">rules over structured supplier attributes (spend,</text>
+  <text x="70" y="544" font-size="9" fill="#334155">commodity, engagement) — not the LLM's judgment.</text>
+  <text x="70" y="560" font-size="9" fill="#334155">LLM only narrates the "why" from cited clauses.</text>
+
+  <rect x="485" y="480" width="410" height="90" rx="6" fill="#EFF6FF" stroke="#BFDBFE"/>
+  <text x="500" y="500" font-size="10.5" font-weight="700" fill="#1D4ED8">2. Relevance floor + baseline guarantee</text>
+  <text x="500" y="516" font-size="9" fill="#334155">Dense floor (0.32) filters noise from real matches.</text>
+  <text x="500" y="530" font-size="9" fill="#334155">BASELINE_DOMAINS always included (finance, general)</text>
+  <text x="500" y="544" font-size="9" fill="#334155">so a sparse policy match never drops mandatory</text>
+  <text x="500" y="560" font-size="9" fill="#334155">docs. Industry rules guarantee per-industry domains.</text>
+
+  <rect x="915" y="480" width="440" height="90" rx="6" fill="#FEF3C7" stroke="#FDE68A"/>
+  <text x="930" y="500" font-size="10.5" font-weight="700" fill="#92400E">3. Governed, fail-safe LLM calls</text>
+  <text x="930" y="516" font-size="9" fill="#334155">PII tokenized, prompt-injection scanned before any</text>
+  <text x="930" y="530" font-size="9" fill="#334155">LLM call. Provider error / low confidence → degrades</text>
+  <text x="930" y="544" font-size="9" fill="#334155">to "Needs Analyst" — never silently reads as Compliant.</text>
+  <text x="930" y="560" font-size="9" fill="#334155">A flag can never auto-clear (safety override).</text>
+</svg>

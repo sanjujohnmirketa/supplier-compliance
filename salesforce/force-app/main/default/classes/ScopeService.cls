@@ -29,6 +29,10 @@ public with sharing class ScopeService {
         public String       country;
         public String       commodity;
         public List<String> jurisdictions = new List<String>();
+        // Optional — sharpens domain selection beyond industry/engagement text.
+        // Blank behaves exactly as before these fields existed.
+        public String       materialType;
+        public String       serviceCategory;
     }
 
     // ── Response (mirrors app.py /scope output) ───────────────────────────────

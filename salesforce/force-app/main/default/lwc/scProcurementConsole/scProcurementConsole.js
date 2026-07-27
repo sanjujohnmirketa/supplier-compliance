@@ -89,6 +89,25 @@ const INDUSTRIES = [
     'Other'
 ];
 
+// Optional fine-tuning inputs (procurement feedback: sharpen which compliance
+// domains apply beyond what Industry + Engagement Type alone imply). Values
+// MUST match app.py's MATERIAL_TYPE_DOMAINS / SERVICE_CATEGORY_DOMAINS keys
+// exactly — engine does an exact-match lookup, not substring/fuzzy.
+const MATERIAL_TYPES = [
+    'conflict-mineral-bearing metals',
+    'chemicals',
+    'electronics components',
+    'packaging',
+    'textiles'
+];
+
+const SERVICE_CATEGORIES = [
+    'logistics',
+    'it/software',
+    'professional services',
+    'manufacturing-subcontract'
+];
+
 export default class ScProcurementConsole extends NavigationMixin(LightningElement) {
 
     logoUrl = complianceLogo;
@@ -180,6 +199,10 @@ export default class ScProcurementConsole extends NavigationMixin(LightningEleme
     @track intakeRequestedBy = '';
     @track intakeEmail = '';
     @track emailError = '';
+    // Optional fine-tuning — sharpens which compliance domains /scope selects
+    // beyond Industry + Engagement Type alone. Blank is a valid, complete state.
+    @track intakeMaterialType = '';
+    @track intakeServiceCategory = '';
 
     get countryOptions() {
         return COUNTRIES.map((value) => ({ value, selected: value === this.intakeCountry }));
@@ -195,6 +218,17 @@ export default class ScProcurementConsole extends NavigationMixin(LightningEleme
         return INDUSTRIES.map((value) => ({ value, selected: value === this.intakeIndustry }));
     }
     get isIndustryEmpty() { return !this.intakeIndustry; }
+
+    get materialTypeOptions() {
+        return [{ value: '', label: 'None / not applicable', selected: !this.intakeMaterialType }].concat(
+            MATERIAL_TYPES.map((value) => ({ value, label: value, selected: value === this.intakeMaterialType }))
+        );
+    }
+    get serviceCategoryOptions() {
+        return [{ value: '', label: 'None / not applicable', selected: !this.intakeServiceCategory }].concat(
+            SERVICE_CATEGORIES.map((value) => ({ value, label: value, selected: value === this.intakeServiceCategory }))
+        );
+    }
 
     get hasEmailError() { return !!this.emailError; }
 
@@ -268,7 +302,8 @@ export default class ScProcurementConsole extends NavigationMixin(LightningEleme
     // A signature of the inputs that drive the checklist — change → stale.
     _intakeSignature() {
         return [this.intakeName, this.intakeCountry, this.intakeIndustry,
-                this.intakeEngagement, this.intakeSpend].join('|');
+                this.intakeEngagement, this.intakeSpend,
+                this.intakeMaterialType, this.intakeServiceCategory].join('|');
     }
     _markChecklistStaleIfChanged() {
         if (this.checklistVisible && this._intakeSignature() !== this._checklistSignature) {
@@ -298,13 +333,15 @@ export default class ScProcurementConsole extends NavigationMixin(LightningEleme
         }
         this.checklistLoading = true;
         generateChecklist({
-            supplierName:   this.intakeName,
-            country:        this.intakeCountry,
-            industry:       this.intakeIndustry,
-            engagementType: this.intakeEngagement,
-            annualSpend:    this.intakeSpend,
-            requestedBy:    this._userName || 'Procurement',
-            supplierEmail:  this.intakeEmail
+            supplierName:    this.intakeName,
+            country:         this.intakeCountry,
+            industry:        this.intakeIndustry,
+            engagementType:  this.intakeEngagement,
+            annualSpend:     this.intakeSpend,
+            requestedBy:     this._userName || 'Procurement',
+            supplierEmail:   this.intakeEmail,
+            materialType:    this.intakeMaterialType || null,
+            serviceCategory: this.intakeServiceCategory || null
         })
             .then(res => {
                 this.checklistLoading = false;
@@ -424,6 +461,8 @@ export default class ScProcurementConsole extends NavigationMixin(LightningEleme
         this.intakeEngagement = '';
         this.intakeSpend = '';
         this.intakeEmail = '';
+        this.intakeMaterialType = '';
+        this.intakeServiceCategory = '';
         this.emailError = '';
         this.checklistItems = [];
         this.checklistDomains = [];

@@ -4,6 +4,7 @@ common.py — shared helpers used by both ingest_policies.py and app.py.
 Keeps the two scripts consistent: same DB connection, same embedding model,
 same chunking + domain logic. Import from here instead of duplicating code.
 """
+import io
 import os
 import re
 import hashlib
@@ -121,3 +122,76 @@ def chunk_text(text, max_chars=1000, overlap=150):
     if current:
         chunks.append(current)
     return chunks
+
+
+# ---------------------------------------------------------------------------
+# Policy file parsing + ingestion — shared by ingest_policies.py (SFTP bulk
+# pull) and app.py's /policy/ingest (single-file HTTP upload from Salesforce)
+# so both paths chunk/embed/store identically.
+# ---------------------------------------------------------------------------
+def parse_file(name, data):
+    """Turn raw file bytes into plain text, based on file extension."""
+    ext = name.lower().rsplit(".", 1)[-1] if "." in name else ""
+
+    if ext in ("txt", "md"):
+        return data.decode("utf-8", errors="ignore")
+
+    if ext == "pdf":
+        import pdfplumber
+        text_parts = []
+        with pdfplumber.open(io.BytesIO(data)) as pdf:
+            for page in pdf.pages:
+                text_parts.append(page.extract_text() or "")
+        return "\n\n".join(text_parts)
+
+    if ext == "docx":
+        import docx
+        document = docx.Document(io.BytesIO(data))
+        return "\n\n".join(p.text for p in document.paragraphs)
+
+    return ""
+
+
+POLICY_CHUNK_UPSERT_SQL = """
+INSERT INTO policy_chunk
+    (source, version, clause_id, domain, chunk_index, text, content_hash, embedding)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s::vector)
+ON CONFLICT (source, version, clause_id, chunk_index)
+DO UPDATE SET
+    text         = EXCLUDED.text,
+    domain       = EXCLUDED.domain,
+    content_hash = EXCLUDED.content_hash,
+    embedding    = EXCLUDED.embedding;
+"""
+
+
+def ingest_policy_document(name, data, version, domain_override=None):
+    """Parse, chunk, embed, and upsert one policy document into policy_chunk.
+
+    Shared by the SFTP bulk script and the single-file HTTP endpoint so a
+    policy uploaded through Salesforce is indistinguishable, once ingested,
+    from one ingested via the older SFTP path.
+
+    Returns {"domain": ..., "chunkCount": ..., "version": ...} or raises
+    ValueError if the file has no extractable text.
+    """
+    text = parse_file(name, data)
+    if not text.strip():
+        raise ValueError(f"No extractable text in '{name}' (unsupported or empty file)")
+
+    chunks = chunk_text(text)
+    domain = domain_override or guess_domain(text)
+    embeddings = embed_texts(chunks)
+
+    conn = get_conn()
+    cur = conn.cursor()
+    for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+        cur.execute(POLICY_CHUNK_UPSERT_SQL, (
+            name, version, f"{name}#chunk{i}", domain, i,
+            chunk, content_hash(chunk), to_pgvector(emb),
+        ))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {"domain": domain, "chunkCount": len(chunks), "version": version}

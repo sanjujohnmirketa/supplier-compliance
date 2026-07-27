@@ -123,6 +123,24 @@
                                     </template>
                                 </div>
                             </div>
+                            <div class="vc-form-grid3">
+                                <div class="vc-field">
+                                    <div class="vc-flabel">Raw material type <span class="vc-field-optional">(optional — sharpens checklist)</span></div>
+                                    <select class="vc-finput vc-fselect" data-field="intakeMaterialType" onchange={handleIntakeField}>
+                                        <template for:each={materialTypeOptions} for:item="opt">
+                                            <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div class="vc-field">
+                                    <div class="vc-flabel">Service category <span class="vc-field-optional">(optional — sharpens checklist)</span></div>
+                                    <select class="vc-finput vc-fselect" data-field="intakeServiceCategory" onchange={handleIntakeField}>
+                                        <template for:each={serviceCategoryOptions} for:item="opt">
+                                            <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
+                                        </template>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Applicable risk domains — AI auto-detected (placeholder, empty) -->

@@ -1,0 +1,85 @@
+<template>
+    <div class="vc-page">
+        <div class="vc-page-header">
+            <h1 class="vc-page-title">Company Policy Documents</h1>
+            <p class="vc-page-sub">Upload company compliance policies. Each document is parsed,
+                chunked, and embedded into the RAG policy corpus used for checklist generation
+                and compliance checks.</p>
+        </div>
+
+        <!-- Upload panel -->
+        <div class="vc-card">
+            <div class="vc-card-title">Upload a policy document</div>
+            <div class="vc-upload-row">
+                <div class="vc-field">
+                    <div class="vc-flabel">Domain</div>
+                    <select class="vc-finput vc-fselect" onchange={handleDomainChange}>
+                        <template for:each={domainOptions} for:item="opt">
+                            <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
+                        </template>
+                    </select>
+                </div>
+                <div class="vc-field">
+                    <div class="vc-flabel">&nbsp;</div>
+                    <template if:false={hasPendingRecord}>
+                        <button class="vc-btn-pri" onclick={handleStartUpload} disabled={isUploadDisabled}>
+                            {uploadLabel}
+                        </button>
+                    </template>
+                    <template if:true={hasPendingRecord}>
+                        <lightning-file-upload
+                            label="Choose file"
+                            name="policyFile"
+                            accept={acceptedFormats}
+                            record-id={pendingRecordId}
+                            multiple="false"
+                            onuploadfinished={handleUploadFinished}>
+                        </lightning-file-upload>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- List panel -->
+        <div class="vc-card">
+            <div class="vc-card-title">Uploaded policy documents</div>
+            <template if:true={loadingList}>
+                <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+            </template>
+            <template if:false={hasRows}>
+                <div class="vc-empty">No policy documents uploaded yet.</div>
+            </template>
+            <template if:true={hasRows}>
+                <table class="vc-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Domain</th>
+                            <th>Status</th>
+                            <th>Chunks</th>
+                            <th>Corpus Version</th>
+                            <th>Uploaded</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={rows} for:item="row">
+                            <tr key={row.id}>
+                                <td>{row.name}</td>
+                                <td>{row.domainLabel}</td>
+                                <td><span class={row.badgeClass}>{row.status}</span></td>
+                                <td>{row.chunkCountLabel}</td>
+                                <td>{row.corpusVersion}</td>
+                                <td><lightning-formatted-date-time value={row.createdDate}></lightning-formatted-date-time></td>
+                            </tr>
+                            <template if:true={row.failureReason}>
+                                <tr key={row.id}>
+                                    <td colspan="6" class="vc-row-error">{row.failureReason}</td>
+                                </tr>
+                            </template>
+                        </template>
+                    </tbody>
+                </table>
+            </template>
+        </div>
+    </div>
+</template>

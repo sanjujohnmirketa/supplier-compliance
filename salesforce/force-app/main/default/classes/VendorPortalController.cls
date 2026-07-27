@@ -36,6 +36,12 @@ public without sharing class VendorPortalController {
     // before committing the supplier. Throws the exact backend error so the LWC
     // can surface it (e.g. local service down / tunnel stale).
     // ═════════════════════════════════════════════════════════════════════════
+    // materialType / serviceCategory are optional fine-tuning inputs (requested by
+    // procurement: sharpen domain selection beyond the industry/engagement blend
+    // alone). NOT an overload — LWC's generated Apex proxy binds to one method
+    // name and overload resolution by parameter count is unreliable there,  so the
+    // existing signature is extended directly. Pass null/blank from any existing
+    // caller for identical behavior to before these params existed.
     @AuraEnabled
     public static ChecklistResult generateChecklist(
         String supplierName,
@@ -44,7 +50,9 @@ public without sharing class VendorPortalController {
         String engagementType,
         String annualSpend,
         String requestedBy,
-        String supplierEmail
+        String supplierEmail,
+        String materialType,
+        String serviceCategory
     ) {
         // All intake fields are required — partial context makes /scope retrieval
         // non-deterministic (different docs/domains for sparse input).
@@ -75,6 +83,10 @@ public without sharing class VendorPortalController {
         req.commodity  = buildScopeContext(industry, engagementType, annualSpend);
         req.jurisdictions = new List<String>();
         if (String.isNotBlank(country)) req.jurisdictions.add(country);
+        // Optional fine-tuning inputs — additive, sharpen the same query rather
+        // than replacing the industry/engagement blend above.
+        if (String.isNotBlank(materialType))     req.materialType    = materialType;
+        if (String.isNotBlank(serviceCategory))  req.serviceCategory = serviceCategory;
 
         ScopeService.ScopeResponse resp;
         try {

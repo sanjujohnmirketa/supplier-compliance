@@ -45,7 +45,7 @@ export default class ScPolicyUpload extends LightningElement {
     get isUploadDisabled() { return this.uploading; }
 
     connectedCallback() {
-        this._loadRows();
+        this._loadRows(true);
     }
 
     disconnectedCallback() {
@@ -92,12 +92,17 @@ export default class ScPolicyUpload extends LightningElement {
             this._toast('error', 'Ingestion failed to start',
                 (err && err.body && err.body.message) || 'Unknown error.');
         }
-        this._loadRows();
+        this._loadRows(true);
         this._startPollIfNeeded();
     }
 
-    async _loadRows() {
-        this.loadingList = true;
+    // showSpinner is only true for the INITIAL load (or a manual reload after an
+    // upload) — background poll ticks (every POLL_MS while a row is still
+    // Processing) must NOT flip loadingList, or the spinner flickers above the
+    // already-rendered table every few seconds even though nothing meaningful
+    // changed yet (the "buffering" symptom).
+    async _loadRows(showSpinner) {
+        if (showSpinner) this.loadingList = true;
         try {
             const data = await getPolicyDocuments();
             this.rows = (data || []).map((r) => ({
@@ -110,7 +115,7 @@ export default class ScPolicyUpload extends LightningElement {
             this._toast('error', 'Could not load policy documents',
                 (err && err.body && err.body.message) || 'Unknown error.');
         } finally {
-            this.loadingList = false;
+            if (showSpinner) this.loadingList = false;
         }
         this._startPollIfNeeded();
     }
@@ -119,7 +124,7 @@ export default class ScPolicyUpload extends LightningElement {
         const stillProcessing = this.rows.some((r) => r.status === 'Processing' || r.status === 'Uploaded');
         if (stillProcessing && !this._pollHandle) {
             // eslint-disable-next-line @lwc/lwc/no-async-operation
-            this._pollHandle = setInterval(() => this._loadRows(), POLL_MS);
+            this._pollHandle = setInterval(() => this._loadRows(false), POLL_MS);
         } else if (!stillProcessing) {
             this._stopPoll();
         }

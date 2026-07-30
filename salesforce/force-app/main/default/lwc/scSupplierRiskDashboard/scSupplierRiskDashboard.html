@@ -48,11 +48,23 @@
                 <div class="hero-meta">
                     <h2 class="supplier-name">{snapshot.supplierName}</h2>
                     <div class="badge-row">
-                        <span class={riskTierBadge}>{riskTierLabel} risk</span>
+                        <span class={riskTierBadge}>{riskTierLabel} risk (own)</span>
+                        <template if:true={hasSubTierSuppliers}>
+                            <span class={cascadingRiskBadge}>{cascadingRiskLabel} cascading</span>
+                        </template>
                         <template if:true={snapshot.complianceStatus}>
                             <span class="status-pill">{snapshot.complianceStatus}</span>
                         </template>
                     </div>
+
+                    <template if:true={hasSubTierSuppliers}>
+                        <p class="cascading-risk-note">
+                            {subTierSupplierCountLabel}
+                            <template if:true={isCascadingWorseThanOwn}>
+                                &middot; elevated by: {cascadingRiskSourceLabel}
+                            </template>
+                        </p>
+                    </template>
 
                     <dl class="classification">
                         <template if:true={snapshot.industry}>

@@ -1,5 +1,5 @@
 <template>
-    <div class="cd-row">
+    <div class={rowClass}>
 
         <!-- 1 · Risk score ring -->
         <div class="cd-card">
@@ -31,21 +31,42 @@
             <div class={progressStatusClass}>{progressStatus}</div>
         </div>
 
-        <!-- 3 · Score trend -->
+        <!-- 3 · Compliance status -->
         <div class="cd-card">
-            <div class="cd-card-lbl">Score trend</div>
-            <template if:true={hasTrend}>
-                <div class="cd-trend">
-                    <template for:each={trendBars} for:item="b">
-                        <div key={b.id} class={b.barClass} style={b.style}></div>
-                    </template>
-                </div>
-                <div class="cd-card-sub">Last 5 evaluations</div>
-            </template>
-            <template if:false={hasTrend}>
-                <div class="cd-trend-empty">No evaluations yet</div>
-            </template>
+            <div class="cd-card-lbl">Compliance status</div>
+            <div class="cd-status-inner">
+                <span class={complianceStatusClass}>{complianceStatusLabel}</span>
+            </div>
+            <div class="cd-card-sub">{complianceStatusDetail}</div>
         </div>
+
+        <!-- 4 · Checklist progress (Supplier Portal only, opt-in via showChecklistProgress) -->
+        <template if:true={showChecklistProgress}>
+            <div class="cd-card">
+                <div class="cd-card-lbl">Checklist progress</div>
+                <template if:true={hasChecklistProgressLabel}>
+                    <div class="cd-progress-meta">{checklistProgressLabel}</div>
+                </template>
+            </div>
+        </template>
+
+        <!-- 5 · Score trend (Procurement-only, opt-in via showTrend) -->
+        <template if:true={showTrend}>
+            <div class="cd-card">
+                <div class="cd-card-lbl">Score trend</div>
+                <template if:true={hasTrend}>
+                    <div class="cd-trend">
+                        <template for:each={trendBars} for:item="b">
+                            <div key={b.id} class={b.barClass} style={b.style}></div>
+                        </template>
+                    </div>
+                    <div class="cd-card-sub">How the risk score has moved across recent evaluations</div>
+                </template>
+                <template if:false={hasTrend}>
+                    <div class="cd-trend-empty">No evaluations yet</div>
+                </template>
+            </div>
+        </template>
 
     </div>
 </template>

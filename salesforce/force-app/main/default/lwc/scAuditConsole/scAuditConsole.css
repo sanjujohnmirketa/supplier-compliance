@@ -1,0 +1,75 @@
+.audit-wrap {
+    min-height: 200px;
+}
+
+/* Page header */
+.page-header {
+    background: linear-gradient(135deg, #032d60 0%, #0176d3 100%);
+    color: #fff;
+    border-radius: 6px;
+    margin: 8px 8px 0 8px;
+}
+.page-header h1 { color: #fff; }
+.page-header p  { color: rgba(255,255,255,0.85); }
+
+/* Results title row */
+.results-title-row {
+    display: flex;
+    align-items: baseline;
+}
+.generated-at {
+    color: #77878b;
+    font-size: 0.8rem;
+}
+
+/* Detail description list */
+.detail-dl {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+.detail-dl__item dt {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #77878b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 2px;
+}
+.detail-dl__item dd {
+    font-size: 0.875rem;
+    color: #1c2533;
+    margin: 0;
+    word-break: break-all;
+}
+
+/* Detail sections (pre-formatted value blocks) */
+.detail-section__label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #77878b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 4px;
+}
+.detail-pre {
+    background: #f3f7fd;
+    border: 1px solid #c9d9f0;
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.78rem;
+    color: #1c2533;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+/* Error alert */
+.slds-alert_error {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    border-radius: 4px;
+}

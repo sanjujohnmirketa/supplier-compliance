@@ -103,10 +103,13 @@ export default class ScAnalystConsole extends NavigationMixin(LightningElement) 
     }
 
     // ── A1 — analyst queue (existing supplier requests) ───────────────────────
+    // Defaults to MY assigned cases only — showTeamQueue opts into the full
+    // shared view (every analyst's cases) for supervisors who need oversight.
     _wiredQueue;
     @track queueRows = [];
     @track queueLoading = true;
-    @wire(getAnalystQueue)
+    @track showTeamQueue = false;
+    @wire(getAnalystQueue, { showTeamQueue: '$showTeamQueue' })
     wiredQueue(result) {
         this._wiredQueue = result;
         this.queueLoading = false;
@@ -114,20 +117,26 @@ export default class ScAnalystConsole extends NavigationMixin(LightningElement) 
             this.queueRows = result.data.map(r => ({
                 id: r.id,
                 name: r.name,
-                industry: r.industry || '—',
-                aiTier: r.aiTier || '—',
+                industry: r.industry || 'Not set',
+                aiTier: r.aiTier || 'Not scored yet',
                 tierClass: 'vc-badge ' + this._tierBadge(r.aiTier),
                 flags: r.flags,
                 flagLabel: r.flags > 0 ? `${r.flags} flagged` : 'none',
                 docLabel: `${r.validatedCount}/${r.docCount} validated`,
-                stageLabel: r.stageLabel || r.status || '—',
-                requestedBy: r.requestedBy || '—',
-                ageLabel: r.ageLabel || '—'
+                stageLabel: r.stageLabel || r.status || 'Not set',
+                requestedBy: r.requestedBy || 'Not set',
+                ageLabel: r.ageLabel || 'Just now',
+                isMine: r.isMine === true,
+                stageAgeLabel: r.stageAgeLabel || 'Just now',
+                isStalled: r.isStalled === true
             }));
         }
     }
     get hasQueueRows() { return this.queueRows.length > 0; }
     refreshQueue() { if (this._wiredQueue) refreshApex(this._wiredQueue); }
+
+    get teamQueueToggleLabel() { return this.showTeamQueue ? 'Showing: Team queue' : 'Showing: My queue'; }
+    handleToggleTeamQueue() { this.showTeamQueue = !this.showTeamQueue; }
 
     _tierBadge(tier) {
         const t = (tier || '').toLowerCase();
@@ -143,6 +152,20 @@ export default class ScAnalystConsole extends NavigationMixin(LightningElement) 
     @track caseIndustry = '';
     @track caseCountry = '';
     @track caseTier = '';
+    @track caseRiskScore = 0;
+    // Handoff context — who assigned this case, when, and why. Previously the
+    // analyst opened a case with zero indication anything happened before them.
+    @track assignedByName = '';
+    @track assignedDateLabel = '';
+    @track assignmentReason = '';
+    @track hasAssignment = false;
+    get handoffBannerText() {
+        if (!this.hasAssignment) return '';
+        const who = this.assignedByName || 'Procurement';
+        const when = this.assignedDateLabel ? ` · ${this.assignedDateLabel}` : '';
+        const why = this.assignmentReason ? ` — "${this.assignmentReason}"` : '';
+        return `Assigned by ${who}${when}${why}`;
+    }
     handleOpenCase(event) {
         this._caseId = event.currentTarget.dataset.id;
         this._loadCase();
@@ -169,12 +192,17 @@ export default class ScAnalystConsole extends NavigationMixin(LightningElement) 
             .then(c => {
                 this.caseLoading = false;
                 this.caseName = c.name || '';
-                this.caseIndustry = c.industry || '—';
-                this.caseCountry = c.country || '—';
+                this.caseIndustry = c.industry || 'Not set';
+                this.caseCountry = c.country || 'Not set';
                 this.caseTier = c.aiTier || '';
+                this.caseRiskScore = (c.riskScore == null) ? 0 : Math.round(c.riskScore);
                 this.confirmedTier = this._uiTier(c.aiTier);
                 this.caseDocCount = c.docCount;
                 this.caseValidatedCount = c.validatedCount;
+                this.assignedByName = c.assignedByName || '';
+                this.assignedDateLabel = c.assignedDateLabel || '';
+                this.assignmentReason = c.assignmentReason || '';
+                this.hasAssignment = c.hasAssignment === true;
                 this.docs = (c.docs || []).map(d => this._mapDoc(d));
             })
             .catch(err => {
@@ -182,35 +210,73 @@ export default class ScAnalystConsole extends NavigationMixin(LightningElement) 
                 this._toast('Load failed', (err && err.body && err.body.message) || 'Could not load the case.');
             });
     }
+    // Parse the AI summary blob (DocAssessQueueable.buildDetail) into a
+    // headline plus two flat lists — checksPassed (✓, green) and concerns
+    // (⚠, red) — matching the reference design's "What checks out" / "What's
+    // wrong" split. Deterministic gates (expiry/coverage/TIN/scope) and
+    // registry results are already folded into these same two lists
+    // server-side, by their own pass/fail — same format as Procurement
+    // Console and the Supplier Portal, no separate clause-checks list.
     _parseSummary(reason) {
-        const out = { headline: '', facts: [], concerns: [], checks: [] };
+        const out = { headline: '', checksPassed: [], concerns: [] };
         if (!reason) return out;
         const lines = String(reason).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-        let inChecks = false;
         for (const line of lines) {
-            if (/^clause checks:/i.test(line)) { inChecks = true; continue; }
-            if (/^concerns:/i.test(line))       { inChecks = false; continue; }
-            if (/^policy citations:/i.test(line)) { inChecks = false; continue; }
-            if (line.startsWith('•')) { out.facts.push(line.replace(/^•\s*/, '')); continue; }
+            if (/^checks passed:$/i.test(line)) continue;
+            if (/^concerns:$/i.test(line)) continue;
+            if (/^policy citations:/i.test(line)) break;
+            if (line.startsWith('✓')) { out.checksPassed.push(line.replace(/^✓\s*/, '')); continue; }
             if (line.startsWith('⚠')) { out.concerns.push(line.replace(/^⚠\s*/, '')); continue; }
-            if (inChecks) {
-                const pass = /\[pass\]/i.test(line);
-                const text = line.replace(/\[(pass|fail)\]\s*/gi, '').trim();
-                out.checks.push({ pass, text });
-                continue;
-            }
-            if (!out.headline) {
-                out.headline = line.replace(/^\[[^\]]*\]\s*/, '');
-            } else if (/^(extracted|expiry|registry)\b/i.test(line)) {
-                out.facts.push(line.replace(/^[A-Za-z]+\s·\s*/, ''));
-            }
+            if (!out.headline) out.headline = line;
         }
         return out;
     }
 
+    // The AI's own verdict, normalized — drives what "Confirm"/"Override" actually
+    // mean so the buttons never present a generic, ambiguous "Approve/Reject" that
+    // could be mistaken for approving the FILE rather than judging its compliance.
+    // Canonical form is 'Non-Compliant' (hyphenated) — matches Status__c's actual
+    // picklist label and what DocAssessQueueable.mapVerdict writes; this used to
+    // normalize to 'Non_Compliant' (underscore) instead, which meant every
+    // analyst Confirm/Override wrote a DIFFERENT spelling into Status__c than the
+    // AI's own initial verdict did — RiskScoreService's aggregate query (and
+    // ComplianceEmailController's renewal-email branch) match one spelling, not
+    // both, so whichever wrote the "wrong" one silently vanished from anything
+    // reading Status__c downstream.
+    _normalizedAiStatus(aiStatus) {
+        const s = (aiStatus || '').toLowerCase();
+        if (s === 'compliant') return 'Compliant';
+        if (s === 'non-compliant' || s === 'non_compliant') return 'Non-Compliant';
+        return null; // Needs Analyst / Pending / At Risk / unknown — no confirmable AI verdict yet
+    }
+
     _mapDoc(d) {
-        const decision = this._docDecisions[d.assessmentId] || (d.validated ? 'approved' : '');
+        const decision = this._docDecisions[d.assessmentId] || (d.validated ? d.finalStatus : '');
         const parsed = this._parseSummary(d.aiSummary);
+        const aiVerdict = this._normalizedAiStatus(d.aiStatus);
+        // Labels name the actual compliance call being made, not a generic
+        // approve/reject of "the document" — this is what was confusing before:
+        // clicking a bare "Approve" looked like accepting the upload, not agreeing
+        // the AI's Compliant/Non-Compliant verdict should stand.
+        const confirmLabel = aiVerdict === 'Non-Compliant' ? 'Confirm Non-Compliant'
+                            : aiVerdict === 'Compliant'     ? 'Confirm Compliant'
+                            : 'Mark Compliant';
+        const overrideLabel = aiVerdict === 'Non-Compliant' ? 'Override — Mark Compliant'
+                             : aiVerdict === 'Compliant'     ? 'Override — Mark Non-Compliant'
+                             : 'Mark Non-Compliant';
+        const confirmStatus  = aiVerdict || 'Compliant';
+        const overrideStatus = aiVerdict === 'Non-Compliant' ? 'Compliant' : 'Non-Compliant';
+        const isConfirmed = decision === confirmStatus && !!decision;
+        const isOverridden = decision === overrideStatus && !!decision;
+        // decision (approved/rejected/pending) is the FINAL compliance call, not
+        // which button was clicked — an override to Compliant must count as
+        // 'approved' for the risk score / verdict tally, exactly like a straight
+        // confirm of an AI Compliant verdict would. This is the actual bug fix:
+        // previously "approved" meant only "the analyst clicked Approve," with no
+        // regard for whether the document was ever judged compliant at all.
+        const finalDecision = decision === 'Compliant' ? 'approved'
+                             : decision === 'Non-Compliant' ? 'rejected'
+                             : '';
         return {
             assessmentId: d.assessmentId,
             label: d.requirementLabel,
@@ -219,41 +285,84 @@ export default class ScAnalystConsole extends NavigationMixin(LightningElement) 
             aiSummary: d.aiSummary || 'No AI summary recorded.',
             headline: parsed.headline,
             hasHeadline: !!parsed.headline,
-            facts: parsed.facts.map((t, j) => ({ id: 'af_' + d.assessmentId + '_' + j, text: t })),
-            hasFacts: parsed.facts.length > 0,
-            checks: parsed.checks.map((k, j) => ({
-                id: 'ck_' + d.assessmentId + '_' + j,
-                pass: k.pass, text: k.text,
-                chkClass: 'vc-chkline ' + (k.pass ? 'pass' : 'fail')
-            })),
-            hasChecks: parsed.checks.length > 0,
+            checksPassed: parsed.checksPassed.map((t, j) => ({ id: 'cp_' + d.assessmentId + '_' + j, text: t })),
+            hasChecksPassed: parsed.checksPassed.length > 0,
             concerns: parsed.concerns.map((t, j) => ({ id: 'cn_' + d.assessmentId + '_' + j, text: t })),
             hasConcerns: parsed.concerns.length > 0,
             comment: d.analystComment || '',
             validated: d.validated,
-            confidence: d.confidence || '—',
-            decision: decision,
+            confidence: d.confidence || 'Not scored yet',
+            decision: finalDecision,
+            wasOverridden: isOverridden,
+            finalStatus: decision || '',
+            confirmStatus, overrideStatus,
             badgeClass: 'vc-badge ' + (d.badgeClass || 'neutral'),
             rowClass: d.validated ? 'vc-doc-card validated' : 'vc-doc-card',
             listItemClass: this._selectedDocId === d.assessmentId ? 'vc-a2-list-item selected' : 'vc-a2-list-item',
-            approveBtnClass: decision === 'approved' ? 'vc-btn-sec vc-btn-sm vc-doc-approved' : 'vc-btn-pri vc-btn-sm',
-            approveLabel: decision === 'approved' ? '✓ Approved' : 'Approve',
-            rejectBtnClass: decision === 'rejected' ? 'vc-btn-sec vc-btn-sm vc-doc-rejected' : 'vc-btn-sec vc-btn-sm',
-            rejectLabel: decision === 'rejected' ? '✗ Rejected' : 'Reject',
+            approveBtnClass: isConfirmed ? 'vc-btn-sec vc-btn-sm vc-doc-approved' : 'vc-btn-pri vc-btn-sm',
+            approveLabel: isConfirmed ? '✓ ' + confirmLabel : confirmLabel,
+            rejectBtnClass: isOverridden ? 'vc-btn-sec vc-btn-sm vc-doc-rejected' : 'vc-btn-sec vc-btn-sm',
+            rejectLabel: isOverridden ? '✓ ' + overrideLabel : overrideLabel,
             versionId: d.versionId,
             contentDocumentId: d.contentDocumentId,
             docUrl: d.docUrl,
             fileType: (d.fileType || '').toLowerCase(),
             docTitle: d.docTitle,
             hasDoc: !!(d.versionId || d.docUrl),
-            isPreviewing: this._previewDocId === d.assessmentId
+            isPreviewing: this._previewDocId === d.assessmentId,
+            // Provenance: who last reviewed THIS specific document, and when —
+            // was captured server-side but never shown before.
+            evaluatedByName: d.evaluatedByName || '',
+            evaluatedDateLabel: d.evaluatedDateLabel || '',
+            hasEvaluation: !!(d.evaluatedByName && d.evaluatedDateLabel),
+            // Procurement Deferred this document — their note is Analyst-only
+            // (never shown to the supplier, see getSupplierSnapshot's
+            // isSupplierRunningUser filter) and only makes sense to surface
+            // once the case actually reaches an Analyst, which is exactly
+            // when this console is being used.
+            isDeferred: d.isDeferred === true,
+            deferralReason: d.procurementDecisionReason || '',
+            // Supplier's own upload path is never locked post-handoff (see
+            // VendorPortalController.assertNotHandedOff) — this flags a
+            // document that landed AFTER handoff, so it doesn't blend in
+            // silently with what Procurement actually reviewed before
+            // assigning the case.
+            isNewSinceHandoff: d.isNewSinceHandoff === true,
+            // Multi-document-per-requirement — see VendorPortalController.
+            // AssessmentSummary.documentLinks. Each linked file's own
+            // AI summary is parsed the same way the single-document
+            // aiSummary above is, so it renders as its own What-checks-out/
+            // What's-wrong pair distinct from the requirement-level rollup.
+            documentLinks: (d.documentLinks || []).map((dl, j) => this._buildLinkedDocRow(dl, j)),
+            hasDocumentLinks: (d.documentLinks || []).length > 0
+        };
+    }
+
+    _buildLinkedDocRow(dl, j) {
+        const parsed = this._parseSummary(dl.reason);
+        return {
+            id: 'dl' + j,
+            docLinkId: dl.docLinkId,
+            documentTitle: dl.documentTitle || 'Untitled document',
+            status: dl.status || 'Pending',
+            badgeClass: 'vc-badge ' + (dl.badgeClass || 'neutral'),
+            confidenceLabel: dl.aiConfidence == null ? '' : dl.aiConfidence + '% confidence',
+            hasConfidence: dl.aiConfidence != null,
+            headline: parsed.headline,
+            hasHeadline: !!parsed.headline,
+            checksPassed: parsed.checksPassed.map((t, k) => ({ id: 'dlcp' + j + '_' + k, text: t })),
+            hasChecksPassed: parsed.checksPassed.length > 0,
+            concerns: parsed.concerns.map((t, k) => ({ id: 'dlco' + j + '_' + k, text: t })),
+            hasConcerns: parsed.concerns.length > 0,
+            contentDocumentId: dl.contentDocumentId || '',
+            hasFile: !!dl.versionId
         };
     }
     get hasDocs() { return this.docs.length > 0; }
     get hasSelectedDoc() { return !!this._selectedDocId; }
     get selectedDoc() { return this.docs.find(d => d.assessmentId === this._selectedDocId) || null; }
     get validationProgress() {
-        return this.caseDocCount ? `${this.caseValidatedCount}/${this.caseDocCount} documents validated` : '—';
+        return this.caseDocCount ? `${this.caseValidatedCount}/${this.caseDocCount} documents validated` : 'No documents yet';
     }
 
     handleSelectDoc(event) {
@@ -270,44 +379,63 @@ export default class ScAnalystConsole extends NavigationMixin(LightningElement) 
         }));
     }
 
+    // Confirms the AI's verdict as final (or, when the AI had no confirmable
+    // verdict yet — Needs Analyst/Pending — records the analyst's own first
+    // compliance call as Compliant). Either way this writes Status__c, so the
+    // risk score only ever credits a document once it's genuinely Compliant —
+    // not merely "an analyst clicked a button."
     handleApproveDoc() {
         const doc = this.selectedDoc;
         if (!doc) return;
         const id = doc.assessmentId;
-        this._docDecisions[id] = 'approved';
-        saveDocValidation({ assessmentId: id, comment: doc.comment, validated: true })
+        const finalStatus = doc.confirmStatus;
+        this._docDecisions[id] = finalStatus;
+        saveDocValidation({ assessmentId: id, comment: doc.comment, validated: true, finalStatus })
             .then(() => {
-                this.docs = this.docs.map(d => d.assessmentId !== id ? d : {
-                    ...d, validated: true, decision: 'approved',
-                    rowClass: 'vc-doc-card validated',
-                    approveBtnClass: 'vc-btn-sec vc-btn-sm vc-doc-approved',
-                    approveLabel: '✓ Approved',
-                    rejectBtnClass: 'vc-btn-sec vc-btn-sm',
-                    rejectLabel: 'Reject'
-                });
+                const idx = this.docs.findIndex(d => d.assessmentId === id);
+                if (idx === -1) return;
+                this.docs = [
+                    ...this.docs.slice(0, idx),
+                    this._mapDoc({ assessmentId: id, requirementLabel: doc.label, aiStatus: doc.aiStatus,
+                        severity: doc.severity, aiSummary: doc.aiSummary, analystComment: doc.comment,
+                        validated: true, confidence: doc.confidence,
+                        badgeClass: doc.badgeClass.replace('vc-badge ', ''),
+                        versionId: doc.versionId, contentDocumentId: doc.contentDocumentId,
+                        docUrl: doc.docUrl, fileType: doc.fileType, docTitle: doc.docTitle }),
+                    ...this.docs.slice(idx + 1)
+                ];
                 this.caseValidatedCount = this.docs.filter(d => d.validated).length;
-                this._toast('Approved', `${doc.label} approved.`);
+                this._toast(finalStatus === 'Compliant' ? 'Confirmed compliant' : 'Confirmed non-compliant',
+                    `${doc.label}: ${finalStatus === 'Compliant' ? 'Compliant' : 'Non-Compliant'} confirmed as final.`);
             })
             .catch(err => this._toast('Save failed', (err && err.body && err.body.message) || 'Could not save.'));
     }
 
+    // Overrides the AI's verdict — the analyst's judgment always wins over the
+    // AI's. Writes the OPPOSITE of whatever the AI/current status says.
     handleRejectDoc() {
         const doc = this.selectedDoc;
         if (!doc) return;
         const id = doc.assessmentId;
-        this._docDecisions[id] = 'rejected';
-        saveDocValidation({ assessmentId: id, comment: doc.comment, validated: false })
+        const finalStatus = doc.overrideStatus;
+        this._docDecisions[id] = finalStatus;
+        saveDocValidation({ assessmentId: id, comment: doc.comment, validated: true, finalStatus })
             .then(() => {
-                this.docs = this.docs.map(d => d.assessmentId !== id ? d : {
-                    ...d, validated: false, decision: 'rejected',
-                    rowClass: 'vc-doc-card',
-                    approveBtnClass: 'vc-btn-pri vc-btn-sm',
-                    approveLabel: 'Approve',
-                    rejectBtnClass: 'vc-btn-sec vc-btn-sm vc-doc-rejected',
-                    rejectLabel: '✗ Rejected'
-                });
+                const idx = this.docs.findIndex(d => d.assessmentId === id);
+                if (idx === -1) return;
+                this.docs = [
+                    ...this.docs.slice(0, idx),
+                    this._mapDoc({ assessmentId: id, requirementLabel: doc.label, aiStatus: doc.aiStatus,
+                        severity: doc.severity, aiSummary: doc.aiSummary, analystComment: doc.comment,
+                        validated: true, confidence: doc.confidence,
+                        badgeClass: doc.badgeClass.replace('vc-badge ', ''),
+                        versionId: doc.versionId, contentDocumentId: doc.contentDocumentId,
+                        docUrl: doc.docUrl, fileType: doc.fileType, docTitle: doc.docTitle }),
+                    ...this.docs.slice(idx + 1)
+                ];
                 this.caseValidatedCount = this.docs.filter(d => d.validated).length;
-                this._toast('Rejected', `${doc.label} rejected.`);
+                this._toast('Overridden',
+                    `${doc.label}: overridden to ${finalStatus === 'Compliant' ? 'Compliant' : 'Non-Compliant'}.`);
             })
             .catch(err => this._toast('Save failed', (err && err.body && err.body.message) || 'Could not save.'));
     }
@@ -376,6 +504,36 @@ export default class ScAnalystConsole extends NavigationMixin(LightningElement) 
         }
     }
 
+    // Multi-document-per-requirement: preview for a specific linked document
+    // (Compliance_Document_Link__c), keyed by contentDocumentId directly
+    // rather than assessmentId — a requirement's document list holds several
+    // files, each independently previewable.
+    handlePreviewLinkedDoc(event) {
+        const contentDocumentId = event.currentTarget.dataset.id;
+        if (!contentDocumentId) return;
+        if (this._previewDocId === contentDocumentId && this._previewUrl) {
+            this.closePreview();
+            return;
+        }
+        this._previewIsImage = false;
+        this._previewTitle = 'Document preview';
+        this._previewDocId = contentDocumentId;
+        this._iframeLoading = true;
+        generatePublicDocumentUrl({ contentDocumentId })
+            .then(publicUrl => {
+                this._publicDocumentUrl = publicUrl;
+                this._showIframe = true;
+                this._iframeLoading = false;
+                // eslint-disable-next-line @lwc/lwc/no-async-operation
+                setTimeout(() => this._setupIframe(), 0);
+            })
+            .catch(err => {
+                this._iframeLoading = false;
+                console.warn('Failed to generate public URL for linked document:', err);
+                this._toast('Preview failed', 'Could not load this document.');
+            });
+    }
+
     _setupIframe() {
         if (!this._publicDocumentUrl || !this._showIframe) return;
         const container = this.template.querySelector('[data-preview-container]');
@@ -420,7 +578,7 @@ export default class ScAnalystConsole extends NavigationMixin(LightningElement) 
         const doc = this.docs.find(d => d.assessmentId === id);
         if (!doc) return;
         const newValidated = !doc.validated;
-        saveDocValidation({ assessmentId: id, comment: doc.comment, validated: newValidated })
+        saveDocValidation({ assessmentId: id, comment: doc.comment, validated: newValidated, finalStatus: null })
             .then(() => {
                 doc.validated = newValidated;
                 // re-map for class/label changes + recount
@@ -628,13 +786,13 @@ export default class ScAnalystConsole extends NavigationMixin(LightningElement) 
         return 'I can answer that from this case — ask me anything specific.';
     }
     _answerFields() {
-        const rows = (this.docs || []).filter(a => a.hasFacts || a.hasChecks);
+        const rows = (this.docs || []).filter(a => a.hasChecksPassed || a.hasConcerns);
         if (!rows.length) return 'No documents have been AI-assessed yet.';
         const out = ['Here are the **key fields** the AI extracted, by document:'];
         rows.forEach(a => {
             out.push(`\n**${a.label}** — ${a.aiStatus}`);
-            (a.facts || []).forEach(f => out.push(`- ${f.text}`));
-            (a.checks || []).forEach(k => out.push(`- ${k.pass ? '✓' : '✕'} ${k.text}`));
+            (a.checksPassed || []).forEach(c => out.push(`- ✓ ${c.text}`));
+            (a.concerns || []).forEach(c => out.push(`- ⚠ ${c.text}`));
         });
         return out.join('\n');
     }
@@ -652,7 +810,6 @@ export default class ScAnalystConsole extends NavigationMixin(LightningElement) 
         bad.forEach(a => {
             out.push(`\n**${a.label}**`);
             (a.concerns || []).forEach(c => out.push(`- ⚠ ${c.text}`));
-            (a.checks || []).filter(k => !k.pass).forEach(k => out.push(`- ✕ ${k.text}`));
         });
         return out.join('\n');
     }

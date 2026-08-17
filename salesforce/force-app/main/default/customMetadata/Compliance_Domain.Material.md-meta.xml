@@ -3,6 +3,22 @@
     <label>Material &amp; Environment</label>
     <protected>false</protected>
     <values>
+        <field>Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Default_Selected__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">REACH, RoHS, IMDS and Safety Data Sheets. GHS-format and banned-CAS scanning; IMDS submission checked before PPAP sign-off.</value>
+    </values>
+    <values>
+        <field>Display_Order__c</field>
+        <value xsi:type="xsd:double">50.0</value>
+    </values>
+    <values>
         <field>Domain_Key__c</field>
         <value xsi:type="xsd:string">material</value>
     </values>
@@ -11,23 +27,7 @@
         <value xsi:type="xsd:string">Material &amp; Environment</value>
     </values>
     <values>
-        <field>Description__c</field>
-        <value xsi:type="xsd:string">REACH, RoHS, IMDS and Safety Data Sheets. GHS-format and banned-CAS scanning; IMDS submission checked before PPAP sign-off.</value>
-    </values>
-    <values>
         <field>Verifier_Authority__c</field>
         <value xsi:type="xsd:string">IMDS / EPA</value>
-    </values>
-    <values>
-        <field>Default_Selected__c</field>
-        <value xsi:type="xsd:boolean">false</value>
-    </values>
-    <values>
-        <field>Display_Order__c</field>
-        <value xsi:type="xsd:double">50.0</value>
-    </values>
-    <values>
-        <field>Active__c</field>
-        <value xsi:type="xsd:boolean">true</value>
     </values>
 </CustomMetadata>

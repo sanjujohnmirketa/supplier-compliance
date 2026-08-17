@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Checklist_Seeded_By_Caller__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>True when the caller that created/updated this Account (VendorPortalController.upsertSupplier, SubSupplierController.inviteSubSupplier) already persisted a deliberately-curated Compliance_Assessment__c checklist — e.g. after Procurement removed suggested documents on the P1 preview, or a sub-supplier&apos;s copied subset of the parent&apos;s requirements. When true, ScopeCalloutQueueable (fired from AccountTriggerHandler.afterInsert/afterUpdate) skips re-deriving and upserting a fresh full checklist from /scope, so it doesn&apos;t silently resurrect removed documents or duplicate the curated set. Risk tier/score/domains are still computed and written either way. Set in the SAME insert/update DML that creates the record, since AccountTriggerHandler reads it synchronously during that DML — setting it afterward is too late.</description>
+    <label>Checklist Seeded By Caller</label>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>Checkbox</type>
+</CustomField>

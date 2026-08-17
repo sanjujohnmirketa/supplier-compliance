@@ -29,6 +29,7 @@ public without sharing class DocAssessQueueable
     private final String supplierId;
     private final String documentTypeHint;
     private final String assessmentId;   // the checklist row to update (may be null)
+    private final Id     docLinkId;      // multi-doc: this file's own Compliance_Document_Link__c row (may be null)
 
     public DocAssessQueueable(
         String complianceDocId,
@@ -49,11 +50,29 @@ public without sharing class DocAssessQueueable
         String documentTypeHint,
         String assessmentId
     ) {
+        this(complianceDocId, contentVersionId, supplierId, documentTypeHint, assessmentId, null);
+    }
+
+    // Multi-document-per-requirement: docLinkId is this file's own
+    // Compliance_Document_Link__c row (set when DocumentProcessingController.
+    // linkDocumentToCompliance ran in 'add' mode) — when present, the verdict
+    // is written to THAT junction row instead of directly onto the
+    // requirement, and the requirement's own Status__c is then recomputed as
+    // a worst-wins rollup over ALL its linked documents, not just this one.
+    public DocAssessQueueable(
+        String complianceDocId,
+        String contentVersionId,
+        String supplierId,
+        String documentTypeHint,
+        String assessmentId,
+        Id docLinkId
+    ) {
         this.complianceDocId  = complianceDocId;
         this.contentVersionId = contentVersionId;
         this.supplierId       = supplierId;
         this.documentTypeHint = documentTypeHint;
         this.assessmentId     = assessmentId;
+        this.docLinkId        = docLinkId;
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -123,6 +142,33 @@ public without sharing class DocAssessQueueable
         } catch (Exception e) {
             System.debug(LoggingLevel.ERROR, '[DocAssessQueueable] /assess failed: ' + e.getMessage());
             IntegrationErrorLogger.log(supplierId, 'Document Assessment (/assess)', e.getMessage());
+            // Without this, a failed callout left the checklist row silently
+            // stuck on its upload-time placeholder ("Document received —
+            // pending AI extraction") forever — no error surfaced anywhere a
+            // procurement/analyst user would see it, and the supplier portal
+            // just showed no summary with no explanation. At Risk (the closest
+            // valid Status__c value to "needs human attention") makes the
+            // failure visible and actionable instead of silently invisible.
+            if (String.isNotBlank(assessmentId)) {
+                update new Compliance_Assessment__c(
+                    Id                     = assessmentId,
+                    Status__c              = 'At Risk',
+                    Severity__c            = 'Medium',
+                    Reason_Code__c         = 'Other',
+                    Reason_Detail__c       = 'AI assessment failed: ' + e.getMessage().left(200)
+                        + '. Please retry the upload or ask an analyst to review manually.',
+                    Evaluated_By__c        = 'Auto',
+                    Evaluation_DateTime__c = DateTime.now(),
+                    Compliance_Document__c = complianceDocId
+                );
+                if (String.isNotBlank(supplierId)) {
+                    try {
+                        RiskScoreService.recompute(supplierId);
+                    } catch (Exception recomputeEx) {
+                        System.debug(LoggingLevel.WARN, '[DocAssessQueueable] risk score recompute failed: ' + recomputeEx.getMessage());
+                    }
+                }
+            }
             return;
         }
 
@@ -133,7 +179,31 @@ public without sharing class DocAssessQueueable
         //    'Pending' at upload, UPDATE THAT ROW (so the document the user uploaded
         //    moves off 'Pending'). Otherwise fall back to a domain-keyed upsert so
         //    unexpected evidence is still captured.
-        if (String.isNotBlank(assessmentId)) {
+        Date expiryDate = parseExpiryDate(resp.keyDates);
+
+        if (docLinkId != null) {
+            // Multi-doc: this file's verdict belongs to ITS OWN junction row,
+            // not directly on the requirement — other documents already
+            // linked to the same requirement keep their own verdicts
+            // untouched. The requirement's Status__c is then recomputed as a
+            // worst-wins rollup over every linked document (see
+            // rollupRequirementStatus below), which is the only thing that
+            // should ever set Compliance_Assessment__c.Status__c once a
+            // requirement has multiple documents.
+            update new Compliance_Document_Link__c(
+                Id                     = docLinkId,
+                Status__c              = mapVerdict(resp.verdict),
+                Severity__c            = mapSeverity(resp.severity),
+                Reason_Code__c         = mapReasonCode(resp.verdict),
+                Reason_Detail__c       = buildDetail(resp),
+                AI_Confidence__c       = (resp.confidence == null) ? null : Decimal.valueOf(resp.confidence),
+                Valid_Until__c         = expiryDate,
+                Evaluation_DateTime__c = DateTime.now()
+            );
+            if (String.isNotBlank(assessmentId)) {
+                rollupRequirementStatus(assessmentId);
+            }
+        } else if (String.isNotBlank(assessmentId)) {
             update new Compliance_Assessment__c(
                 Id                     = assessmentId,
                 Status__c              = mapVerdict(resp.verdict),
@@ -141,6 +211,7 @@ public without sharing class DocAssessQueueable
                 Reason_Code__c         = mapReasonCode(resp.verdict),
                 Reason_Detail__c       = buildDetail(resp),
                 AI_Confidence__c       = (resp.confidence == null) ? null : Decimal.valueOf(resp.confidence),
+                Valid_Until__c         = expiryDate,
                 Evaluated_By__c        = 'Auto',
                 Evaluation_DateTime__c = DateTime.now(),
                 Compliance_Document__c = complianceDocId
@@ -157,6 +228,7 @@ public without sharing class DocAssessQueueable
                 Reason_Code__c         = mapReasonCode(resp.verdict),
                 Reason_Detail__c       = buildDetail(resp),
                 AI_Confidence__c       = (resp.confidence == null) ? null : Decimal.valueOf(resp.confidence),
+                Valid_Until__c         = expiryDate,
                 Evaluated_By__c        = 'Auto',
                 Evaluation_DateTime__c = DateTime.now(),
                 Compliance_Document__c = complianceDocId
@@ -177,6 +249,17 @@ public without sharing class DocAssessQueueable
             New_Value__c         = buildDetail(resp)
         ), false);
 
+        // 4b. Recompute the supplier's dashboard risk score so it reflects this
+        // finding — previously frozen at whatever the pre-document profile
+        // guess was, even after a real Non-Compliant document landed.
+        if (String.isNotBlank(supplierId)) {
+            try {
+                RiskScoreService.recompute(supplierId);
+            } catch (Exception e) {
+                System.debug(LoggingLevel.WARN, '[DocAssessQueueable] risk score recompute failed: ' + e.getMessage());
+            }
+        }
+
         // 5. Fire the risk-propagation platform event so the hierarchy traversal
         //    engine re-calculates all parent tiers in real time (PublishAfterCommit
         //    — fires after this transaction commits, ensuring the assessment DML
@@ -190,6 +273,92 @@ public without sharing class DocAssessQueueable
         //         Triggered_By__c = assessmentId   // traceability: which assessment row changed
         //     ));
         // }
+    }
+
+    // Parses r.keyDates.expiry_date (ISO "YYYY-MM-DD" string, per the
+    // document_intelligence.md prompt's rule 2) into a real Date so it can
+    // be persisted on Valid_Until__c. Previously this value only ever made
+    // it into the free-text summary ("Expiry · 2027-03-01 (412d left)") and
+    // was NEVER written to the actual Date field — meaning nothing could
+    // ever query "documents expiring soon" even though the AI was already
+    // extracting the date on every assessment.
+    @TestVisible
+    static Date parseExpiryDate(Map<String, Object> keyDates) {
+        if (keyDates == null) return null;
+        Object raw = keyDates.get('expiry_date');
+        if (raw == null) return null;
+        try {
+            return Date.valueOf(String.valueOf(raw));
+        } catch (Exception e) {
+            System.debug(LoggingLevel.WARN, '[DocAssessQueueable] unparseable expiry_date: ' + raw);
+            return null;
+        }
+    }
+
+    // Multi-document-per-requirement: rolls the requirement's OWN Status__c/
+    // Severity__c/Reason_Detail__c/Valid_Until__c up from ALL its linked
+    // Compliance_Document_Link__c rows — worst-wins, per the agreed design:
+    // any single Non-Compliant file makes the whole requirement Non-Compliant,
+    // since the requirement isn't genuinely satisfied until every piece of
+    // required evidence checks out. Precedence (worst to best): Non-Compliant
+    // > At Risk (uncertain/not yet human-judged) > Pending (nothing assessed
+    // yet) > Compliant (only when EVERY linked document is Compliant).
+    @TestVisible
+    static void rollupRequirementStatus(Id assessmentId) {
+        List<Compliance_Document_Link__c> links = [
+            SELECT Status__c, Severity__c, Reason_Detail__c, Reason_Code__c, Valid_Until__c
+            FROM   Compliance_Document_Link__c
+            WHERE  Compliance_Assessment__c = :assessmentId
+        ];
+        if (links.isEmpty()) return;
+
+        Compliance_Document_Link__c worst;
+        Date earliestExpiry;
+        Integer rank = -1;   // higher = worse; picks the single worst-ranked link to drive the rollup
+        for (Compliance_Document_Link__c l : links) {
+            Integer r = verdictRank(l.Status__c);
+            if (r > rank) {
+                rank = r;
+                worst = l;
+            }
+            if (l.Valid_Until__c != null && (earliestExpiry == null || l.Valid_Until__c < earliestExpiry)) {
+                earliestExpiry = l.Valid_Until__c;
+            }
+        }
+        if (worst == null) return;
+
+        String combinedDetail = buildCombinedDetail(links);
+        update new Compliance_Assessment__c(
+            Id               = assessmentId,
+            Status__c        = worst.Status__c,
+            Severity__c      = worst.Severity__c,
+            Reason_Code__c   = worst.Reason_Code__c,
+            Reason_Detail__c = combinedDetail,
+            Valid_Until__c   = earliestExpiry
+        );
+    }
+
+    // Non-Compliant is always worse than an uncertain/incomplete state, which
+    // is always worse than Compliant — matches RiskScoreService's own
+    // treatment of 'At Risk'/Pending as neutral-not-good rather than a
+    // confirmed finding either way.
+    private static Integer verdictRank(String status) {
+        if (status == 'Non-Compliant') return 3;
+        if (status == 'At Risk')       return 2;
+        if (status == 'Pending')       return 1;
+        return 0;   // Compliant
+    }
+
+    // One line per linked document, so a requirement with multiple files
+    // shows each one's own finding distinctly rather than collapsing them
+    // into a single blended summary — the UI's per-file display parses this
+    // the same way _parseSummary already does for a single document's detail.
+    private static String buildCombinedDetail(List<Compliance_Document_Link__c> links) {
+        List<String> lines = new List<String>();
+        for (Compliance_Document_Link__c l : links) {
+            lines.add((String.isBlank(l.Reason_Detail__c) ? 'No summary recorded.' : l.Reason_Detail__c));
+        }
+        return String.join(lines, '\n\n---\n\n').left(4000);
     }
 
     // ── Mapping helpers (values validated against the existing picklists) ──────
@@ -212,60 +381,68 @@ public without sharing class DocAssessQueueable
         String cites = (r.citations != null && !r.citations.isEmpty())
             ? String.join(r.citations, '; ') : 'none';
 
-        // ── STRUCTURED SUMMARY first: a field-grounded headline + key facts, so the
-        //    stored summary leads with specifics (not vague prose). No leading
-        //    "[verdict · conf%]" bracket — the Status badge already shows the verdict
-        //    and the confidence rides in its own line below for a clean read. ───────
-        String detail = '';
-        if (r.summary != null && r.summary.get('headline') != null) {
-            detail += String.valueOf(r.summary.get('headline'));
-            Object facts = r.summary.get('key_facts');
-            if (facts instanceof List<Object> && !((List<Object>) facts).isEmpty()) {
-                List<String> fl = new List<String>();
-                for (Object o : (List<Object>) facts) fl.add('• ' + String.valueOf(o));
-                detail += '\n' + String.join(fl, '\n');
+        // ── Two-section summary: everything that checks out vs. everything
+        // that's wrong, folded into ONE green list and ONE red list — no
+        // separate "clause checks" / "extracted fields" blocks. Deterministic
+        // gates (expiry, coverage, TIN, scope-exclusion — see
+        // app.py's _doc_intelligence) are exactly as trustworthy as the LLM's
+        // own checks_passed/concerns, so they're merged in by their own `pass`
+        // boolean rather than shown as a separate, differently-styled section
+        // the reader has to reconcile against the two above it. ─────────────
+        List<String> passed = new List<String>();
+        List<String> wrong  = new List<String>();
+
+        if (r.summary != null) {
+            Object checksPassed = r.summary.get('checks_passed');
+            if (checksPassed instanceof List<Object>) {
+                for (Object o : (List<Object>) checksPassed) passed.add(String.valueOf(o));
             }
             Object concerns = r.summary.get('concerns');
-            if (concerns instanceof List<Object> && !((List<Object>) concerns).isEmpty()) {
-                List<String> cl = new List<String>();
-                for (Object o : (List<Object>) concerns) cl.add('⚠ ' + String.valueOf(o));
-                detail += '\nConcerns:\n' + String.join(cl, '\n');
+            if (concerns instanceof List<Object>) {
+                for (Object o : (List<Object>) concerns) wrong.add(String.valueOf(o));
             }
-        } else {
-            detail += (r.reasons != null ? r.reasons : '');
         }
-        detail = detail.trim();
-
-        // ── Document Intelligence: extracted fields + expiry + clause checks ──
-        if (r.extractedFields != null && !r.extractedFields.isEmpty()) {
-            Map<String, Object> f = r.extractedFields;
-            List<String> bits = new List<String>();
-            if (f.get('issuer') != null)          bits.add('Issuer: ' + f.get('issuer'));
-            if (f.get('identifier') != null)      bits.add('ID: ' + f.get('identifier'));
-            if (f.get('coverage_amount') != null) bits.add('Coverage: ' + f.get('coverage_amount')
-                                                            + ' ' + String.valueOf(f.get('currency') != null ? f.get('currency') : ''));
-            if (!bits.isEmpty()) detail += '\n\nExtracted · ' + String.join(bits, ' · ');
-        }
-        if (r.keyDates != null && r.keyDates.get('expiry_date') != null) {
-            Boolean isExp = r.keyDates.get('is_expired') == true;
-            detail += '\nExpiry · ' + r.keyDates.get('expiry_date')
-                + (isExp ? ' (EXPIRED)' : ' (' + r.keyDates.get('days_to_expiry') + 'd left)');
-        }
-        if (r.clauseChecks != null && !r.clauseChecks.isEmpty()) {
-            List<String> lines = new List<String>();
+        if (r.clauseChecks != null) {
             for (Object o : r.clauseChecks) {
                 Map<String, Object> c = (Map<String, Object>) o;
-                lines.add((c.get('pass') == true ? '[PASS] ' : '[FAIL] ')
-                    + String.valueOf(c.get('requirement')));
+                String label = String.valueOf(c.get('requirement'));
+                String found = c.get('found') != null ? String.valueOf(c.get('found')) : null;
+                String line  = found != null ? (label + ' — ' + found) : label;
+                if (c.get('pass') == true) passed.add(line); else wrong.add(line);
             }
-            detail += '\n\nClause checks:\n' + String.join(lines, '\n');
         }
-
         if (r.registryValidation != null && r.registryValidation.get('status') != null) {
             Map<String, Object> rv = r.registryValidation;
-            detail += '\n\nRegistry · ' + String.valueOf(rv.get('authority'))
-                + ': ' + String.valueOf(rv.get('status')).toUpperCase()
-                + ' — ' + String.valueOf(rv.get('detail'));
+            String status = String.valueOf(rv.get('status')).toUpperCase();
+            String line = String.valueOf(rv.get('authority')) + ' registry: ' + status
+                + (rv.get('detail') != null ? ' — ' + String.valueOf(rv.get('detail')) : '');
+            // NOT_CONFIGURED/MANUAL_REQUIRED mean the check never ran — a
+            // procedural gap, not a finding. Routing these into the same
+            // red "what's wrong" list as a genuine failure (an expired
+            // license, a sanctions hit) reads as a compliance problem when
+            // it's actually "we don't have an automated check for this
+            // document type yet." Left out of both lists entirely — a
+            // human reviewer doesn't need this to judge the DOCUMENT, only
+            // to know registry screening itself is incomplete, which the
+            // Screening tab already surfaces separately.
+            if (status == 'PASS' || status == 'VERIFIED' || status == 'CLEAR') passed.add(line);
+            else if (status != 'NOT_CONFIGURED' && status != 'MANUAL_REQUIRED') wrong.add(line);
+        }
+
+        String headline = (r.summary != null && r.summary.get('headline') != null)
+            ? String.valueOf(r.summary.get('headline'))
+            : (r.reasons != null ? r.reasons : '');
+
+        String detail = headline.trim();
+        if (!passed.isEmpty()) {
+            List<String> pl = new List<String>();
+            for (String s : passed) pl.add('✓ ' + s);
+            detail += '\nChecks passed:\n' + String.join(pl, '\n');
+        }
+        if (!wrong.isEmpty()) {
+            List<String> wl = new List<String>();
+            for (String s : wrong) wl.add('⚠ ' + s);
+            detail += '\nConcerns:\n' + String.join(wl, '\n');
         }
 
         detail += '\n\nPolicy citations: ' + cites;

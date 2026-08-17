@@ -1,0 +1,179 @@
+<template>
+    <div class="vc-page-hdr">
+        <div>
+            <div class="vc-page-title">Compliance Intelligence Dashboard</div>
+            <div class="vc-page-sub">Org-wide compliance posture across all suppliers</div>
+        </div>
+        <button class="vc-btn vc-btn-sec" onclick={handleRefresh}>Refresh</button>
+    </div>
+
+    <!-- ═══════ Existing-supplier alerts ═══════ -->
+    <div class="widget full">
+        <div class="widget-hd">
+            <div>
+                <div class="widget-title">Existing supplier alerts</div>
+                <div class="widget-hint">Approved suppliers with a new compliance break or an expiring/expired document</div>
+            </div>
+            <template if:true={hasAlerts}>
+                <span class="vc-badge alert">{alertCount} flagged</span>
+            </template>
+        </div>
+        <template if:true={alertsLoading}>
+            <div class="widget-empty">Loading…</div>
+        </template>
+        <template if:false={alertsLoading}>
+            <template if:true={hasAlerts}>
+                <div class="alert-table-wrap">
+                    <table class="alert-table">
+                        <thead>
+                            <tr><th>Supplier</th><th>Reason</th><th>Risk tier</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            <template for:each={alertRows} for:item="row">
+                                <tr key={row.id}>
+                                    <td class="alert-row-name">{row.supplierName}</td>
+                                    <td>
+                                        <span class={row.reasonBadgeClass}>{row.reasonTypeLabel}</span>
+                                        <span class="alert-reason-text">{row.reason}</span>
+                                    </td>
+                                    <td><span class={row.riskTierBadgeClass}>{row.riskTier}</span></td>
+                                    <td class="alert-actions">
+                                        <button class="vc-btn vc-btn-pri" disabled={row.notifying}
+                                                data-account-id={row.accountId} data-assessment-id={row.assessmentId}
+                                                onclick={handleNotifySupplier}>
+                                            Notify supplier
+                                        </button>
+                                        <button class="vc-btn vc-btn-sec" data-id={row.accountId} onclick={handleOpenAccount}>
+                                            View supplier →
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </template>
+            <template if:false={hasAlerts}>
+                <div class="widget-empty">No active alerts — every approved supplier is currently in good standing.</div>
+            </template>
+        </template>
+    </div>
+
+    <div class="dash-grid">
+
+        <!-- ═══════ Compliance funnel ═══════ -->
+        <div class="widget">
+            <div class="widget-hd">
+                <div><div class="widget-title">Compliance Funnel</div><div class="widget-hint">Suppliers by onboarding stage</div></div>
+            </div>
+            <template if:true={hasFunnelData}>
+                <div class="funnel-stages">
+                    <template for:each={funnelRows} for:item="row">
+                        <div class="funnel-row" key={row.id}>
+                            <span class="funnel-label">{row.label}</span>
+                            <div class="funnel-bar-track">
+                                <div class="funnel-bar-fill" style={row.widthStyle}><span>{row.count}</span></div>
+                            </div>
+                            <span class="funnel-conv">{row.convLabel}</span>
+                        </div>
+                    </template>
+                </div>
+            </template>
+            <template if:false={hasFunnelData}>
+                <div class="widget-empty">No suppliers yet.</div>
+            </template>
+        </div>
+
+        <!-- ═══════ Score distribution ═══════ -->
+        <div class="widget">
+            <div class="widget-hd">
+                <div><div class="widget-title">Score Distribution</div><div class="widget-hint">Risk score across all assessed suppliers</div></div>
+            </div>
+            <template if:true={hasScoreData}>
+                <div class="dist-chart">
+                    <template for:each={scoreBuckets} for:item="b">
+                        <div class="dist-bar-col" key={b.id}>
+                            <div class={b.cls} style={b.heightStyle}></div>
+                        </div>
+                    </template>
+                </div>
+                <div class="dist-labels"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
+            </template>
+            <template if:false={hasScoreData}>
+                <div class="widget-empty">No suppliers with a computed risk score yet.</div>
+            </template>
+        </div>
+
+        <!-- ═══════ HITL priority queue ═══════ -->
+        <div class="widget">
+            <div class="widget-hd">
+                <div><div class="widget-title">HITL Priority Queue</div><div class="widget-hint">Flagged findings waiting on a human, oldest first</div></div>
+            </div>
+            <template if:true={hasHitlRows}>
+                <template for:each={hitlRows} for:item="row">
+                    <div class="hitl-row" key={row.id}>
+                        <span class={row.sevBarClass}></span>
+                        <span class="hitl-name">{row.supplierName} — {row.requirementLabel}</span>
+                        <span class="hitl-reason">{row.reasonLabel}</span>
+                        <span class="hitl-wait">{row.waitLabel}</span>
+                    </div>
+                </template>
+            </template>
+            <template if:false={hasHitlRows}>
+                <div class="widget-empty">Nothing waiting on a human right now.</div>
+            </template>
+        </div>
+
+        <!-- ═══════ Document discrepancy matrix ═══════ -->
+        <div class="widget">
+            <div class="widget-hd">
+                <div><div class="widget-title">Document Discrepancy Matrix</div><div class="widget-hint">Which clause checks are failing, and where</div></div>
+            </div>
+            <template if:true={hasDiscrepancyRows}>
+                <table class="matrix-table">
+                    <thead><tr><th>Clause requirement</th><th>Failing suppliers</th></tr></thead>
+                    <tbody>
+                        <template for:each={discrepancyRows} for:item="row">
+                            <tr key={row.id}>
+                                <td>{row.requirement}</td>
+                                <td class="matrix-cell-fail">{row.failingLabel}</td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </template>
+            <template if:false={hasDiscrepancyRows}>
+                <div class="widget-empty">No recurring clause failures found.</div>
+            </template>
+        </div>
+
+        <!-- ═══════ Regulatory & sanctions feed ═══════ -->
+        <div class="widget">
+            <div class="widget-hd">
+                <div><div class="widget-title">Regulatory &amp; Sanctions Feed</div><div class="widget-hint">Latest screening runs across all suppliers</div></div>
+            </div>
+            <template if:true={hasFeedRows}>
+                <template for:each={feedRows} for:item="row">
+                    <div class="feed-item" key={row.id}>
+                        <span class={row.icoClass}>{row.icoSymbol}</span>
+                        <div>
+                            <div class="feed-text"><strong>{row.supplierName}</strong> — {row.checkLabel}</div>
+                            <div class="feed-meta">{row.whenLabel}</div>
+                        </div>
+                    </div>
+                </template>
+            </template>
+            <template if:false={hasFeedRows}>
+                <div class="widget-empty">No screening runs yet.</div>
+            </template>
+        </div>
+
+    </div>
+
+    <template if:true={showNotice}>
+        <div class="vc-notice">
+            <div class="vc-notice-title">{noticeTitle}</div>
+            <div class="vc-notice-msg">{noticeMessage}</div>
+        </div>
+    </template>
+</template>

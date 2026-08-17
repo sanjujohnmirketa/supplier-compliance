@@ -14,7 +14,7 @@ llm.chat_json() directly. It guarantees, in one place:
      enforce fail-safes (never auto-pass a manipulated document) and the audit
      trail records what was sanitized.
 """
-from pii import tokenize_pii
+from pii import tokenize_pii, detokenize
 from guardrails import scan_injection
 import llm
 
@@ -27,7 +27,8 @@ _UNTRUSTED_HEADER = (
 
 
 def governed_judge(system: str, task: str, untrusted_text: str,
-                   model: str = None, temperature: float = None) -> dict:
+                   model: str = None, temperature: float = None,
+                   max_tokens: int = None) -> dict:
     """
     Governed structured-JSON LLM call over untrusted content.
 
@@ -49,7 +50,15 @@ def governed_judge(system: str, task: str, untrusted_text: str,
         f"<<<BEGIN UNTRUSTED CONTENT>>>\n{(safe_text or '(empty)')[:6000]}\n"
         f"<<<END UNTRUSTED CONTENT>>>"
     )
-    data = llm.chat_json(system, user, model=model, temperature=temperature)
+    data = llm.chat_json(system, user, model=model, temperature=temperature,
+                         max_tokens=max_tokens)
+    # The model only ever saw tokenized text — but it can (and does, in
+    # practice) echo a token straight back into its verdict/summary/reasons
+    # when explaining what it read (e.g. copying a company name out of the
+    # certificate). Reverse that in the model's OWN output before it reaches
+    # any caller, or a raw "[PERSON_1]"/"[US_DRIVER_LICENSE_1]" token leaks
+    # into the human-facing compliance summary.
+    data = detokenize(data, pii_map)
     return {
         "data": data,
         "governance": {

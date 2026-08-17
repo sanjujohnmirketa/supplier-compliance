@@ -1,8 +1,9 @@
 """
 app.py — the local compliance service Salesforce calls.
 
-POST /scope    -> RAG retrieval over policy_chunk -> {riskTier, riskSummary, checklist[]}
-POST /extract  -> (stub) pull structured fields out of an uploaded document
+POST /scope         -> RAG retrieval over policy_chunk -> {riskTier, riskSummary, checklist[]}
+POST /policy/ingest -> parse/chunk/embed/upsert an uploaded company policy doc into policy_chunk
+POST /extract       -> (stub) pull structured fields out of an uploaded document
 
 Run:  uvicorn app:app --reload --port 8000
 """
@@ -10,6 +11,9 @@ import os
 import io
 import json
 import base64
+import threading
+import time
+import uuid
 from typing import List, Optional
 
 from fastapi import FastAPI, Header, HTTPException
@@ -17,7 +21,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-from common import get_conn, embed_text, to_pgvector, guess_domain
+from common import get_conn, embed_text, to_pgvector, guess_domain, ingest_policy_document
 from config import settings
 import llm
 
@@ -54,6 +58,28 @@ class ScopeRequest(BaseModel):
     country: Optional[str] = None
     commodity: Optional[str] = None
     jurisdictions: List[str] = []
+    # Optional — sharpen domain selection beyond what industry/engagement text
+    # alone implies (e.g. an "Electronics" supplier whose actual raw material is
+    # conflict-mineral-bearing metal vs. one that only assembles plastics).
+    # Additive: when blank, behavior is identical to before these fields existed.
+    materialType: Optional[str] = None
+    serviceCategory: Optional[str] = None
+    # Domains resolved Salesforce-side from Material_Type__mdt (the admin-
+    # configurable catalog — see MaterialTypeController.cls). When the caller
+    # sends this, it's used directly and MATERIAL_TYPE_DOMAINS/
+    # SERVICE_CATEGORY_DOMAINS below are NOT consulted — so a new material for
+    # any industry, added only as a Salesforce Custom Metadata record, takes
+    # effect with no engine deploy. Falls back to the hardcoded dicts only for
+    # callers that don't send this (e.g. local testing without Salesforce).
+    materialDomains: List[str] = []
+    # Clean industry key (e.g. "automotive", "healthcare") — used to STRICTLY
+    # filter which corpus retrieve() searches, once more than one industry's
+    # policy documents are loaded. Distinct from `commodity` (free-text, used
+    # for the RAG query itself and for industry_domains()'s guaranteed-domain
+    # matching) because that field is a loose blob not safe to filter on
+    # directly. Optional for back-compat; when blank, retrieval is unfiltered
+    # (matches pre-multi-industry behavior).
+    industry: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -77,26 +103,40 @@ def require_token(authorization: Optional[str]):
 RRF_K = 60  # rank-fusion smoothing constant (standard default)
 
 
-def retrieve(query: str, k: int = 8, pool: int = 20):
+def retrieve(query: str, k: int = 8, pool: int = 20, industry: str = None):
     """Return the top-k policy chunks by fused dense+sparse relevance.
 
     `pool` is how many candidates each retriever contributes before fusion;
     larger pool = more chance a doc strong in only one retriever still surfaces.
+
+    `industry` is a STRICT filter, not a ranking signal: every policy chunk is
+    tagged to exactly one industry at ingest time, and once more than one
+    industry's corpus is loaded, retrieval must never cross that boundary — a
+    Healthcare supplier's checklist should never surface an Automotive IATF
+    clause just because it scored close on embedding similarity. Pass None
+    only for back-compat/single-industry deployments; every real caller in
+    /scope and /assess passes the supplier's actual industry.
+    is_current = true is always enforced so a superseded policy version is
+    never an eligible search result once a newer version has been ingested.
     """
     emb = to_pgvector(embed_text(query))
     conn = get_conn()
     cur = conn.cursor()
 
+    industry_clause = " AND industry = %s" if industry else ""
+    industry_param = (industry,) if industry else ()
+
     # Dense candidates (semantic) — ordered by cosine distance.
     cur.execute(
-        """
+        f"""
         SELECT clause_id, domain, text,
                1 - (embedding <=> %s::vector) AS score
         FROM policy_chunk
+        WHERE is_current = true{industry_clause}
         ORDER BY embedding <=> %s::vector
         LIMIT %s
         """,
-        (emb, emb, pool),
+        (emb, *industry_param, emb, pool),
     )
     dense = cur.fetchall()
 
@@ -104,15 +144,16 @@ def retrieve(query: str, k: int = 8, pool: int = 20):
     # websearch_to_tsquery tolerates raw user phrasing; if the query has no
     # indexable terms the result is simply empty and we fall back to dense.
     cur.execute(
-        """
+        f"""
         SELECT clause_id, domain, text,
                ts_rank_cd(text_tsv, websearch_to_tsquery('english', %s)) AS score
         FROM policy_chunk
         WHERE text_tsv @@ websearch_to_tsquery('english', %s)
+          AND is_current = true{industry_clause}
         ORDER BY score DESC
         LIMIT %s
         """,
-        (query, query, pool),
+        (query, query, *industry_param, pool),
     )
     sparse = cur.fetchall()
     cur.close()
@@ -160,16 +201,70 @@ HIGH_RISK_TERMS = ["cobalt", "drc", "congo", "conflict", "3tg", "sanction",
 MEDIUM_RISK_TERMS = ["import", "export", "chemical", "reach", "rohs", "hazard",
                      "mineral", "tin", "gold"]
 
-# One required document per domain that shows up in the retrieved clauses.
+# One required document label per (industry, domain) pair — the checklist item
+# NAME shown to Procurement/the supplier, distinct from which policy CLAUSE
+# grounds it (that's already correctly industry-scoped via retrieve()'s strict
+# filter). Without this split, every industry's "conflict" domain item showed
+# the automotive label "Conflict Minerals Due Diligence (OECD/CMRT)" even when
+# grounded in a healthcare clause — the citation was right, the checklist item
+# NAME was wrong. "_default" is the fallback for any industry with no entry
+# here yet (keeps a brand-new industry usable before its labels are curated).
 DOMAIN_TO_DOCUMENT = {
-    "conflict": "Conflict Minerals Due Diligence (OECD/CMRT)",
-    "trade": "Sanctions / Denied-Party Screening Certificate",
-    "finance": "KYC + Beneficial Ownership Declaration",
-    "quality": "ISO 9001 Certificate / Certificate of Analysis",
-    "material": "Material Safety Data Sheet (SDS) + REACH/RoHS Declaration",
-    "cyber": "Information Security Attestation (ISO 27001 / GDPR)",
-    "general": "General Supplier Self-Assessment Questionnaire",
+    "automotive": {
+        "conflict": "Conflict Minerals Due Diligence (OECD/CMRT)",
+        "trade": "Sanctions / Denied-Party Screening Certificate",
+        "finance": "KYC + Beneficial Ownership Declaration",
+        "quality": "ISO 9001 Certificate / Certificate of Analysis",
+        "material": "Material Safety Data Sheet (SDS) + REACH/RoHS Declaration",
+        "cyber": "Information Security Attestation (ISO 27001 / GDPR)",
+        "general": "General Supplier Self-Assessment Questionnaire",
+    },
+    "healthcare": {
+        "conflict": "Conflict Minerals Due Diligence — Device Components (OECD/CMRT)",
+        "trade": "OIG/SAM Exclusion & Sanctions Screening Certificate",
+        "finance": "Tax Identity, LEI & Fraud-Waste-Abuse Attestation",
+        "quality": "ISO 13485 Certificate / Accreditation Evidence",
+        "material": "Device Regulatory Clearance & Material Safety Declaration",
+        "cyber": "HIPAA Business Associate Agreement / Security Attestation",
+        "general": "General Supplier Self-Assessment Questionnaire",
+        # Clinical/genetic testing lab — fine-grained, one label per domain so
+        # build_checklist() emits one row per document type (see common.py's
+        # DOMAIN_KEYWORDS comment for why these 5 aren't one combined domain).
+        "clinical_lab_cert": "CLIA Certificate",
+        "clinical_lab_accred": "CAP Laboratory Accreditation Certificate",
+        "clinical_lab_scope": "CAP Accreditation Scope Document",
+        "clinical_lab_pt": "Proficiency Testing Results",
+        "clinical_lab_person": "Lab Director Credentials & Personnel Competency File",
+        # Compounding pharmacy / IV therapy
+        "pharmacy_compound": "Compounding Standards Attestation (USP <795>/<797>/<800>, DEA Registration)",
+        # Supplement / vitamin manufacturer
+        "supplement_gmp": "Dietary Supplement GMP Compliance (21 CFR Part 111)",
+        # Medical device / diagnostics manufacturer (H1)
+        "device_diagnostics_qms": "ISO 13485 / 21 CFR 820 QMS Certificate + UDI/510(k) Evidence",
+        # Health IT / digital health (H2) — distinct from the plain BAA in "cyber"
+        "health_it_digital": "SOC 2 Type II / HITRUST Report & Subprocessor Disclosure",
+        # Provider / counselor credentialing (H3)
+        "provider_credentialing": "Exclusion Screening (OIG-LEIE/NPDB) & Credentialing Attestation",
+        # Payer / delegated-entity oversight (H4)
+        "payer_delegation": "CMS FDR Delegation Agreement & Compliance Program Attestation",
+        # Behavioral health / SUD confidentiality (H5)
+        "behavioral_health_part2": "42 CFR Part 2 Qualified Service Organization Agreement (QSOA)",
+    },
+    "_default": {
+        "conflict": "Conflict Minerals Due Diligence Declaration",
+        "trade": "Sanctions / Denied-Party Screening Certificate",
+        "finance": "Financial & Tax Identity Declaration",
+        "quality": "Quality Certification / Accreditation Evidence",
+        "material": "Material Safety / Regulatory Compliance Declaration",
+        "cyber": "Information Security Attestation",
+        "general": "General Supplier Self-Assessment Questionnaire",
+    },
 }
+
+
+def document_label_for(industry, domain):
+    table = DOMAIN_TO_DOCUMENT.get(industry) or DOMAIN_TO_DOCUMENT["_default"]
+    return table.get(domain, table["general"])
 
 # Deterministic industry → required compliance domains. The policy corpus alone
 # can't differentiate industries (they all embed near the same generic clauses),
@@ -192,6 +287,45 @@ INDUSTRY_DOMAINS = {
     "industrial":    ["quality", "material", "conflict"],
     "logistics":     ["trade", "quality"],                           # customs/sanctions, service quality
     "distribution":  ["trade", "quality"],
+    # Healthcare sub-verticals — matched BEFORE "pharma"/"medical" would catch
+    # them (dict order matters for industry_domains()'s substring scan), each
+    # guaranteeing its own document-type-specific domain set so the checklist
+    # doesn't collapse a lab's 5 distinct document types into one generic
+    # "quality" row the way "medical" alone would.
+    "clinical lab":  ["clinical_lab_cert", "clinical_lab_accred", "clinical_lab_scope",
+                       "clinical_lab_pt", "clinical_lab_person", "cyber", "finance"],
+    "diagnostic lab":["clinical_lab_cert", "clinical_lab_accred", "clinical_lab_scope",
+                       "clinical_lab_pt", "clinical_lab_person", "cyber", "finance"],
+    "genetic testing":["clinical_lab_cert", "clinical_lab_accred", "clinical_lab_scope",
+                        "clinical_lab_pt", "clinical_lab_person", "cyber", "finance"],
+    "compounding pharmacy": ["pharmacy_compound", "cyber", "finance", "quality"],
+    "infusion supply":      ["pharmacy_compound", "cyber", "finance", "quality"],
+    "supplement":    ["supplement_gmp", "quality", "material"],
+    "vitamin manufacturer": ["supplement_gmp", "quality", "material"],
+    # Medical device / diagnostics manufacturer (H1) — matched BEFORE "medical"
+    # would catch it, since "medical" alone routes to the old generic
+    # quality/material/cyber set, not the device-specific QMS domain.
+    "device manufacturer":     ["device_diagnostics_qms", "quality", "material", "cyber"],
+    "diagnostics manufacturer":["device_diagnostics_qms", "quality", "material", "cyber"],
+    "medical device":          ["device_diagnostics_qms", "quality", "material", "cyber"],
+    # Health IT / digital health (H2) — Genomic Life's own category: a
+    # benefits-navigation/data platform, not a lab or device maker.
+    "health it":       ["health_it_digital", "finance", "general"],
+    "digital health":  ["health_it_digital", "finance", "general"],
+    "health data":     ["health_it_digital", "finance", "general"],
+    # Provider / counselor credentialing (H3) — genetic counselors, physician
+    # networks, staffing agencies; verifying PEOPLE, not a facility/product.
+    "genetic counsel":       ["provider_credentialing", "cyber", "finance"],
+    "provider network":      ["provider_credentialing", "cyber", "finance"],
+    "staffing":              ["provider_credentialing", "cyber", "finance"],
+    "credentialing":         ["provider_credentialing", "cyber", "finance"],
+    # Payer / delegated-entity oversight (H4)
+    "health plan": ["payer_delegation", "finance", "cyber", "general"],
+    "payer":       ["payer_delegation", "finance", "cyber", "general"],
+    # Behavioral health / SUD confidentiality (H5)
+    "behavioral health": ["behavioral_health_part2", "cyber", "finance", "quality"],
+    "substance use":     ["behavioral_health_part2", "cyber", "finance", "quality"],
+    "mental health":     ["behavioral_health_part2", "cyber", "finance", "quality"],
 }
 
 
@@ -203,6 +337,117 @@ def industry_domains(commodity: str):
         if key in hay:
             return domains
     return []
+
+
+# Maps the fine-grained INDUSTRY_DOMAINS keys (which describe what a supplier
+# MAKES, e.g. "semiconductor", "pharma", "medical") onto which CORPUS a
+# customer actually ingests (each customer's corpus is tagged at ingest time
+# with one industry key of their choosing — see /policy/ingest's `industry`
+# field). Multiple fine-grained keys can share one corpus tag: a healthcare
+# system's corpus covers both "pharmaceutical" and "medical" suppliers, for
+# example. Add an entry here whenever a customer's corpus should be reachable
+# under more than one industry_domains() match.
+INDUSTRY_CORPUS_TAG = {
+    "automotive":     "automotive",
+    "electronics":    "automotive",   # shares the automotive corpus in this demo
+    "semiconductor":  "automotive",
+    "aerospace":      "automotive",
+    "defense":        "automotive",
+    "industrial":     "automotive",
+    "pharmaceutical": "healthcare",
+    "pharma":         "healthcare",
+    "medical":        "healthcare",
+    "clinical lab":         "healthcare",
+    "diagnostic lab":       "healthcare",
+    "genetic testing":      "healthcare",
+    "compounding pharmacy": "healthcare",
+    "infusion supply":      "healthcare",
+    "supplement":            "healthcare",
+    "vitamin manufacturer":  "healthcare",
+    "device manufacturer":      "healthcare",
+    "diagnostics manufacturer": "healthcare",
+    "medical device":           "healthcare",
+    "health it":       "healthcare",
+    "digital health":  "healthcare",
+    "health data":     "healthcare",
+    "genetic counsel":  "healthcare",
+    "provider network": "healthcare",
+    "staffing":          "healthcare",
+    "credentialing":     "healthcare",
+    "health plan": "healthcare",
+    "payer":       "healthcare",
+    "behavioral health": "healthcare",
+    "substance use":     "healthcare",
+    "mental health":     "healthcare",
+}
+
+
+def industry_key(commodity: str):
+    """Resolve the supplier's commodity/industry text to the CORPUS tag used to
+    strictly filter retrieve() — distinct from industry_domains()'s per-domain
+    guarantees, though both match against the same INDUSTRY_DOMAINS keys so
+    there's one source of truth for "what industry is this supplier in."
+    Returns None when no rule matches (retrieval falls back to unfiltered,
+    matching pre-multi-industry behavior for an unrecognized industry)."""
+    hay = (commodity or "").lower()
+    for key in INDUSTRY_DOMAINS:
+        if key in hay:
+            return INDUSTRY_CORPUS_TAG.get(key)
+    return None
+
+
+def resolve_corpus_industry(industry_field: Optional[str], commodity: Optional[str]) -> Optional[str]:
+    """Resolve /scope's corpus_industry consistently everywhere it's computed.
+
+    Salesforce's Industry__c sends its raw picklist LABEL (e.g. "Pharmaceutical",
+    "Clinical / Diagnostic Lab") as req.industry — never the ingested corpus TAG
+    ("healthcare"). Using req.industry as-is (the previous behavior) made
+    retrieve()'s strict industry filter match zero rows for every Salesforce
+    caller, silently falling through to unfiltered RAG + the generic
+    DOMAIN_TO_DOCUMENT["_default"] labels — confirmed live: industry="Pharmaceutical"
+    produced "Material Safety / Regulatory Compliance Declaration" instead of the
+    healthcare-specific label, with no real policy citation. Always translate
+    through the same INDUSTRY_DOMAINS/INDUSTRY_CORPUS_TAG substring match used for
+    commodity, checking the industry field first (it's the more reliable signal
+    when present) and falling back to commodity — never trust either value
+    literally as a corpus tag."""
+    resolved = industry_key(industry_field) if industry_field else None
+    if resolved:
+        return resolved
+    return industry_key(commodity)
+
+
+# Deterministic material/service-category → required domains. Industry text
+# alone can be generic ("Electronics") while the ACTUAL raw material tells you
+# far more precisely which domains apply (e.g. conflict minerals vs. plastics-only
+# assembly). Optional and additive to INDUSTRY_DOMAINS — never replaces it.
+MATERIAL_TYPE_DOMAINS = {
+    "conflict-mineral-bearing metals": ["conflict", "material", "trade"],
+    "chemicals":                       ["material", "quality"],
+    "electronics components":          ["material", "cyber", "quality"],
+    "packaging":                       ["material", "quality"],
+    "textiles":                        ["material", "quality"],
+}
+
+SERVICE_CATEGORY_DOMAINS = {
+    "logistics":                ["trade", "quality"],
+    "it/software":              ["cyber", "finance"],
+    "professional services":    ["cyber", "finance"],
+    "manufacturing-subcontract":["quality", "material"],
+}
+
+
+def material_domains(material_type: Optional[str], service_category: Optional[str]):
+    """Return the guaranteed domains implied by the supplier's declared raw
+    material type and/or service category (exact match against the picklist
+    values above). Either or both may be blank — returns [] when neither is set
+    or matches, same 'no-op when absent' behavior as industry_domains."""
+    domains = set()
+    if material_type and material_type in MATERIAL_TYPE_DOMAINS:
+        domains.update(MATERIAL_TYPE_DOMAINS[material_type])
+    if service_category and service_category in SERVICE_CATEGORY_DOMAINS:
+        domains.update(SERVICE_CATEGORY_DOMAINS[service_category])
+    return sorted(domains)
 
 
 # ── Engagement-type rules (deterministic, explainable) ──────────────────────
@@ -316,7 +561,7 @@ def assess_risk(req: ScopeRequest, hits):
     return tier, summary, reasons
 
 
-def build_checklist(hits):
+def build_checklist(hits, industry=None):
     """One checklist item per distinct domain, justified by its best-scoring clause."""
     seen = {}
     for h in hits:
@@ -326,7 +571,7 @@ def build_checklist(hits):
     checklist = []
     for domain, hit in seen.items():
         checklist.append({
-            "document": DOMAIN_TO_DOCUMENT.get(domain, DOMAIN_TO_DOCUMENT["general"]),
+            "document": document_label_for(industry, domain),
             "domain": domain,
             "justificationClauseId": hit["clauseId"],
             "justification": hit["text"][:300],
@@ -372,8 +617,13 @@ def scope(req: ScopeRequest, authorization: Optional[str] = Header(None)):
     query = " ".join(filter(None, [
         req.commodity, req.country, " ".join(req.jurisdictions),
     ]))
+    # Strict corpus filter: translate the industry field (Salesforce's raw
+    # picklist label) and the commodity text through the same corpus-tag
+    # resolution — see resolve_corpus_industry's docstring for why neither can
+    # be trusted literally.
+    corpus_industry = resolve_corpus_industry(req.industry, req.commodity)
     # Retrieve broadly (corpus is small) so every domain has a candidate clause.
-    hits = retrieve(query, k=30)
+    hits = retrieve(query, k=30, industry=corpus_industry)
     tier, summary, tier_reasons = assess_risk(req, hits)
 
     # Best-scoring policy clause per domain.
@@ -411,16 +661,29 @@ def scope(req: ScopeRequest, authorization: Optional[str] = Header(None)):
     # different evidence than Tier-1 production (data/finance vs material/conflict).
     eng_add, eng_remove = engagement_domains(req.commodity)
 
+    # Material type / service category, if the caller supplied them, sharpen the
+    # set further — e.g. an "Electronics" supplier whose declared material is
+    # conflict-mineral-bearing metal guarantees 'conflict' even if the blended
+    # industry/engagement text alone wouldn't have surfaced it strongly enough.
+    # Prefer Salesforce-resolved materialDomains (from the admin-configurable
+    # Material_Type__mdt catalog) when sent — this is what makes a NEW material
+    # for any industry take effect via Custom Metadata alone, no engine deploy.
+    # Fall back to the hardcoded dicts only when the caller doesn't send it.
+    if req.materialDomains:
+        mat_domains = set(req.materialDomains)
+    else:
+        mat_domains = set(material_domains(req.materialType, req.serviceCategory))
+
     no_specific_match = (len(matched_specific) == 0 and len(ind_domains) == 0
-                         and len(eng_add) == 0)
-    # Union industry + RAG + engagement adds + baseline, then subtract the
-    # engagement removals — but NEVER drop a baseline domain.
-    selected = (set(matched_specific) | ind_domains | eng_add | BASELINE_DOMAINS)
+                         and len(eng_add) == 0 and len(mat_domains) == 0)
+    # Union industry + RAG + engagement adds + material/service adds + baseline,
+    # then subtract the engagement removals — but NEVER drop a baseline domain.
+    selected = (set(matched_specific) | ind_domains | eng_add | mat_domains | BASELINE_DOMAINS)
     selected -= (eng_remove - BASELINE_DOMAINS)
 
     ordered = [h for d, h in sorted(best_by_domain.items(), key=lambda kv: -kv[1]["score"])
                if d in selected]
-    checklist = build_checklist(ordered)
+    checklist = build_checklist(ordered, industry=corpus_industry)
 
     # Ensure EVERY selected domain produces a checklist item — including
     # industry-mandated and baseline domains whose clause wasn't retrieved.
@@ -436,7 +699,7 @@ def scope(req: ScopeRequest, authorization: Optional[str] = Header(None)):
             else:
                 why = f"Applicable compliance domain '{d}'."
             checklist.append({
-                "document": DOMAIN_TO_DOCUMENT.get(d, DOMAIN_TO_DOCUMENT["general"]),
+                "document": document_label_for(corpus_industry, d),
                 "domain": d,
                 "justificationClauseId": hit["clauseId"] if hit else f"rule:{d}",
                 "justification": hit["text"][:300] if hit else why,
@@ -452,6 +715,9 @@ def scope(req: ScopeRequest, authorization: Optional[str] = Header(None)):
     for d in eng_add:
         if d in selected:
             domain_reasons[d] = f"Added by engagement type — this relationship requires “{d}”."
+    for d in mat_domains:
+        if d in selected:
+            domain_reasons[d] = f"Added by declared material/service type — requires “{d}”."
 
     notes = []
     if no_specific_match:
@@ -473,6 +739,159 @@ def scope(req: ScopeRequest, authorization: Optional[str] = Header(None)):
         "notes": notes,                     # human-readable explanations
         "corpusVersion": settings.CORPUS_VERSION,
     }
+
+
+# ---------------------------------------------------------------------------
+# /policy/ingest — internal Procurement upload path for company policy docs.
+#
+# Same parse -> chunk -> embed -> upsert pipeline as the SFTP bulk script
+# (ingest_policies.py), reused via common.ingest_policy_document() so a policy
+# uploaded through Salesforce is indistinguishable, once ingested, from one
+# ingested via SFTP. /scope's retrieval is unaware of and unaffected by which
+# path a chunk came from.
+# ---------------------------------------------------------------------------
+class PolicyIngestRequest(BaseModel):
+    fileName: str
+    documentBase64: str
+    domainHint: Optional[str] = None   # None/blank -> engine auto-detects via guess_domain
+    # Which corpus this document belongs to (e.g. "automotive", "healthcare") —
+    # a STRICT retrieval filter, not a hint. Defaults to "general" only for
+    # back-compat with any caller that predates multi-industry support; a real
+    # customer upload should always send this explicitly.
+    industry: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Ingest is ASYNC: parsing (esp. pdfplumber on a 40-100 page PDF) plus
+# embedding every chunk can take well beyond Salesforce's 120s hard callout
+# ceiling, so /policy/ingest must not block on the actual work. It enqueues a
+# background thread and returns immediately with a jobId; the caller polls
+# /policy/ingest/status/{jobId} (same shape the LWC already polls
+# Policy_Document__c.Status__c on, just one hop earlier). Single-process
+# in-memory dict is sufficient here — this engine runs as one Docker
+# container, not horizontally scaled.
+# ---------------------------------------------------------------------------
+_ingest_jobs = {}          # jobId -> {"status": "queued"|"processing"|"done"|"failed", ...}
+_ingest_jobs_lock = threading.Lock()
+
+# Hard guard on input size BEFORE spending any time parsing — a bad/huge
+# upload should fail fast and clearly, not silently churn for minutes.
+# ~15MB covers a genuinely large (100+ page) text-heavy PDF; scanned-image
+# PDFs of that size are rare and would fail extraction anyway (see
+# PAGE_COUNT_LIMIT below for the more common "too many pages" case).
+MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+PDF_PAGE_LIMIT = 150   # generous — real policy docs described (40-100pp) fit comfortably
+
+
+def _run_ingest_job(job_id, file_name, data, industry, domain_override):
+    with _ingest_jobs_lock:
+        _ingest_jobs[job_id]["status"] = "processing"
+    try:
+        result = ingest_policy_document(file_name, data, industry, domain_override)
+        with _ingest_jobs_lock:
+            _ingest_jobs[job_id].update(status="done", result=result)
+    except Exception as e:
+        with _ingest_jobs_lock:
+            _ingest_jobs[job_id].update(status="failed", error=str(e))
+
+
+@app.post("/policy/ingest")
+def policy_ingest(req: PolicyIngestRequest, authorization: Optional[str] = Header(None)):
+    require_token(authorization)
+
+    try:
+        data = base64.b64decode(req.documentBase64)
+    except Exception:
+        raise HTTPException(status_code=422, detail="documentBase64 is not valid base64")
+
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"'{req.fileName}' is {len(data) // (1024*1024)}MB, over the "
+                   f"{MAX_UPLOAD_BYTES // (1024*1024)}MB limit for policy uploads. "
+                   f"Split it into smaller documents or reduce embedded images.")
+
+    ext = req.fileName.lower().rsplit(".", 1)[-1] if "." in req.fileName else ""
+    if ext not in ("txt", "md", "pdf", "docx", "xlsx", "xlsm"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported file type '.{ext}'. Supported formats: .txt, .md, .pdf, .docx, .xlsx")
+
+    if ext == "pdf":
+        try:
+            import pdfplumber
+            with pdfplumber.open(io.BytesIO(data)) as pdf:
+                page_count = len(pdf.pages)
+            if page_count > PDF_PAGE_LIMIT:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"'{req.fileName}' has {page_count} pages, over the "
+                           f"{PDF_PAGE_LIMIT}-page limit. Split it into smaller documents.")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Could not open '{req.fileName}' as a PDF — the file may be corrupt "
+                       f"or password-protected.")
+
+    domain_override = req.domainHint if req.domainHint and req.domainHint != "Auto-Detect" else None
+    industry = req.industry or "general"
+
+    job_id = str(uuid.uuid4())
+    with _ingest_jobs_lock:
+        _ingest_jobs[job_id] = {"status": "queued", "fileName": req.fileName, "startedAt": time.time()}
+    threading.Thread(
+        target=_run_ingest_job,
+        args=(job_id, req.fileName, data, industry, domain_override),
+        daemon=True,
+    ).start()
+
+    return {"jobId": job_id, "status": "queued", "fileName": req.fileName}
+
+
+@app.get("/policy/ingest/status/{job_id}")
+def policy_ingest_status(job_id: str, authorization: Optional[str] = Header(None)):
+    require_token(authorization)
+    with _ingest_jobs_lock:
+        job = _ingest_jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Unknown ingest job id")
+
+    resp = {"jobId": job_id, "status": job["status"], "fileName": job["fileName"]}
+    if job["status"] == "done":
+        result = job["result"]
+        resp.update(
+            domain=result["domain"], industry=result["industry"],
+            chunkCount=result["chunkCount"], version=result["version"],
+        )
+    elif job["status"] == "failed":
+        resp["error"] = job["error"]
+    return resp
+
+
+class PolicyDeleteRequest(BaseModel):
+    fileName: str   # must match policy_chunk.source exactly (the uploaded filename)
+
+
+@app.post("/policy/delete")
+def policy_delete(req: PolicyDeleteRequest, authorization: Optional[str] = Header(None)):
+    """Hard-delete every chunk (all versions, current and retired) for one
+    source file. Called when a Policy_Document__c is deleted in Salesforce so
+    a removed policy stops influencing every future /scope and /assess call —
+    previously delete only removed the Salesforce record and the underlying
+    policy_chunk rows stayed live in the index forever."""
+    require_token(authorization)
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM policy_chunk WHERE source = %s", (req.fileName,))
+    deleted = cur.rowcount
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {"fileName": req.fileName, "chunksDeleted": deleted}
 
 
 # ---------------------------------------------------------------------------
@@ -764,6 +1183,11 @@ class AssessRequest(BaseModel):
     documentText: Optional[str] = None    # raw text, OR
     documentBase64: Optional[str] = None  # base64-encoded file bytes
     fileName: Optional[str] = None        # used to pick the extractor
+    # Same strict corpus filter as ScopeRequest.industry — without this, a
+    # Healthcare document's compliance verdict could cite an Automotive policy
+    # clause once more than one industry's corpus is loaded. Optional for
+    # back-compat; blank means unfiltered (matches pre-multi-industry behavior).
+    industry: Optional[str] = None
 
 
 def extract_document_text(req: "AssessRequest") -> str:
@@ -782,6 +1206,9 @@ def extract_document_text(req: "AssessRequest") -> str:
         import docx
         document = docx.Document(io.BytesIO(raw))
         return "\n".join(p.text for p in document.paragraphs)
+    if name.endswith(".xlsx") or name.endswith(".xlsm"):
+        import common
+        return common._parse_excel(raw)
     return raw.decode("utf-8", errors="ignore")  # fallback: plain text
 
 
@@ -823,9 +1250,21 @@ def _doc_intelligence(fields: dict, document_type: str):
         days = (expiry - today).days
         key_dates.update({"expiry_date": expiry.isoformat(),
                           "is_expired": days < 0, "days_to_expiry": days})
-        checks.append({"requirement": "Document not expired",
-                       "found": expiry.isoformat() + (f" ({days}d)" if days >= 0 else " (EXPIRED)"),
-                       "pass": days >= 0})
+        # requirement + found are rendered together as "requirement — found"
+        # (see DocAssessQueueable's clauseChecks merge) — keeping the
+        # requirement label a plain, neutral statement of what's being
+        # checked and putting the actual finding entirely in `found` avoids
+        # a redundant/contradictory-reading line like "Document EXPIRED —
+        # 2026-06-14 — 2026-06-14 (EXPIRED)". A failed check states the
+        # failure outright in found ("EXPIRED as of <date>, N days ago")
+        # instead of a bare date the reader has to notice is in the past.
+        expired = days < 0
+        checks.append({
+            "requirement": "Document expiration",
+            "found": (f"EXPIRED as of {expiry.isoformat()} ({abs(days)}d ago)" if expired
+                      else f"Valid until {expiry.isoformat()} ({days}d remaining)"),
+            "pass": not expired
+        })
         if days < 0:
             override = "Non-Compliant"
 
@@ -852,7 +1291,110 @@ def _doc_intelligence(fields: dict, document_type: str):
         if not ok and override is None:
             override = "Needs Analyst"
 
+    # 4) Accreditation/certification SCOPE self-exclusion — a deterministic
+    # backstop for the "scope mismatch" failure mode (a CLIA/CAP-style
+    # accreditation exists and is valid, but its own stated scope explicitly
+    # says a specific discipline/test is NOT covered). Unlike checks 1-3, this
+    # doesn't compare against a known target test (the engine has no per-
+    # requirement "test being contracted for" field yet) — it catches the
+    # document contradicting itself: an extracted scope value that admits
+    # exclusion language should never be waved through by an LLM that only
+    # noticed "a scope document exists." A real scope document says outright
+    # when something isn't covered ("not currently listed", "not included",
+    # "undergoing validation for inclusion") — this is presence-of-language
+    # detection, not judgment, so it belongs here next to the other hard gates.
+    scope_text = fields.get("scope")
+    if scope_text and any(k in dt for k in ("scope", "accreditation", "cap", "clia", "certif")):
+        exclusion_phrases = (
+            "not currently listed", "not included", "not covered", "excluded from",
+            "not yet accredited", "not within the current", "undergoing validation",
+            "pending accreditation", "outside the accredited scope", "is not accredited",
+        )
+        hit = next((p for p in exclusion_phrases if p in str(scope_text).lower()), None)
+        checks.append({"requirement": "Accredited scope contains no self-excluded discipline",
+                       "found": f"scope text flags: \"{hit}\"" if hit else "no exclusion language found",
+                       "pass": hit is None})
+        if hit and override is None:
+            override = "Non-Compliant"
+
     return key_dates, checks, override
+
+
+# Keyword groups used to detect a checks_passed bullet that CONTRADICTS a
+# failed deterministic gate — e.g. the LLM writes "valid until 2026-06-14" as
+# a positive bullet for a document _doc_intelligence has already determined
+# is expired. Rule 3 in prompts/document_intelligence.md tells the model not
+# to judge expiry/coverage/identifier itself, but instruction-following isn't
+# guaranteed — this is the code-level backstop for a compliance product,
+# not a substitute for the prompt rule.
+_GATE_KEYWORDS = {
+    "Document expiration": ("expir", "valid until", "valid to", "validity"),
+    "Tax identifier (TIN) present": ("tin", "tax id", "identifier"),
+}
+
+
+def _contradicts_failed_gate(text: str, failed_gates: list) -> bool:
+    """True if `text` (a checks_passed bullet or a clause_check's own
+    requirement+found text) overlaps a FAILED deterministic gate's subject —
+    e.g. any mention of expiry/validity when the expiry gate failed."""
+    t_lower = str(text or "").lower()
+    for check in failed_gates:
+        req = str(check.get("requirement") or "")
+        keywords = _GATE_KEYWORDS.get(req)
+        if keywords is None:
+            # Dynamic requirement text (coverage threshold, scope exclusion)
+            # — match on the requirement's own significant words rather than
+            # a fixed list.
+            keywords = tuple(w for w in req.lower().split() if len(w) > 4)
+        if any(k in t_lower for k in keywords):
+            return True
+    return False
+
+
+def _reconcile_summary_with_gates(summary: dict, det_checks: list) -> dict:
+    """Drop any checks_passed bullet that contradicts a FAILED deterministic
+    gate, instead of trusting the model's own framing verbatim. The gate's own
+    concern line (added separately from det_checks/clause_checks) is already
+    the correct, grounded statement of that fact — no need to also surface
+    the model's wrong version, which would just duplicate the same point."""
+    checks_passed = list(summary.get("checks_passed") or [])
+    failed = [c for c in (det_checks or []) if c.get("pass") is False]
+    if not checks_passed or not failed:
+        return summary
+
+    summary["checks_passed"] = [
+        b for b in checks_passed if not _contradicts_failed_gate(b, failed)
+    ]
+    return summary
+
+
+def _reconcile_clause_checks_with_gates(model_clause_checks: list, det_checks: list) -> list:
+    """Same reconciliation as _reconcile_summary_with_gates, but for the
+    LLM's OWN clause_checks array (structured {requirement, found, pass}
+    entries the model returns alongside summary.checks_passed) — a separate
+    list with the exact same failure mode: the model can mark its own
+    clause check pass:true for a requirement a deterministic gate has
+    already determined fails (e.g. "Active status and valid expiration
+    date" — pass:true — for a document _doc_intelligence found expired).
+    Flips the contradicting entry to pass:false rather than dropping it, so
+    the reader still sees the model raised the topic, just corrected."""
+    failed = [c for c in (det_checks or []) if c.get("pass") is False]
+    if not model_clause_checks or not failed:
+        return model_clause_checks or []
+
+    reconciled = []
+    for check in model_clause_checks:
+        if not isinstance(check, dict):
+            reconciled.append(check)
+            continue
+        text = str(check.get("requirement") or "") + " " + str(check.get("found") or "")
+        if check.get("pass") is True and _contradicts_failed_gate(text, failed):
+            check = dict(check)
+            check["pass"] = False
+            check["found"] = (str(check.get("found") or "")
+                               + " — contradicted by a failed policy check").strip(" —")
+        reconciled.append(check)
+    return reconciled
 
 
 def judge_compliance(domain, document_type, doc_text, clauses):
@@ -890,7 +1432,16 @@ def judge_compliance(domain, document_type, doc_text, clauses):
     # framing all happen inside governed_judge — every LLM call over external
     # content is governed the same way.
     try:
-        result = governance.governed_judge(system, task, doc_text)
+        # Explicit budget: the schema asks for a lot (summary + extracted_fields
+        # + clause_checks all in one response) — without a cap, a provider that
+        # defaults conservatively can truncate mid-object, and models under
+        # implicit length pressure were observed deprioritizing summary (the
+        # most synthesis-heavy field) in favor of the more mechanical
+        # extracted_fields/clause_checks — producing exactly the "field dump,
+        # no judgment" summaries this was fixed for. 1500 comfortably covers a
+        # full response (5 checks_passed + 4 concerns + 6 key_facts + 12
+        # extracted fields + reasons) with headroom, not a hard squeeze.
+        result = governance.governed_judge(system, task, doc_text, max_tokens=1500)
     except llm.LLMUnavailable:
         return {
             "verdict": "Needs Analyst", "severity": "Medium", "confidence": 0,
@@ -923,7 +1474,11 @@ def judge_compliance(domain, document_type, doc_text, clauses):
     # Document Intelligence: deterministic gates over the extracted fields.
     extracted_fields = data.get("extracted_fields") or {}
     key_dates, det_checks, hard_override = _doc_intelligence(extracted_fields, document_type)
-    clause_checks = (data.get("clause_checks") or []) + det_checks
+    # Reconcile the MODEL's own clause_checks against the deterministic gates
+    # before merging — det_checks themselves are already correct by
+    # construction and never need reconciling against each other.
+    model_clause_checks = _reconcile_clause_checks_with_gates(data.get("clause_checks"), det_checks)
+    clause_checks = model_clause_checks + det_checks
     # Hard rule wins over an LLM "Compliant": expired / under-limit / missing TIN.
     if hard_override and verdict == "Compliant":
         verdict = hard_override
@@ -936,6 +1491,10 @@ def judge_compliance(domain, document_type, doc_text, clauses):
     if not summary.get("headline"):
         summary = _synth_summary(verdict, document_type, extracted_fields, reasons)
     summary["key_facts"] = _fields_to_facts(extracted_fields, summary.get("key_facts"))
+    # Reconcile against ALL failed deterministic gates (not just the one that
+    # triggered a hard override, if any) — a model bullet can contradict a
+    # failed gate even when a different failure already drove the verdict.
+    summary = _reconcile_summary_with_gates(summary, det_checks)
 
     return {
         "verdict": verdict,
@@ -991,8 +1550,13 @@ def _synth_summary(verdict, document_type, fields, reasons) -> dict:
     if issuer:
         head_parts.append(f"from {issuer}")
     head_parts.append(f"— {verdict}.")
+    # Fallback checks_passed: without the model's own reasoning we can only
+    # state what was mechanically confirmed present — still better than an
+    # empty "what checks out" section on a synthesized summary.
+    checks_passed = [f"{label.split(': ')[0]} on file" for label in facts[:3]] if verdict != "Needs Analyst" else []
     return {"headline": " ".join(head_parts),
             "key_facts": facts,
+            "checks_passed": checks_passed,
             "concerns": [] if verdict == "Compliant" else [reasons[:120]] if reasons else []}
 
 
@@ -1008,9 +1572,14 @@ def assess(req: AssessRequest, authorization: Optional[str] = Header(None)):
     resolved_domain = req.domain or (guess_domain(doc_text) if doc_text else "general")
 
     # Retrieve the policy clauses most relevant to this document + domain.
+    # industry_key() translates Salesforce's raw picklist label into the
+    # ingested corpus tag — see resolve_corpus_industry's docstring. Without
+    # this, req.industry ("Pharmaceutical", "Clinical / Diagnostic Lab", ...)
+    # never matches any ingested chunk's industry='healthcare' tag, silently
+    # falling back to unfiltered retrieval across every industry's corpus.
     query = " ".join(filter(None, [resolved_domain, req.documentType, doc_text[:1500]])) \
         or (req.documentType or resolved_domain)
-    clauses = retrieve(query, k=6) if query else []
+    clauses = retrieve(query, k=6, industry=industry_key(req.industry)) if query else []
 
     result = judge_compliance(resolved_domain, req.documentType, doc_text, clauses)
 
@@ -1059,12 +1628,14 @@ def scope_supplier(supplier: dict) -> dict:
         country=supplier.get("country"),
         commodity=supplier.get("commodity"),
         jurisdictions=supplier.get("jurisdictions") or [],
+        industry=supplier.get("industry"),
     )
     query = " ".join(filter(None, [req.legalName, req.commodity, req.country,
                                    " ".join(req.jurisdictions)]))
-    hits = retrieve(query, k=8)
+    corpus_industry = resolve_corpus_industry(req.industry, req.commodity)
+    hits = retrieve(query, k=8, industry=corpus_industry)
     tier, summary, reasons = assess_risk(req, hits)
-    checklist = build_checklist(hits)
+    checklist = build_checklist(hits, industry=corpus_industry)
     domains = sorted({h["domain"] for h in hits})
     return {"riskTier": tier, "riskSummary": summary, "riskReasons": reasons,
             "checklist": checklist, "scope": domains}
@@ -1079,12 +1650,13 @@ def assess_document(doc: dict) -> dict:
         documentText=doc.get("documentText"),
         documentBase64=doc.get("documentBase64"),
         fileName=doc.get("fileName"),
+        industry=doc.get("industry"),
     )
     doc_text = extract_document_text(req)
     resolved_domain = req.domain or (guess_domain(doc_text) if doc_text else "general")
     query = " ".join(filter(None, [resolved_domain, req.documentType, doc_text[:1500]])) \
         or (req.documentType or resolved_domain)
-    clauses = retrieve(query, k=6) if query else []
+    clauses = retrieve(query, k=6, industry=industry_key(req.industry)) if query else []
     r = judge_compliance(resolved_domain, req.documentType, doc_text, clauses)
     return {"domain": resolved_domain, "documentType": req.documentType,
             "verdict": r["verdict"], "severity": r["severity"],

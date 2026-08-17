@@ -1,0 +1,96 @@
+<template>
+    <div class="vc-page">
+        <div class="vc-page-header">
+            <h1 class="vc-page-title">Company Policy Documents</h1>
+            <p class="vc-page-sub">Upload company compliance policies. Each document is parsed,
+                chunked, and embedded into the RAG policy corpus used for checklist generation
+                and compliance checks.</p>
+        </div>
+
+        <!-- Upload panel -->
+        <div class="vc-card">
+            <div class="vc-card-title">Upload a policy document</div>
+            <div class="vc-upload-row">
+                <div class="vc-field">
+                    <div class="vc-flabel">Domain</div>
+                    <select class="vc-finput vc-fselect" onchange={handleDomainChange}>
+                        <template for:each={domainOptions} for:item="opt">
+                            <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
+                        </template>
+                    </select>
+                </div>
+                <div class="vc-field">
+                    <div class="vc-flabel">&nbsp;</div>
+                    <button class="vc-btn-pri" onclick={handleStartUpload} disabled={isUploadDisabled}>
+                        {uploadLabel}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden file input — shared by "Attach" and per-row "Reupload";
+             no Policy_Document__c record is created until a file is actually
+             chosen here (see handleFilePicked / _uploadFile in the JS). -->
+        <input type="file" class="vc-file-input" accept={acceptedFormats} onchange={handleFilePicked}>
+
+        <!-- List panel -->
+        <div class="vc-card">
+            <div class="vc-card-title">Uploaded policy documents</div>
+            <template if:true={loadingList}>
+                <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+            </template>
+            <template if:false={hasRows}>
+                <div class="vc-empty">No policy documents uploaded yet.</div>
+            </template>
+            <template if:true={hasRows}>
+                <table class="vc-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Domain</th>
+                            <th>Status</th>
+                            <th>Corpus Version</th>
+                            <th>Uploaded</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={rows} for:item="row">
+                            <tr key={row.id}>
+                                <td>{row.name}</td>
+                                <td>{row.domainLabel}</td>
+                                <td><span class={row.badgeClass}>{row.status}</span></td>
+                                <td>{row.corpusVersion}</td>
+                                <td><lightning-formatted-date-time value={row.createdDate}></lightning-formatted-date-time></td>
+                                <td class="vc-row-actions">
+                                    <button type="button" class="vc-doc-btn" data-id={row.id} onclick={handleReupload}>Reupload</button>
+                                    <button type="button" class="vc-doc-btn danger" data-id={row.id} onclick={handleDelete}>Delete</button>
+                                </td>
+                            </tr>
+                            <template if:true={row.failureReason}>
+                                <tr key={row.errorRowKey}>
+                                    <td colspan="6" class="vc-row-error">{row.failureReason}</td>
+                                </tr>
+                            </template>
+                        </template>
+                    </tbody>
+                </table>
+            </template>
+        </div>
+
+        <!-- Delete confirmation — in-component, not native confirm() (see
+             handleDelete in the JS for why). -->
+        <template if:true={showDeleteConfirm}>
+            <div class="vc-modal-overlay">
+                <div class="vc-modal" role="alertdialog" aria-modal="true" aria-labelledby="vc-delete-confirm-title">
+                    <div class="vc-modal-title" id="vc-delete-confirm-title">Delete policy document?</div>
+                    <p class="vc-modal-body">Delete <strong>{pendingDeleteName}</strong>? This removes it and its file — it will no longer contribute to the compliance corpus.</p>
+                    <div class="vc-modal-actions">
+                        <button type="button" class="vc-doc-btn" onclick={handleCancelDelete}>Cancel</button>
+                        <button type="button" class="vc-doc-btn danger" onclick={handleConfirmDelete}>Delete</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</template>

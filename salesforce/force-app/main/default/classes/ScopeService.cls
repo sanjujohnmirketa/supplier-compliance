@@ -29,6 +29,16 @@ public with sharing class ScopeService {
         public String       country;
         public String       commodity;
         public List<String> jurisdictions = new List<String>();
+        // Optional — sharpens domain selection beyond industry/engagement text.
+        // Blank behaves exactly as before these fields existed.
+        public String       materialType;
+        public String       serviceCategory;
+        // Domains resolved from Material_Type__mdt (MaterialTypeController) for
+        // whichever of materialType/serviceCategory the caller selected — the
+        // engine unions these directly instead of maintaining its own
+        // material/service-to-domain mapping, so a new Custom Metadata record
+        // (any industry) takes effect with no engine code change.
+        public List<String> materialDomains = new List<String>();
     }
 
     // ── Response (mirrors app.py /scope output) ───────────────────────────────
@@ -64,7 +74,17 @@ public with sharing class ScopeService {
         // FastAPI Optional defaults apply.
         httpReq.setBody(JSON.serialize(req, true));
 
-        HttpResponse res = new Http().send(httpReq);
+        // The dev tunnel occasionally stalls a connection with no bytes back
+        // (CalloutException: Read timed out) even though the engine itself
+        // responds in well under a second. One retry masks that transient
+        // tunnel flake from the user without hiding a REAL engine error
+        // (4xx/5xx), which is handled below, outside this retry.
+        HttpResponse res;
+        try {
+            res = new Http().send(httpReq);
+        } catch (CalloutException ce) {
+            res = new Http().send(httpReq);   // one retry, same request
+        }
 
         if (res.getStatusCode() != 200) {
             throw new ScopeException(

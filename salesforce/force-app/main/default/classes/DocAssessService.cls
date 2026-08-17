@@ -78,6 +78,7 @@ public with sharing class DocAssessService {
         if (m.get('citations') instanceof List<Object>) {
             for (Object o : (List<Object>) m.get('citations')) if (o != null) r.citations.add(String.valueOf(o));
         }
+        r.summary            = (Map<String, Object>) m.get('summary');
         r.extractedFields    = (Map<String, Object>) m.get('extractedFields');
         r.keyDates           = (Map<String, Object>) m.get('keyDates');
         r.clauseChecks       = (List<Object>)        m.get('clauseChecks');

@@ -539,6 +539,7 @@
             <dataType>String</dataType>
             <fieldText>Industry / Sector *</fieldText>
             <fieldType>DropdownBox</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -559,6 +560,7 @@
             <dataType>String</dataType>
             <fieldText>Vendor Type *</fieldText>
             <fieldType>DropdownBox</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -577,6 +579,7 @@
             <dataType>String</dataType>
             <fieldText>Supplier Tier *</fieldText>
             <fieldType>DropdownBox</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -596,6 +599,7 @@
             <dataType>String</dataType>
             <fieldText>Operating Region *</fieldText>
             <fieldType>DropdownBox</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -612,6 +616,7 @@
             <dataType>String</dataType>
             <fieldText>Country</fieldText>
             <fieldType>DropdownBox</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -671,6 +676,7 @@ Aerospace &amp;amp; Defense selections will require AS9100, ITAR registration, a
             <dataType>String</dataType>
             <fieldText>Legal Company Name *</fieldText>
             <fieldType>InputField</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -686,6 +692,7 @@ Aerospace &amp;amp; Defense selections will require AS9100, ITAR registration, a
             <dataType>String</dataType>
             <fieldText>Business Registration Number</fieldText>
             <fieldType>InputField</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -701,6 +708,7 @@ Aerospace &amp;amp; Defense selections will require AS9100, ITAR registration, a
             <dataType>String</dataType>
             <fieldText>Federal Tax ID / EIN</fieldText>
             <fieldType>InputField</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -716,6 +724,7 @@ Aerospace &amp;amp; Defense selections will require AS9100, ITAR registration, a
             <dataType>String</dataType>
             <fieldText>Company Website</fieldText>
             <fieldType>InputField</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -744,6 +753,7 @@ Aerospace &amp;amp; Defense selections will require AS9100, ITAR registration, a
             <dataType>String</dataType>
             <fieldText>Street Address</fieldText>
             <fieldType>InputField</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -759,6 +769,7 @@ Aerospace &amp;amp; Defense selections will require AS9100, ITAR registration, a
             <dataType>String</dataType>
             <fieldText>City</fieldText>
             <fieldType>InputField</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -774,6 +785,7 @@ Aerospace &amp;amp; Defense selections will require AS9100, ITAR registration, a
             <dataType>String</dataType>
             <fieldText>State / Province</fieldText>
             <fieldType>InputField</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -789,6 +801,7 @@ Aerospace &amp;amp; Defense selections will require AS9100, ITAR registration, a
             <dataType>String</dataType>
             <fieldText>Postal Code</fieldText>
             <fieldType>InputField</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -804,6 +817,7 @@ Aerospace &amp;amp; Defense selections will require AS9100, ITAR registration, a
             <dataType>String</dataType>
             <fieldText>Country</fieldText>
             <fieldType>InputField</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -832,6 +846,7 @@ Aerospace &amp;amp; Defense selections will require AS9100, ITAR registration, a
             <dataType>String</dataType>
             <fieldText>First Name *</fieldText>
             <fieldType>InputField</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -847,6 +862,7 @@ Aerospace &amp;amp; Defense selections will require AS9100, ITAR registration, a
             <dataType>String</dataType>
             <fieldText>Last Name *</fieldText>
             <fieldType>InputField</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -862,6 +878,7 @@ Aerospace &amp;amp; Defense selections will require AS9100, ITAR registration, a
             <dataType>String</dataType>
             <fieldText>Email Address *</fieldText>
             <fieldType>InputField</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>
@@ -877,6 +894,7 @@ Aerospace &amp;amp; Defense selections will require AS9100, ITAR registration, a
             <dataType>String</dataType>
             <fieldText>Phone</fieldText>
             <fieldType>InputField</fieldType>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
             <isRequired>true</isRequired>
             <styleProperties>
                 <verticalAlignment>

@@ -3,6 +3,22 @@
     <label>Financial &amp; Identity</label>
     <protected>false</protected>
     <values>
+        <field>Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Default_Selected__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">Legal Entity Identifier (LEI) verification, audited financial statements, tax identity (W-8/W-9) and RapidRatings financial-health scoring.</value>
+    </values>
+    <values>
+        <field>Display_Order__c</field>
+        <value xsi:type="xsd:double">20.0</value>
+    </values>
+    <values>
         <field>Domain_Key__c</field>
         <value xsi:type="xsd:string">finance</value>
     </values>
@@ -11,23 +27,7 @@
         <value xsi:type="xsd:string">Financial &amp; Identity</value>
     </values>
     <values>
-        <field>Description__c</field>
-        <value xsi:type="xsd:string">Legal Entity Identifier (LEI) verification, audited financial statements, tax identity (W-8/W-9) and RapidRatings financial-health scoring.</value>
-    </values>
-    <values>
         <field>Verifier_Authority__c</field>
         <value xsi:type="xsd:string">GLEIF / RapidRatings</value>
-    </values>
-    <values>
-        <field>Default_Selected__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>Display_Order__c</field>
-        <value xsi:type="xsd:double">20.0</value>
-    </values>
-    <values>
-        <field>Active__c</field>
-        <value xsi:type="xsd:boolean">true</value>
     </values>
 </CustomMetadata>

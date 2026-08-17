@@ -7,7 +7,7 @@ public without sharing class AuditLogService {
         Id complianceDocId, String modelName, String modelVersion,
         Decimal confidence, String rawResponse, String actorType) {
         insert new Audit_Log__c(
-            Event_Type__c = 'Doc Extracted',
+            Event_Type__c = 'AI_Extraction',
             Related_Object__c = 'Compliance_Document',
             Related_Record_Id__c = complianceDocId,
             Event_DateTime__c = DateTime.now(),
@@ -22,7 +22,7 @@ public without sharing class AuditLogService {
     public static void logAssessmentChange(
         Id assessmentId, String before, String after, String reason, String actorType) {
         insert new Audit_Log__c(
-            Event_Type__c = 'Assessment Created',
+            Event_Type__c = 'Compliance_Evaluated',
             Related_Object__c = 'Compliance_Assessment',
             Related_Record_Id__c = assessmentId,
             Event_DateTime__c = DateTime.now(),
@@ -47,6 +47,21 @@ public without sharing class AuditLogService {
                 'fileName'     => fileName
             }),
             Source_System__c     = 'Salesforce'
+        );
+    }
+
+    public static void logCascadingRiskChange(
+        Id accountId, String before, String after, String reason) {
+        insert new Audit_Log__c(
+            Event_Type__c         = 'Cascading_Risk_Updated',
+            Related_Object__c     = 'Supplier',
+            Related_Record_Id__c  = accountId,
+            Event_DateTime__c     = DateTime.now(),
+            Actor_Type__c         = 'System',
+            Original_Value__c     = before,
+            New_Value__c          = after,
+            Reason__c             = reason,
+            Source_System__c      = 'Salesforce'
         );
     }
 

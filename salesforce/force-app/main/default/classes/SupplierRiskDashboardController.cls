@@ -25,6 +25,20 @@ public with sharing class SupplierRiskDashboardController {
         @AuraEnabled public DateTime riskLastComputed;
         @AuraEnabled public Boolean  hasRiskData;
 
+        // Multi-tier cascading risk (docs/multi-tier-risk-rollup.md) — worst-case
+        // tier across this supplier's whole sub-tree, distinct from its own riskTier.
+        // Computed by MultiTierRollupService by walking Account.ParentId.
+        @AuraEnabled public String   cascadingRiskTier;
+        @AuraEnabled public String   cascadingRiskTierVariant;
+        @AuraEnabled public String   cascadingRiskSource;
+        @AuraEnabled public String   cascadingRiskDriverId;
+        @AuraEnabled public Integer  subTierSupplierCount;
+        @AuraEnabled public DateTime cascadingRiskLastComputed;
+        // Weighted-average blend (New Score = own*0.7 + avg(weighted sub-supplier)*0.3) —
+        // a second, separate signal from cascadingRiskTier's worst-case propagation.
+        @AuraEnabled public Decimal  cascadingRiskScore;
+        @AuraEnabled public Boolean  cascadingRiskFlagged;
+
         // Compliance evaluation summary — computed live from assessments
         @AuraEnabled public Integer  totalRequirements;
         @AuraEnabled public Integer  requirementsMet;
@@ -39,7 +53,6 @@ public with sharing class SupplierRiskDashboardController {
         @AuraEnabled public Integer  documentsValidated;
         @AuraEnabled public Integer  documentsRejected;
         @AuraEnabled public Integer  documentsPending;
-        @AuraEnabled public Decimal  avgConfidence;     // null — no per-doc confidence in new arch
 
         // Drill-down lists
         @AuraEnabled public List<AssessmentRow>  assessments;
@@ -149,7 +162,11 @@ public with sharing class SupplierRiskDashboardController {
         List<Account> accts = [
             SELECT Id, Name, Industry, BillingCountry, Country_of_Origin__c,
                    Onboarding_Status__c,
-                   Risk_Score__c, Risk_Tier__c, Risk_Last_Computed__c
+                   Risk_Score__c, Risk_Tier__c, Risk_Last_Computed__c,
+                   Cascading_Risk_Tier__c, Cascading_Risk_Source__c,
+                   Cascading_Risk_Driver__c, Sub_Tier_Supplier_Count__c,
+                   Cascading_Risk_Last_Computed__c, Cascading_Risk_Score__c,
+                   Cascading_Risk_Flag__c
             FROM   Account
             WHERE  Id = :accountId
             LIMIT  1
@@ -186,6 +203,16 @@ public with sharing class SupplierRiskDashboardController {
         snap.riskLastComputed = acc.Risk_Last_Computed__c;
         snap.hasRiskData      = (acc.Risk_Last_Computed__c != null);
         snap.riskTierVariant  = mapTierToVariant(acc.Risk_Tier__c);
+
+        snap.cascadingRiskTier         = acc.Cascading_Risk_Tier__c;
+        snap.cascadingRiskTierVariant  = mapTierToVariant(acc.Cascading_Risk_Tier__c);
+        snap.cascadingRiskSource       = acc.Cascading_Risk_Source__c;
+        snap.cascadingRiskDriverId     = acc.Cascading_Risk_Driver__c;
+        snap.subTierSupplierCount      = acc.Sub_Tier_Supplier_Count__c == null
+            ? 0 : acc.Sub_Tier_Supplier_Count__c.intValue();
+        snap.cascadingRiskLastComputed = acc.Cascading_Risk_Last_Computed__c;
+        snap.cascadingRiskScore        = acc.Cascading_Risk_Score__c;
+        snap.cascadingRiskFlagged      = acc.Cascading_Risk_Flag__c == true;
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -335,18 +362,15 @@ public with sharing class SupplierRiskDashboardController {
 
     private static void countDocumentsByStatus(SupplierSnapshot snap) {
         Integer validated = 0, rejected = 0, pending = 0;
-        Decimal confSum = 0; Integer confCount = 0;
         for (DocumentRow d : snap.documents) {
             if (d.status == 'Compliant')          validated++;
             else if (d.status == 'Non-Compliant') rejected++;
             else if (d.status != null)            pending++;
-            if (d.confidence != null) { confSum += d.confidence; confCount++; }
         }
         snap.documentsTotal     = snap.documents.size();
         snap.documentsValidated = validated;
         snap.documentsRejected  = rejected;
         snap.documentsPending   = pending;
-        snap.avgConfidence      = (confCount > 0) ? (confSum / confCount).setScale(2) : null;
     }
 
     private static void deriveSupplierNarrative(SupplierSnapshot snap) {

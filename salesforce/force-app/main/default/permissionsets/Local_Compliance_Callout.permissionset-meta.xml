@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label>Local Compliance Callout</label>
     <description>Grants the running user access to the Local_Compliance_Auth external credential principal so Apex can call the local /scope RAG service via the Local_Compliance_Service named credential.</description>
-    <hasActivationRequired>false</hasActivationRequired>
     <externalCredentialPrincipalAccesses>
         <enabled>true</enabled>
         <externalCredentialPrincipal>Local_Compliance_Auth-Admin</externalCredentialPrincipal>
     </externalCredentialPrincipalAccesses>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Account.Sub_Tier_Supplier_Count__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Local Compliance Callout</label>
 </PermissionSet>

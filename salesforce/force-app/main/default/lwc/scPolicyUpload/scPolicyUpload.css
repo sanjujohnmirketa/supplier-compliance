@@ -1,0 +1,93 @@
+.vc-page { padding: 20px; font-family: var(--font-sans); max-width: 1100px; margin: 0 auto; }
+.vc-page-header { margin-bottom: 16px; }
+.vc-page-title { font-size: 18px; font-weight: 700; color: var(--color-text-primary); margin: 0 0 4px 0; }
+.vc-page-sub { font-size: 12px; color: var(--color-text-secondary); margin: 0; max-width: 720px; }
+
+/* ─── Cards ──────────────────────────────────────────────────────────────────── */
+.vc-card {
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  padding: 16px; margin-bottom: 12px;
+}
+.vc-card-title {
+  font-size: 10px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: #374151; margin-bottom: 12px;
+}
+
+/* ─── Upload row ─────────────────────────────────────────────────────────────── */
+.vc-upload-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
+.vc-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.vc-flabel {
+  font-size: 10px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: #374151;
+}
+.vc-finput {
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 7px 10px; font-size: 12px;
+  background: var(--color-background-primary);
+  color: #111111; font-weight: 500; font-family: var(--font-sans);
+}
+.vc-finput:focus { outline: none; border-color: var(--color-text-primary); }
+.vc-fselect { appearance: auto; cursor: pointer; height: 31px; }
+
+/* ─── Buttons ────────────────────────────────────────────────────────────────── */
+.vc-btn-pri {
+  border: none; border-radius: var(--border-radius-md);
+  padding: 7px 16px; font-size: 12px; font-weight: 500;
+  background: #2563eb; color: #fff;
+  cursor: pointer; font-family: var(--font-sans); transition: background .12s, opacity .1s;
+}
+.vc-btn-pri:hover { background: #1d4ed8; }
+.vc-btn-pri:disabled { background: #93b4f5; cursor: default; }
+
+/* ─── Badges ─────────────────────────────────────────────────────────────────── */
+.vc-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.vc-badge.ok      { background: #DCFCE7; color: #166534; }
+.vc-badge.warn    { background: #FEF3C7; color: #92400E; }
+.vc-badge.bad     { background: #FEE2E2; color: #991B1B; }
+.vc-badge.neutral { background: #E5E7EB; color: #374151; }
+
+/* ─── Table ──────────────────────────────────────────────────────────────────── */
+.vc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.vc-table thead th {
+  text-align: left; font-size: 10px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--color-text-tertiary);
+  padding: 8px 10px; border-bottom: 0.5px solid var(--color-border-tertiary);
+}
+.vc-table tbody td {
+  padding: 8px 10px; border-bottom: 0.5px solid var(--color-border-tertiary);
+  color: var(--color-text-primary);
+}
+.vc-row-error { color: #991B1B; font-size: 11px; padding-top: 0 !important; }
+.vc-empty { padding: 24px 8px; text-align: center; font-size: 12px; color: var(--color-text-secondary); }
+
+/* ─── Row actions / hidden file input ────────────────────────────────────────── */
+.vc-file-input { display: none; }
+.vc-row-actions { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
+/* Concrete colors, not inherited theme custom properties — this component can
+   render outside a context that defines --color-border-secondary/--color-
+   text-secondary, which previously left these looking unstyled/like plain text. */
+.vc-doc-btn {
+  border: 1px solid #9ca3af; background: #ffffff;
+  color: #1f2937; border-radius: 6px; font-weight: 600;
+  padding: 4px 12px; font-size: 11.5px; cursor: pointer; font-family: var(--font-sans, inherit);
+}
+.vc-doc-btn:hover { background: #f3f4f6; border-color: #6b7280; }
+.vc-doc-btn:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+.vc-doc-btn.danger { color: #b91c1c; border-color: #f3a5a5; }
+.vc-doc-btn.danger:hover { background: #fef2f2; border-color: #f87171; }
+
+/* ─── Delete confirmation modal ─────────────────────────────────────────────── */
+.vc-modal-overlay {
+  position: fixed; inset: 0; background: rgba(17, 17, 17, 0.45);
+  display: flex; align-items: center; justify-content: center; z-index: 9000;
+}
+.vc-modal {
+  background: #ffffff; border-radius: 10px; padding: 20px 22px;
+  max-width: 420px; width: 90%; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+.vc-modal-title { font-size: 15px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+.vc-modal-body { font-size: 13px; color: #374151; line-height: 1.5; margin: 0 0 18px; }
+.vc-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }

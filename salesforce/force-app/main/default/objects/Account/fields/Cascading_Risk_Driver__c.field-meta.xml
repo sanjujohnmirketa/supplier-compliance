@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Cascading_Risk_Driver__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>The specific descendant Account (or self) whose own Risk_Tier__c equals Cascading_Risk_Tier__c — the drill-through target for &quot;why is this supplier&apos;s cascading risk elevated&quot;. Computed by MultiTierRollupService.</description>
+    <label>Cascading Risk Driver</label>
+    <referenceTo>Account</referenceTo>
+    <relationshipLabel>Cascading Risk For</relationshipLabel>
+    <relationshipName>Cascading_Risk_For</relationshipName>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>Lookup</type>
+</CustomField>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Health IT / Digital Health Security</label>
+    <protected>false</protected>
+    <values>
+        <field>Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Default_Selected__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">SOC 2 Type II / HITRUST CSF security attestation, subprocessor disclosure, and interoperability requirements for health IT and digital-health platform vendors — layered on top of the baseline HIPAA BAA, not a substitute for it.</value>
+    </values>
+    <values>
+        <field>Display_Order__c</field>
+        <value xsi:type="xsd:double">180.0</value>
+    </values>
+    <values>
+        <field>Domain_Key__c</field>
+        <value xsi:type="xsd:string">health_it_digital</value>
+    </values>
+    <values>
+        <field>Label__c</field>
+        <value xsi:type="xsd:string">Health IT / Digital Health Security</value>
+    </values>
+    <values>
+        <field>Verifier_Authority__c</field>
+        <value xsi:type="xsd:string">AICPA (SOC 2) / HITRUST Alliance</value>
+    </values>
+</CustomMetadata>

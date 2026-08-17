@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Analyst_Validated__c</fullName>
+    <defaultValue>false</defaultValue>
     <description>True when the analyst has manually reviewed and validated this document/finding.</description>
     <label>Analyst Validated</label>
+    <trackTrending>false</trackTrending>
     <type>Checkbox</type>
-    <defaultValue>false</defaultValue>
 </CustomField>

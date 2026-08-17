@@ -37,7 +37,8 @@ public without sharing class ScopeCalloutQueueable
         Map<Id, Account> accounts = new Map<Id, Account>([
             SELECT Id, Name, Industry, Industry__c, Vendor_Type__c,
                    Engagement_Type__c, Annual_Spend_Est__c, BillingState,
-                   BillingCountry, Country_of_Origin__c, Onboarding_Status__c
+                   BillingCountry, Country_of_Origin__c, Onboarding_Status__c,
+                   Material_Type__c, Service_Category__c, Checklist_Seeded_By_Caller__c
             FROM   Account
             WHERE  Id IN :supplierIds
         ]);
@@ -77,8 +78,16 @@ public without sharing class ScopeCalloutQueueable
             String  tier = normaliseTier(resp.riskTier);
             String  severity = tierToSeverity(tier);
 
+            // Skip re-deriving the checklist when the caller already persisted
+            // a human-curated one for this account (e.g. VendorPortalController.
+            // submitAndScreen() after the user removed suggested documents on
+            // the P1 preview, or SubSupplierController.inviteSubSupplier()'s
+            // copied subset) — see Checklist_Seeded_By_Caller__c. Risk tier/
+            // score/domains below are still computed and written either way.
+            Boolean seedChecklist = (acc.Checklist_Seeded_By_Caller__c != true);
+
             List<String> domains = new List<String>();
-            if (resp.checklist != null) {
+            if (seedChecklist && resp.checklist != null) {
                 for (ScopeService.ChecklistItem item : resp.checklist) {
                     toUpsert.add(new Compliance_Assessment__c(
                         Name                   = abbreviate(item.document, 'Requirement', 80),
@@ -94,11 +103,18 @@ public without sharing class ScopeCalloutQueueable
                     ));
                     if (String.isNotBlank(item.domain)) domains.add(item.domain);
                 }
+            } else if (resp.checklist != null) {
+                // Still contribute domains (for Risk_Domains__c) even when the
+                // checklist rows themselves aren't (re)seeded.
+                for (ScopeService.ChecklistItem item : resp.checklist) {
+                    if (String.isNotBlank(item.domain)) domains.add(item.domain);
+                }
             }
 
             accUpdates.add(new Account(
                 Id                    = accId,
                 Risk_Tier__c          = tier,
+                Profile_Risk_Tier__c  = tier,
                 Risk_Score__c         = tierToScore(tier),
                 Risk_Domains__c       = String.join(domains, ', '),
                 Risk_Last_Computed__c = DateTime.now(),
@@ -148,6 +164,16 @@ public without sharing class ScopeCalloutQueueable
         req.commodity = buildScopeContext(
             industry, acc.Engagement_Type__c,
             acc.Annual_Spend_Est__c == null ? null : String.valueOf(acc.Annual_Spend_Est__c));
+
+        // Same materialDomains resolution the live P1 preview uses (VendorPortalController.
+        // generateChecklist) — without this, the trigger-seeded checklist that actually
+        // gets persisted (and shown in the supplier portal) silently drops any domains
+        // contributed by material type / service category, diverging from what was
+        // previewed and emailed at submit time.
+        req.materialType    = acc.Material_Type__c;
+        req.serviceCategory = acc.Service_Category__c;
+        req.materialDomains = VendorPortalController.resolveMaterialDomains(
+            acc.Material_Type__c, acc.Service_Category__c);
 
         List<String> j = new List<String>();
         if (String.isNotBlank(acc.BillingCountry)) j.add(acc.BillingCountry);

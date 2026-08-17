@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Stage_Entered_DateTime__c</fullName>
+    <description>Timestamp the Account most recently entered its CURRENT Onboarding_Status__c value. Set by AccountTriggerHandler.beforeInsert (initial status) and beforeUpdate (whenever Onboarding_Status__c changes) — never set anywhere else. Distinct from CreatedDate (total time in the pipeline since the record existed at all): this is &quot;how long has it been stuck in the stage it&apos;s in right now,&quot; which CreatedDate cannot answer once a supplier has moved through more than one stage. Drives the &quot;days in this stage&quot; / stalled-case indicator in the Procurement (P2) and Analyst (A1) queues.</description>
+    <label>Stage Entered DateTime</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>DateTime</type>
+</CustomField>

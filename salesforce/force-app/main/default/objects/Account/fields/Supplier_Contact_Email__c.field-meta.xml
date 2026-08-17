@@ -5,6 +5,7 @@
     <externalId>false</externalId>
     <label>Supplier Contact Email</label>
     <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
     <type>Email</type>
     <unique>false</unique>
 </CustomField>

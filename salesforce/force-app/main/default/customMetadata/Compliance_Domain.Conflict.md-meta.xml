@@ -3,6 +3,22 @@
     <label>Conflict Minerals</label>
     <protected>false</protected>
     <values>
+        <field>Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Default_Selected__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">CMRT/EMRT declarations; smelter and refiner CID numbers cross-checked against the RMI conformant smelter list for DRC/CAHRA exposure.</value>
+    </values>
+    <values>
+        <field>Display_Order__c</field>
+        <value xsi:type="xsd:double">40.0</value>
+    </values>
+    <values>
         <field>Domain_Key__c</field>
         <value xsi:type="xsd:string">conflict</value>
     </values>
@@ -11,23 +27,7 @@
         <value xsi:type="xsd:string">Conflict Minerals</value>
     </values>
     <values>
-        <field>Description__c</field>
-        <value xsi:type="xsd:string">CMRT/EMRT declarations; smelter and refiner CID numbers cross-checked against the RMI conformant smelter list for DRC/CAHRA exposure.</value>
-    </values>
-    <values>
         <field>Verifier_Authority__c</field>
         <value xsi:type="xsd:string">RMI</value>
-    </values>
-    <values>
-        <field>Default_Selected__c</field>
-        <value xsi:type="xsd:boolean">false</value>
-    </values>
-    <values>
-        <field>Display_Order__c</field>
-        <value xsi:type="xsd:double">40.0</value>
-    </values>
-    <values>
-        <field>Active__c</field>
-        <value xsi:type="xsd:boolean">true</value>
     </values>
 </CustomMetadata>

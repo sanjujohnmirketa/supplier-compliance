@@ -40,6 +40,16 @@
                 <label>Status Changed</label>
             </value>
             <value>
+                <fullName>Cascading_Risk_Updated</fullName>
+                <default>false</default>
+                <label>Cascading Risk Updated</label>
+            </value>
+            <value>
+                <fullName>Procurement_Decision_Recorded</fullName>
+                <default>false</default>
+                <label>Procurement Decision Recorded</label>
+            </value>
+            <value>
                 <fullName>Other</fullName>
                 <default>false</default>
                 <label>Other</label>

@@ -1,0 +1,215 @@
+<apex:page controller="AuditReportPDFController"
+           renderAs="pdf"
+           showHeader="false"
+           sidebar="false"
+           applyBodyTag="false"
+           applyHtmlTag="false"
+           contentType="application/pdf">
+<html>
+<head>
+<meta charset="UTF-8"/>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 9pt;
+        color: #1c2533;
+        background: #fff;
+    }
+    /* ── Cover / header ── */
+    .report-header {
+        border-bottom: 3px solid #0176d3;
+        padding-bottom: 12pt;
+        margin-bottom: 14pt;
+    }
+    .report-title {
+        font-size: 18pt;
+        font-weight: bold;
+        color: #0176d3;
+        margin-bottom: 4pt;
+    }
+    .report-subtitle {
+        font-size: 10pt;
+        color: #444;
+        margin-bottom: 10pt;
+    }
+    .meta-grid {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .meta-grid td {
+        padding: 3pt 6pt 3pt 0;
+        font-size: 8.5pt;
+        vertical-align: top;
+    }
+    .meta-label {
+        font-weight: bold;
+        color: #555;
+        width: 110pt;
+    }
+    /* ── Summary box ── */
+    .summary-box {
+        background: #f3f7fd;
+        border: 1px solid #c9d9f0;
+        border-radius: 4pt;
+        padding: 8pt 10pt;
+        margin-bottom: 12pt;
+        font-size: 8.5pt;
+    }
+    .summary-box strong { color: #0176d3; }
+    /* ── Data table ── */
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 7.5pt;
+        margin-bottom: 10pt;
+    }
+    .data-table thead tr {
+        background: #0176d3;
+        color: #fff;
+    }
+    .data-table th {
+        padding: 5pt 6pt;
+        text-align: left;
+        font-weight: bold;
+        font-size: 7pt;
+        letter-spacing: 0.3pt;
+        text-transform: uppercase;
+    }
+    .data-table tbody tr:nth-child(even) { background: #f7faff; }
+    .data-table tbody tr:nth-child(odd)  { background: #ffffff; }
+    .data-table td {
+        padding: 4pt 6pt;
+        border-bottom: 0.5pt solid #dde6f0;
+        vertical-align: top;
+        max-width: 0; /* needed for word-wrap in PDF */
+        word-wrap: break-word;
+    }
+    .col-id      { width: 6%;  }
+    .col-dt      { width: 10%; }
+    .col-event   { width: 10%; }
+    .col-actor   { width: 9%;  }
+    .col-obj     { width: 8%;  }
+    .col-conf    { width: 5%; text-align: right; }
+    .col-detail  { width: 27%; }
+    .col-orig    { width: 15%; }
+    .col-reason  { width: 10%; }
+    .tag-ai      { color: #7b61ff; font-style: italic; }
+    .tag-human   { color: #0176d3; }
+    .tag-system  { color: #77878b; }
+    /* ── Footer ── */
+    .report-footer {
+        border-top: 1pt solid #c9d9f0;
+        padding-top: 6pt;
+        font-size: 7pt;
+        color: #888;
+        margin-top: 6pt;
+    }
+    @page {
+        size: A4 landscape;
+        margin: 1.5cm 1.5cm 2cm 1.5cm;
+        @bottom-center {
+            content: "Page " counter(page) " of " counter(pages);
+            font-family: Arial; font-size: 7pt; color: #888;
+        }
+    }
+</style>
+</head>
+<body>
+
+<!-- ── Report header ── -->
+<div class="report-header">
+    <div class="report-title">Compliance Audit Report</div>
+    <div class="report-subtitle">Tamper-proof compliance activity log — for regulator and internal auditor review</div>
+    <table class="meta-grid">
+        <tr>
+            <td class="meta-label">Generated:</td>
+            <td><apex:outputText value="{!generatedAt}"/></td>
+            <td class="meta-label">Total Records:</td>
+            <td><apex:outputText value="{!totalRecords}"/></td>
+        </tr>
+        <tr>
+            <td class="meta-label">Date Range:</td>
+            <td>
+                <apex:outputText value="{!IF(ISBLANK(dateFrom), '*', dateFrom)}"/> →
+                <apex:outputText value="{!IF(ISBLANK(dateTo),   '*', dateTo)}"/>
+            </td>
+            <td class="meta-label">Supplier Filter:</td>
+            <td><apex:outputText value="{!IF(ISBLANK(supplierName), 'All suppliers', supplierName)}"/></td>
+        </tr>
+        <tr>
+            <td class="meta-label">Event Types:</td>
+            <td><apex:outputText value="{!eventTypesLabel}"/></td>
+            <td class="meta-label">Actor Type:</td>
+            <td><apex:outputText value="{!IF(ISBLANK(actorType), 'All', actorType)}"/></td>
+        </tr>
+        <apex:outputPanel rendered="{!NOT(ISBLANK(requirementKey))}">
+        <tr>
+            <td class="meta-label">Requirement / Rule:</td>
+            <td colspan="3"><apex:outputText value="{!requirementKey}"/></td>
+        </tr>
+        </apex:outputPanel>
+    </table>
+</div>
+
+<!-- ── Filter summary ── -->
+<div class="summary-box">
+    <strong>Filters applied:</strong> <apex:outputText value="{!filterSummary}"/>
+</div>
+
+<!-- ── Data table ── -->
+<apex:outputPanel rendered="{!totalRecords > 0}">
+<table class="data-table">
+    <thead>
+        <tr>
+            <th class="col-id">Audit ID</th>
+            <th class="col-dt">Date / Time</th>
+            <th class="col-event">Event Type</th>
+            <th class="col-actor">Actor</th>
+            <th class="col-obj">Related Object</th>
+            <th class="col-conf">AI Conf %</th>
+            <th class="col-detail">Details / New Value</th>
+            <th class="col-orig">Original Value</th>
+            <th class="col-reason">Reason</th>
+        </tr>
+    </thead>
+    <tbody>
+        <apex:repeat value="{!rows}" var="r">
+        <tr>
+            <td class="col-id"><apex:outputText value="{!r.auditId}"/></td>
+            <td class="col-dt"><apex:outputText value="{!r.eventDateTime}"/></td>
+            <td class="col-event"><apex:outputText value="{!r.eventType}"/></td>
+            <td class="col-actor">
+                <span class="{!IF(r.actorType=='AI','tag-ai',IF(r.actorType=='Human','tag-human','tag-system'))}">
+                    <apex:outputText value="{!r.actorName}"/>
+                </span>
+            </td>
+            <td class="col-obj"><apex:outputText value="{!r.relatedObject}"/></td>
+            <td class="col-conf">
+                <apex:outputText value="{!IF(r.aiConfidence != null, TEXT(r.aiConfidence), '—')}"/>
+            </td>
+            <td class="col-detail"><apex:outputText value="{!LEFT(r.newValue, 400)}"/></td>
+            <td class="col-orig"><apex:outputText value="{!LEFT(r.originalValue, 200)}"/></td>
+            <td class="col-reason"><apex:outputText value="{!LEFT(r.reason, 150)}"/></td>
+        </tr>
+        </apex:repeat>
+    </tbody>
+</table>
+</apex:outputPanel>
+
+<apex:outputPanel rendered="{!totalRecords == 0}">
+    <div class="summary-box" style="text-align:center; color:#666;">
+        No audit records match the specified filters.
+    </div>
+</apex:outputPanel>
+
+<!-- ── Footer ── -->
+<div class="report-footer">
+    This report was generated automatically from the Supplier Compliance Management system.
+    Audit log entries are immutable — they cannot be edited, deleted, or retroactively altered.
+    This document is intended for regulator submission and internal audit use only.
+</div>
+
+</body>
+</html>
+</apex:page>

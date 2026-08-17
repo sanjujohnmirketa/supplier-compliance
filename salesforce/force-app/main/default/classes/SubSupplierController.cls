@@ -195,6 +195,14 @@ public without sharing class SubSupplierController {
         // are: Draft, Screening, In Review, Approved, Reviewed, Rejected).
         // The sub-supplier becomes 'Screening' once they log in and upload.
         subAcc.Onboarding_Status__c     = 'Draft';
+        // When the Tier 1 supplier selected specific requirements below, that
+        // curated subset (copied at 1b) IS this account's checklist — the
+        // trigger-fired ScopeCalloutQueueable must not also seed a full
+        // /scope-derived checklist on top of it (that's what let the
+        // sub-supplier see every document instead of just the 3 selected).
+        // If nothing was selected, leave it unset so a full default checklist
+        // still gets seeded rather than leaving the sub-supplier with none.
+        subAcc.Checklist_Seeded_By_Caller__c = String.isNotBlank(selectedRequirementIds);
 
         if (existing.isEmpty()) {
             insert subAcc;

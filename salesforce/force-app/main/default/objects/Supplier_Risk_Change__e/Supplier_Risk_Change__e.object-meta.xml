@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>Published when a supplier&apos;s own compliance status changes (Account.Risk_Tier__c changes, driven by a Compliance_Assessment__c/document status change). Subscribed by SupplierRiskChangeTrigger, which drives MultiTierRollupService in real time (not a batch job) so the cascading risk SCORE and worst-case tier recompute bottom-up from the changed supplier to Tier 1.</description>
+    <eventType>HighVolume</eventType>
+    <label>Supplier Risk Change</label>
+    <pluralLabel>Supplier Risk Changes</pluralLabel>
+    <publishBehavior>PublishAfterCommit</publishBehavior>
+</CustomObject>

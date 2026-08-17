@@ -9,6 +9,7 @@
     <columns>Risk_Tier__c</columns>
     <columns>Risk_Score__c</columns>
     <columns>ACCOUNT.CREATED_DATE</columns>
+    <columns>Cascading_Risk_Score__c</columns>
     <filterScope>Everything</filterScope>
     <filters>
         <field>ACCOUNT.RECORDTYPE</field>

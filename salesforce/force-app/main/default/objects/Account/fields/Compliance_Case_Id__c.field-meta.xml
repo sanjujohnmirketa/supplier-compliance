@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Compliance_Case_Id__c</fullName>
-    <description>The engine's agentic case thread id (LangGraph thread_id). Binds this supplier to its durable, checkpointed compliance case so the agent timeline and gates resume across sessions.</description>
+    <description>The engine&apos;s agentic case thread id (LangGraph thread_id). Binds this supplier to its durable, checkpointed compliance case so the agent timeline and gates resume across sessions.</description>
     <externalId>false</externalId>
     <label>Compliance Case Id</label>
     <length>64</length>
     <required>false</required>
-    <trackTrending>false</trackTrending>
+    <trackFeedHistory>false</trackFeedHistory>
     <type>Text</type>
     <unique>false</unique>
 </CustomField>

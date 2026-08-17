@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Status__c</fullName>
+    <description>This file's own AI compliance verdict — mirrors Compliance_Assessment__c.Status__c's picklist exactly. The parent requirement's Status__c is a worst-wins rollup over all its Compliance_Document_Link__c children.</description>
+    <label>Compliance Status</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Compliant</fullName>
+                <default>false</default>
+                <label>Compliant</label>
+            </value>
+            <value>
+                <fullName>Non_Compliant</fullName>
+                <default>false</default>
+                <label>Non-Compliant</label>
+            </value>
+            <value>
+                <fullName>At_Risk</fullName>
+                <default>false</default>
+                <label>At Risk</label>
+            </value>
+            <value>
+                <fullName>Pending</fullName>
+                <default>false</default>
+                <label>Pending</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

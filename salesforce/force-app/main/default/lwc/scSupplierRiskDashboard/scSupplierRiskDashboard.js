@@ -39,7 +39,7 @@ export default class ScSupplierRiskDashboard extends NavigationMixin(LightningEl
                 return {
                     ...d,
                     ...parsed,
-                    confidenceLabel: conf == null ? '—' : `${Math.round(conf * 100)}%`,
+                    confidenceLabel: conf == null ? 'Not scored yet' : `${Math.round(conf * 100)}%`,
                     statusVariantClass: sv === 'success' ? 'badge-success'
                                       : sv === 'error'   ? 'badge-error'
                                       : sv === 'warning' ? 'badge-warning'
@@ -118,11 +118,11 @@ export default class ScSupplierRiskDashboard extends NavigationMixin(LightningEl
     get hasNoSnapshot()  { return !!this.snapshot && !this.hasSnapshot; }
     get hasError()       { return !!this.errorMessage; }
     get riskScoreLabel() {
-        if (!this.snapshot || this.snapshot.riskScore == null) return '—';
+        if (!this.snapshot || this.snapshot.riskScore == null) return 'Not scored yet';
         return Math.round(this.snapshot.riskScore);
     }
     get riskScorePercent() {
-        if (!this.snapshot || this.snapshot.riskScore == null) return '—';
+        if (!this.snapshot || this.snapshot.riskScore == null) return 'Not scored yet';
         return `${Math.round(this.snapshot.riskScore)}%`;
     }
     get riskTierLabel()  { return this.snapshot?.riskTier || 'Unknown'; }
@@ -134,6 +134,32 @@ export default class ScSupplierRiskDashboard extends NavigationMixin(LightningEl
             Low:      'tier-low'
         };
         return `risk-tier ${map[this.snapshot?.riskTier] || 'tier-unknown'}`;
+    }
+
+    // ── Cascading risk (docs/multi-tier-risk-rollup.md) ────────────────────
+    // Distinct from riskTier above: worst-case tier across this supplier's
+    // whole sub-tree (self + all T2/T3 descendants), not just its own docs.
+    get hasSubTierSuppliers() { return (this.snapshot?.subTierSupplierCount || 0) > 0; }
+    get cascadingRiskLabel()  { return this.snapshot?.cascadingRiskTier || 'Unknown'; }
+    get cascadingRiskBadge() {
+        const map = {
+            Critical: 'tier-critical',
+            High:     'tier-high',
+            Medium:   'tier-medium',
+            Low:      'tier-low'
+        };
+        return `risk-tier cascading ${map[this.snapshot?.cascadingRiskTier] || 'tier-unknown'}`;
+    }
+    get isCascadingWorseThanOwn() {
+        const rank = { Low: 0, Medium: 1, High: 2, Critical: 3 };
+        const own = rank[this.snapshot?.riskTier] ?? -1;
+        const cascading = rank[this.snapshot?.cascadingRiskTier] ?? -1;
+        return cascading > own;
+    }
+    get cascadingRiskSourceLabel() { return this.snapshot?.cascadingRiskSource || null; }
+    get subTierSupplierCountLabel() {
+        const n = this.snapshot?.subTierSupplierCount || 0;
+        return `${n} sub-tier supplier${n === 1 ? '' : 's'}`;
     }
 
     get riskRingDasharray() {
@@ -157,7 +183,7 @@ export default class ScSupplierRiskDashboard extends NavigationMixin(LightningEl
     get hasRemediation()       { return !!this.snapshot?.remediationSteps; }
     get avgConfidenceLabel() {
         const c = this.snapshot?.avgConfidence;
-        return c == null ? '—' : `${Math.round(c * 100)}%`;
+        return c == null ? 'Not scored yet' : `${Math.round(c * 100)}%`;
     }
     get lastComputedLabel() {
         const d = this.snapshot?.riskLastComputed;

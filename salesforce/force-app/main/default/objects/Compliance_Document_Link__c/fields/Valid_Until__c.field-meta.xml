@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Valid_Until__c</fullName>
+    <description>This file&apos;s own extracted expiry date, if any. The parent requirement&apos;s Valid_Until__c rolls up to the EARLIEST expiry among its linked documents — the soonest-expiring file governs when the requirement itself needs renewal (ComplianceExpiryBatch reads the parent field, unchanged).</description>
+    <label>Valid Until</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Date</type>
+</CustomField>

@@ -31,6 +31,23 @@
     <template if:true={hasSnapshot}>
         <div class="dashboard">
 
+            <!-- ══ Closed-case banner — the permanent record left by
+                 VendorPortalController.closeComplianceCase. Sits above the
+                 live risk ring since a closed case's score/tier below it are
+                 now final, not still-moving. ══ -->
+            <template if:true={isCaseClosed}>
+                <div class="closed-banner">
+                    <div class="closed-banner-top">
+                        <span class="closed-icon">✓</span>
+                        <span class="closed-title">Compliance case closed — {closedResultLabel}</span>
+                    </div>
+                    <div class="closed-meta">{closedByLabel}</div>
+                    <template if:true={hasClosingRemarks}>
+                        <div class="closed-remarks">"{snapshot.closingRemarks}"</div>
+                    </template>
+                </div>
+            </template>
+
             <!-- ══ HERO: ring + classification ══ -->
             <div class="hero">
                 <div class="hero-ring">

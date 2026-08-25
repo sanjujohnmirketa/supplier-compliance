@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Device/Diagnostics QMS</label>
+    <protected>false</protected>
+    <values>
+        <field>Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Default_Selected__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">ISO 13485 / 21 CFR 820 QMSR quality-system certification, 510(k)/PMA clearance, UDI/GUDID registration, and EU MDR CE marking for medical device and in-vitro diagnostics manufacturers.</value>
+    </values>
+    <values>
+        <field>Display_Order__c</field>
+        <value xsi:type="xsd:double">170.0</value>
+    </values>
+    <values>
+        <field>Domain_Key__c</field>
+        <value xsi:type="xsd:string">device_diagnostics_qms</value>
+    </values>
+    <values>
+        <field>Label__c</field>
+        <value xsi:type="xsd:string">Device/Diagnostics QMS</value>
+    </values>
+    <values>
+        <field>Verifier_Authority__c</field>
+        <value xsi:type="xsd:string">U.S. FDA / EU Notified Body</value>
+    </values>
+</CustomMetadata>

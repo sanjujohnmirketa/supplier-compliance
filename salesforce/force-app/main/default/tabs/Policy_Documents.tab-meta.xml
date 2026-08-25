@@ -2,5 +2,5 @@
 <CustomTab xmlns="http://soap.sforce.com/2006/04/metadata">
     <flexiPage>Policy_Documents</flexiPage>
     <label>Policy Documents</label>
-    <motif>Custom19: Books</motif>
+    <motif>Custom19: Wrench</motif>
 </CustomTab>

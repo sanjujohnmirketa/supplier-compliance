@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Proficiency Testing Results</label>
+    <protected>false</protected>
+    <values>
+        <field>Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Default_Selected__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">Recurring proficiency testing (PT) performance history for each regulated analyte. An unresolved/open PT failure should hard-fail; a resolved failure with a documented root cause and closed CAPA should be surfaced as a historical note, not a blocker.</value>
+    </values>
+    <values>
+        <field>Display_Order__c</field>
+        <value xsi:type="xsd:double">130.0</value>
+    </values>
+    <values>
+        <field>Domain_Key__c</field>
+        <value xsi:type="xsd:string">clinical_lab_pt</value>
+    </values>
+    <values>
+        <field>Label__c</field>
+        <value xsi:type="xsd:string">Proficiency Testing Results</value>
+    </values>
+    <values>
+        <field>Verifier_Authority__c</field>
+        <value xsi:type="xsd:string">CMS-approved PT provider</value>
+    </values>
+</CustomMetadata>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Procurement_Decision_By__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>The Procurement user who recorded Procurement_Decision__c.</description>
+    <label>Procurement Decision By</label>
+    <referenceTo>User</referenceTo>
+    <relationshipName>Compliance_Assessments_ProcDecision</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

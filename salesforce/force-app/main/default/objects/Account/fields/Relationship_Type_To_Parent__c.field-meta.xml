@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Relationship_Type_To_Parent__c</fullName>
+    <description>How this supplier relates to its parent (Tier 1 / Tier 2) in the supply chain hierarchy. Drives the relationship weight multiplier in the risk propagation formula: Sole Source=1.5x, Preferred=1.0x, Secondary=0.8x.</description>
+    <label>Relationship Type to Parent</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Preferred</fullName>
+                <default>true</default>
+                <label>Preferred</label>
+            </value>
+            <value>
+                <fullName>Sole Source</fullName>
+                <default>false</default>
+                <label>Sole Source</label>
+            </value>
+            <value>
+                <fullName>Secondary</fullName>
+                <default>false</default>
+                <label>Secondary</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

@@ -35,5 +35,6 @@ paramiko
 # ── Document parsing ─────────────────────────────────────────────────────────
 pdfplumber       # PDFs
 python-docx      # .docx
+openpyxl         # .xlsx (chemical-composition / threshold-limit tables etc.)
 
 numpy

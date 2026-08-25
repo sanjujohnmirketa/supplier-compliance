@@ -50,3 +50,26 @@ def tokenize_pii(text: str):
         out = out[:r.start] + value_to_token[original] + out[r.end:]
 
     return out, mapping
+
+
+def detokenize(value, mapping: dict):
+    """Reverse tokenize_pii's substitution in the MODEL'S OWN OUTPUT.
+
+    The LLM only ever sees tokenized text (e.g. "[PERSON_1]") — if it echoes a
+    token back in its verdict/summary/reasons (common: it copies a name/id
+    straight out of the document into its explanation), that raw token must
+    not reach the human-facing UI. Applies recursively so it's safe to call on
+    an entire parsed JSON response (dict/list/str) in one shot.
+    """
+    if not mapping:
+        return value
+    if isinstance(value, str):
+        out = value
+        for token, original in mapping.items():
+            out = out.replace(token, original)
+        return out
+    if isinstance(value, dict):
+        return {k: detokenize(v, mapping) for k, v in value.items()}
+    if isinstance(value, list):
+        return [detokenize(v, mapping) for v in value]
+    return value

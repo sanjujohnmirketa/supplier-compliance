@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Risk_Score__c</fullName>
-    <description>Numeric risk score 0-100 (0 = no risk, 100 = critical). Computed by ComplianceEvaluatorService.</description>
+    <description>Compliance risk score 0-100, whole number (0 = no risk / not yet screened, 100 = critical). Starts at 0 for a new supplier; moves only once documents are uploaded and assessed. Computed by RiskScoreService.</description>
     <externalId>false</externalId>
     <label>Risk Score</label>
-    <precision>5</precision>
+    <precision>3</precision>
     <required>false</required>
-    <scale>2</scale>
+    <scale>0</scale>
     <trackFeedHistory>false</trackFeedHistory>
     <type>Number</type>
     <unique>false</unique>

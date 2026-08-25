@@ -3,6 +3,22 @@
     <label>General Onboarding</label>
     <protected>false</protected>
     <values>
+        <field>Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Default_Selected__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">Catch-all fallback (SAQ, Certificate of Insurance, business-continuity plan) applied when no domain-specific policy is triggered by the supplier&apos;s commodity.</value>
+    </values>
+    <values>
+        <field>Display_Order__c</field>
+        <value xsi:type="xsd:double">70.0</value>
+    </values>
+    <values>
         <field>Domain_Key__c</field>
         <value xsi:type="xsd:string">general</value>
     </values>
@@ -11,23 +27,7 @@
         <value xsi:type="xsd:string">General Onboarding</value>
     </values>
     <values>
-        <field>Description__c</field>
-        <value xsi:type="xsd:string">Catch-all fallback (SAQ, Certificate of Insurance, business-continuity plan) applied when no domain-specific policy is triggered by the supplier's commodity.</value>
-    </values>
-    <values>
         <field>Verifier_Authority__c</field>
         <value xsi:type="xsd:string">Manual (SAQ)</value>
-    </values>
-    <values>
-        <field>Default_Selected__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>Display_Order__c</field>
-        <value xsi:type="xsd:double">70.0</value>
-    </values>
-    <values>
-        <field>Active__c</field>
-        <value xsi:type="xsd:boolean">true</value>
     </values>
 </CustomMetadata>

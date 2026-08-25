@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Domains__c</fullName>
+    <description>Comma-separated compliance domain keys this material/service guarantees (e.g. &quot;conflict,material,trade&quot;) — must match the domain slugs used by the Python RAG corpus (quality, conflict, material, cyber, trade, finance, general) and Compliance_Domain__mdt.Domain_Key__c. Sent to /scope as part of ScopeRequest so the engine no longer needs its own hardcoded material-to-domain dict.</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Domains</label>
+    <length>255</length>
+    <required>true</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

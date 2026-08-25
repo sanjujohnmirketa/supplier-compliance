@@ -1,6 +1,7 @@
 import { LightningElement, track } from 'lwc';
-import createPolicyDocument from '@salesforce/apex/PolicyDocumentController.createPolicyDocument';
-import startIngestion from '@salesforce/apex/PolicyDocumentController.startIngestion';
+import uploadPolicyDocument from '@salesforce/apex/PolicyDocumentController.uploadPolicyDocument';
+import reuploadPolicyDocument from '@salesforce/apex/PolicyDocumentController.reuploadPolicyDocument';
+import deletePolicyDocument from '@salesforce/apex/PolicyDocumentController.deletePolicyDocument';
 import getPolicyDocuments from '@salesforce/apex/PolicyDocumentController.getPolicyDocuments';
 
 // Must match Policy_Document__c.Domain__c picklist values exactly.
@@ -32,15 +33,15 @@ export default class ScPolicyUpload extends LightningElement {
     @track rows = [];
     @track loadingList = true;
 
-    _pendingPolicyDocId = null;
     _pollHandle = null;
+    _reuploadTargetId = null;   // set while a "Reupload" file-pick is in flight
 
     get domainOptions() {
         return DOMAIN_OPTIONS.map((opt) => ({ ...opt, selected: opt.value === this.domainOverride }));
     }
 
-    get acceptedFormats() { return ['.pdf', '.txt', '.md', '.docx']; }
-    get uploadLabel() { return this.uploading ? 'Starting…' : 'Attach policy document'; }
+    get acceptedFormats() { return '.pdf,.txt,.md,.docx,.xlsx'; }
+    get uploadLabel() { return this.uploading ? 'Uploading…' : 'Attach policy document'; }
     get hasRows() { return this.rows.length > 0; }
     get isUploadDisabled() { return this.uploading; }
 
@@ -56,44 +57,106 @@ export default class ScPolicyUpload extends LightningElement {
         this.domainOverride = event.target.value;
     }
 
-    // Step 1: create the Policy_Document__c record so lightning-file-upload has
-    // a record-id to attach the ContentVersion to (same two-step pattern as
-    // Compliance_Document__c + scProcurementDocumentUploader).
-    async handleStartUpload() {
-        this.uploading = true;
-        try {
-            this._pendingPolicyDocId = await createPolicyDocument({ domainOverride: this.domainOverride });
-        } catch (err) {
-            this.uploading = false;
-            this._toast('error', 'Could not start upload',
-                (err && err.body && err.body.message) || 'Unknown error.');
-            return;
-        }
-        // Now that we have a record Id, programmatically click the (hidden until
-        // now) lightning-file-upload — simplest is to just render it once the Id
-        // exists and let the user pick the file via its own button.
-        this.uploading = false;
+    // Opens the OS file picker directly — no Policy_Document__c record is
+    // created until a file is actually chosen and read (see _uploadFile).
+    // This is the fix for the earlier bug where clicking "Attach" alone
+    // created a phantom record with Status__c defaulting to 'Uploaded' even
+    // if the user closed the file picker without selecting anything.
+    handleStartUpload() {
+        this._reuploadTargetId = null;
+        const picker = this.template.querySelector('.vc-file-input');
+        if (picker) picker.click();
     }
 
-    get hasPendingRecord() { return !!this._pendingPolicyDocId; }
-    get pendingRecordId() { return this._pendingPolicyDocId; }
+    handleReupload(event) {
+        this._reuploadTargetId = event.currentTarget.dataset.id;
+        const picker = this.template.querySelector('.vc-file-input');
+        if (picker) picker.click();
+    }
 
-    async handleUploadFinished(event) {
-        const files = event.detail.files;
-        if (!files || !files.length) return;
-        const contentDocumentId = files[0].documentId;
-        const policyDocId = this._pendingPolicyDocId;
-        this._pendingPolicyDocId = null;   // reset so the upload slot can be reused
+    handleFilePicked(event) {
+        const file = event.target.files && event.target.files[0];
+        event.target.value = '';   // allow re-picking the same filename later
+        if (!file) return;   // user cancelled the picker — nothing created, nothing to clean up
 
-        try {
-            await startIngestion({ policyDocumentId: policyDocId, contentDocumentId });
-            this._toast('success', 'Upload received', 'Ingesting into the policy corpus…');
-        } catch (err) {
-            this._toast('error', 'Ingestion failed to start',
-                (err && err.body && err.body.message) || 'Unknown error.');
-        }
-        this._loadRows(true);
-        this._startPollIfNeeded();
+        const reader = new FileReader();
+        reader.onload = () => {
+            const base64 = (reader.result || '').toString().split(',')[1];
+            this._uploadFile(file.name, base64);
+        };
+        reader.onerror = () => {
+            this._toast('error', 'Read failed', `Could not read ${file.name}.`);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    _uploadFile(fileName, base64Data) {
+        this.uploading = true;
+        const reuploadId = this._reuploadTargetId;
+        this._reuploadTargetId = null;
+
+        const call = reuploadId
+            ? reuploadPolicyDocument({ policyDocumentId: reuploadId, fileName, base64Data })
+            : uploadPolicyDocument({ fileName, base64Data, domainOverride: this.domainOverride });
+
+        call
+            .then(() => {
+                this.uploading = false;
+                this._toast('success', reuploadId ? 'New version uploaded' : 'Upload received',
+                    'Ingesting into the policy corpus…');
+                this._loadRows(true);
+            })
+            .catch((err) => {
+                this.uploading = false;
+                this._toast('error', 'Upload failed',
+                    (err && err.body && err.body.message) || 'Unknown error.');
+            });
+    }
+
+    // In-component confirm instead of the native confirm() dialog — this LWC
+    // can be embedded in contexts (Experience Cloud, Lightning Out) where a
+    // browser-native confirm() is unreliable or silently suppressed, and it
+    // matches this app's own established pattern of custom confirm UI
+    // (e.g. scProcurementConsole's assign-to-analyst modal) rather than a
+    // native dialog.
+    @track pendingDeleteId = null;
+    @track pendingDeleteName = '';
+
+    get showDeleteConfirm() { return !!this.pendingDeleteId; }
+
+    handleDelete(event) {
+        const id = event.currentTarget.dataset.id;
+        if (!id) return;
+        const row = this.rows.find((r) => r.id === id);
+        this.pendingDeleteId = id;
+        this.pendingDeleteName = (row && row.name) || 'this policy document';
+    }
+
+    handleCancelDelete() {
+        this.pendingDeleteId = null;
+        this.pendingDeleteName = '';
+    }
+
+    handleConfirmDelete() {
+        const id = this.pendingDeleteId;
+        this.pendingDeleteId = null;
+        this.pendingDeleteName = '';
+        if (!id) return;
+        deletePolicyDocument({ policyDocumentId: id })
+            .then(() => {
+                this._toast('success', 'Deleted', 'Policy document removed.');
+            })
+            .catch((err) => {
+                this._toast('error', 'Could not delete',
+                    (err && err.body && err.body.message) || 'Unknown error.');
+            })
+            .finally(() => {
+                // Refresh either way — if the delete failed because the row
+                // was already gone (stale list), a stuck row would otherwise
+                // keep showing a now-nonexistent record forever, and every
+                // future click on it would hit the same error.
+                this._loadRows(true);
+            });
     }
 
     // showSpinner is only true for the INITIAL load (or a manual reload after an
@@ -108,8 +171,8 @@ export default class ScPolicyUpload extends LightningElement {
             this.rows = (data || []).map((r) => ({
                 ...r,
                 badgeClass: STATUS_BADGE[r.status] || 'vc-badge neutral',
-                chunkCountLabel: r.chunkCount != null ? String(r.chunkCount) : '—',
-                domainLabel: r.domain || '—'
+                domainLabel: r.domain || 'Not classified yet',
+                errorRowKey: r.id + '-error'
             }));
         } catch (err) {
             this._toast('error', 'Could not load policy documents',
@@ -121,7 +184,7 @@ export default class ScPolicyUpload extends LightningElement {
     }
 
     _startPollIfNeeded() {
-        const stillProcessing = this.rows.some((r) => r.status === 'Processing' || r.status === 'Uploaded');
+        const stillProcessing = this.rows.some((r) => r.status === 'Processing');
         if (stillProcessing && !this._pollHandle) {
             // eslint-disable-next-line @lwc/lwc/no-async-operation
             this._pollHandle = setInterval(() => this._loadRows(false), POLL_MS);

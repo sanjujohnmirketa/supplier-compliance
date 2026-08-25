@@ -18,6 +18,15 @@ public with sharing class SupplierRiskDashboardController {
         @AuraEnabled public String   onboardingStatus;
         @AuraEnabled public String   complianceStatus;  // null in new arch — no Compliance_Status_Rollup__c
 
+        // Case close (VendorPortalController.closeComplianceCase) — the final,
+        // permanent record once an Analyst closes the case. caseStatus is
+        // 'Open' (or blank, for accounts predating this field) while active.
+        @AuraEnabled public String   caseStatus;
+        @AuraEnabled public Boolean  isCaseClosed;
+        @AuraEnabled public String   closingRemarks;
+        @AuraEnabled public DateTime caseClosedDateTime;
+        @AuraEnabled public String   caseClosedByName;
+
         // Risk rollup — from Account fields
         @AuraEnabled public Decimal  riskScore;
         @AuraEnabled public String   riskTier;
@@ -53,7 +62,6 @@ public with sharing class SupplierRiskDashboardController {
         @AuraEnabled public Integer  documentsValidated;
         @AuraEnabled public Integer  documentsRejected;
         @AuraEnabled public Integer  documentsPending;
-        @AuraEnabled public Decimal  avgConfidence;     // null — no per-doc confidence in new arch
 
         // Drill-down lists
         @AuraEnabled public List<AssessmentRow>  assessments;
@@ -167,7 +175,9 @@ public with sharing class SupplierRiskDashboardController {
                    Cascading_Risk_Tier__c, Cascading_Risk_Source__c,
                    Cascading_Risk_Driver__c, Sub_Tier_Supplier_Count__c,
                    Cascading_Risk_Last_Computed__c, Cascading_Risk_Score__c,
-                   Cascading_Risk_Flag__c
+                   Cascading_Risk_Flag__c,
+                   Compliance_Case_Status__c, Closing_Remarks__c,
+                   Case_Closed_DateTime__c, Case_Closed_By__c, Case_Closed_By__r.Name
             FROM   Account
             WHERE  Id = :accountId
             LIMIT  1
@@ -181,6 +191,13 @@ public with sharing class SupplierRiskDashboardController {
         snap.vendorType       = null;                   // Vendor_Type__c removed in new arch
         snap.onboardingStatus = acc.Onboarding_Status__c;
         snap.complianceStatus = null;                   // Compliance_Status_Rollup__c removed
+
+        snap.caseStatus          = acc.Compliance_Case_Status__c;
+        snap.isCaseClosed        = (acc.Compliance_Case_Status__c == 'Closed - Compliant'
+                                     || acc.Compliance_Case_Status__c == 'Closed - Rejected');
+        snap.closingRemarks      = acc.Closing_Remarks__c;
+        snap.caseClosedDateTime  = acc.Case_Closed_DateTime__c;
+        snap.caseClosedByName    = acc.Case_Closed_By__r != null ? acc.Case_Closed_By__r.Name : null;
 
         List<Supplier_Profile__c> profiles = [
             SELECT Supplier_Tier__c, Criticality__c, Strategic_Region__c,
@@ -363,18 +380,15 @@ public with sharing class SupplierRiskDashboardController {
 
     private static void countDocumentsByStatus(SupplierSnapshot snap) {
         Integer validated = 0, rejected = 0, pending = 0;
-        Decimal confSum = 0; Integer confCount = 0;
         for (DocumentRow d : snap.documents) {
             if (d.status == 'Compliant')          validated++;
             else if (d.status == 'Non-Compliant') rejected++;
             else if (d.status != null)            pending++;
-            if (d.confidence != null) { confSum += d.confidence; confCount++; }
         }
         snap.documentsTotal     = snap.documents.size();
         snap.documentsValidated = validated;
         snap.documentsRejected  = rejected;
         snap.documentsPending   = pending;
-        snap.avgConfidence      = (confCount > 0) ? (confSum / confCount).setScale(2) : null;
     }
 
     private static void deriveSupplierNarrative(SupplierSnapshot snap) {

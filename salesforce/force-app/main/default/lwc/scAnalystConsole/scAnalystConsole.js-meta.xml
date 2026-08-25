@@ -2,7 +2,7 @@
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>66.0</apiVersion>
     <isExposed>true</isExposed>
-    <masterLabel>Analyst Console</masterLabel>
+    <masterLabel>Compliance Console</masterLabel>
     <description>
         Analyst (Advisor) workspace — analyst queue, risk analysis workspace, and
         decision &amp; route, with an action-driving co-pilot. Pre-contract pipeline.

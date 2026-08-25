@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Default_Selected__c</fullName>
+    <defaultValue>false</defaultValue>
     <description>When true, this domain is pre-selected on the intake screen before /scope has auto-detected applicable domains. Use for universally-applicable domains (finance, trade, general).</description>
     <fieldManageability>DeveloperControlled</fieldManageability>
     <label>Default Selected</label>
     <type>Checkbox</type>
-    <defaultValue>false</defaultValue>
 </CustomField>

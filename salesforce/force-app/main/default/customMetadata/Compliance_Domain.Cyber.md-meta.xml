@@ -3,6 +3,22 @@
     <label>Cybersecurity</label>
     <protected>false</protected>
     <values>
+        <field>Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Default_Selected__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">SOC 2 Type II, TISAX and CMMC attestations. Confidential audit reports require analyst review; the AI provides a first-pass read.</value>
+    </values>
+    <values>
+        <field>Display_Order__c</field>
+        <value xsi:type="xsd:double">60.0</value>
+    </values>
+    <values>
         <field>Domain_Key__c</field>
         <value xsi:type="xsd:string">cyber</value>
     </values>
@@ -11,23 +27,7 @@
         <value xsi:type="xsd:string">Cybersecurity</value>
     </values>
     <values>
-        <field>Description__c</field>
-        <value xsi:type="xsd:string">SOC 2 Type II, TISAX and CMMC attestations. Confidential audit reports require analyst review; the AI provides a first-pass read.</value>
-    </values>
-    <values>
         <field>Verifier_Authority__c</field>
         <value xsi:type="xsd:string">TISAX / CMMC</value>
-    </values>
-    <values>
-        <field>Default_Selected__c</field>
-        <value xsi:type="xsd:boolean">false</value>
-    </values>
-    <values>
-        <field>Display_Order__c</field>
-        <value xsi:type="xsd:double">60.0</value>
-    </values>
-    <values>
-        <field>Active__c</field>
-        <value xsi:type="xsd:boolean">true</value>
     </values>
 </CustomMetadata>

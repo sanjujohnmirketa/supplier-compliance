@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Compliance_Assessment__c</fullName>
+    <description>The checklist requirement this document satisfies (in whole or in part). A requirement can have multiple Compliance_Document_Link__c children when it needs more than one file.</description>
+    <label>Compliance Assessment</label>
+    <referenceTo>Compliance_Assessment__c</referenceTo>
+    <relationshipLabel>Document Links</relationshipLabel>
+    <relationshipName>Document_Links</relationshipName>
+    <relationshipOrder>0</relationshipOrder>
+    <reparentableMasterDetail>false</reparentableMasterDetail>
+    <trackTrending>false</trackTrending>
+    <type>MasterDetail</type>
+    <writeRequiresMasterRead>false</writeRequiresMasterRead>
+</CustomField>

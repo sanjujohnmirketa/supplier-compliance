@@ -12,14 +12,16 @@
  *   1. Calls /scope (ScopeService) with the supplier's attributes
  *   2. Seeds one Compliance_Assessment__c (Status = Pending) per checklist item
  *      — idempotent via upsert on the Requirement_Key__c external id
- *   3. Writes the risk tier/score/domains back onto the Account
+ *   3. Writes Profile_Risk_Tier__c/Risk_Domains__c/Checklist_Item_Count__c back
+ *      onto the Account. Risk_Score__c/Risk_Tier__c are deliberately NOT set
+ *      here — they start at 0/blank and only move once RiskScoreService
+ *      recomputes them from real document outcomes (see RiskScoreService.cls).
  *   4. Records an Audit_Log__c entry (the RAG risk summary)
  *
  * Callout-then-DML ordering: all callouts run first and results are buffered;
  * DML happens once at the end (you cannot call out after DML in a transaction).
  *
- * Downstream: the Azure document pipeline (AIExtractionQueueable → … →
- * ComplianceEvaluationQueueable) later evaluates uploaded documents against the
+ * Downstream: DocAssessQueueable evaluates uploaded documents against the
  * Pending assessments seeded here.
  */
 public without sharing class ScopeCalloutQueueable
@@ -37,7 +39,9 @@ public without sharing class ScopeCalloutQueueable
         Map<Id, Account> accounts = new Map<Id, Account>([
             SELECT Id, Name, Industry, Industry__c, Vendor_Type__c,
                    Engagement_Type__c, Annual_Spend_Est__c, BillingState,
-                   BillingCountry, Country_of_Origin__c, Onboarding_Status__c
+                   BillingCountry, Country_of_Origin__c, Onboarding_Status__c,
+                   Material_Type__c, Service_Category__c, Checklist_Seeded_By_Caller__c,
+                   Checklist_Item_Count__c
             FROM   Account
             WHERE  Id IN :supplierIds
         ]);
@@ -77,8 +81,18 @@ public without sharing class ScopeCalloutQueueable
             String  tier = normaliseTier(resp.riskTier);
             String  severity = tierToSeverity(tier);
 
+            // Skip re-deriving the checklist when the caller already persisted
+            // a human-curated one for this account (e.g. VendorPortalController.
+            // submitAndScreen() after the user removed suggested documents on
+            // the P1 preview, or SubSupplierController.inviteSubSupplier()'s
+            // copied subset) — see Checklist_Seeded_By_Caller__c. Risk tier/
+            // score/domains below are still computed and written either way.
+            Boolean seedChecklist = (acc.Checklist_Seeded_By_Caller__c != true);
+
             List<String> domains = new List<String>();
-            if (resp.checklist != null) {
+            Integer checklistItemCount = 0;
+            if (seedChecklist && resp.checklist != null) {
+                checklistItemCount = resp.checklist.size();
                 for (ScopeService.ChecklistItem item : resp.checklist) {
                     toUpsert.add(new Compliance_Assessment__c(
                         Name                   = abbreviate(item.document, 'Requirement', 80),
@@ -94,17 +108,37 @@ public without sharing class ScopeCalloutQueueable
                     ));
                     if (String.isNotBlank(item.domain)) domains.add(item.domain);
                 }
+            } else if (resp.checklist != null) {
+                // Still contribute domains (for Risk_Domains__c) even when the
+                // checklist rows themselves aren't (re)seeded.
+                for (ScopeService.ChecklistItem item : resp.checklist) {
+                    if (String.isNotBlank(item.domain)) domains.add(item.domain);
+                }
             }
 
-            accUpdates.add(new Account(
+            // Risk_Score__c deliberately starts at 0 and is NOT set here — a
+            // supplier with no uploaded/assessed documents yet hasn't been
+            // screened, so it shouldn't carry a nonzero score purely from its
+            // industry/material profile. Profile_Risk_Tier__c still captures
+            // that profile-based guess (frozen, for reference/display), but
+            // Risk_Score__c/Risk_Tier__c now only move once RiskScoreService
+            // recomputes them from real document outcomes (see DocAssessQueueable,
+            // saveDocValidation, recordProcurementDecision). Checklist_Item_Count__c
+            // freezes N (the checklist size) at the moment it's first generated,
+            // only if not already set — so re-deriving the checklist later
+            // (Checklist_Seeded_By_Caller__c=false path) doesn't shift the
+            // per-document point value out from under documents already scored.
+            Account accUpdate = new Account(
                 Id                    = accId,
-                Risk_Tier__c          = tier,
-                Risk_Score__c         = tierToScore(tier),
+                Profile_Risk_Tier__c  = tier,
                 Risk_Domains__c       = String.join(domains, ', '),
-                Risk_Last_Computed__c = DateTime.now(),
                 Onboarding_Status__c  = acc.Onboarding_Status__c == 'Draft'
                                             ? 'In Review' : acc.Onboarding_Status__c
-            ));
+            );
+            if (acc.Checklist_Item_Count__c == null && seedChecklist && checklistItemCount > 0) {
+                accUpdate.Checklist_Item_Count__c = checklistItemCount;
+            }
+            accUpdates.add(accUpdate);
 
             audits.add(new Audit_Log__c(
                 Event_Type__c        = 'Checklist_Generated',
@@ -148,6 +182,16 @@ public without sharing class ScopeCalloutQueueable
         req.commodity = buildScopeContext(
             industry, acc.Engagement_Type__c,
             acc.Annual_Spend_Est__c == null ? null : String.valueOf(acc.Annual_Spend_Est__c));
+
+        // Same materialDomains resolution the live P1 preview uses (VendorPortalController.
+        // generateChecklist) — without this, the trigger-seeded checklist that actually
+        // gets persisted (and shown in the supplier portal) silently drops any domains
+        // contributed by material type / service category, diverging from what was
+        // previewed and emailed at submit time.
+        req.materialType    = acc.Material_Type__c;
+        req.serviceCategory = acc.Service_Category__c;
+        req.materialDomains = VendorPortalController.resolveMaterialDomains(
+            acc.Material_Type__c, acc.Service_Category__c);
 
         List<String> j = new List<String>();
         if (String.isNotBlank(acc.BillingCountry)) j.add(acc.BillingCountry);

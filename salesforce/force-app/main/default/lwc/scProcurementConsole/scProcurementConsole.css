@@ -10,7 +10,9 @@
   --color-background-tertiary:  #eeeeeb;
   --color-text-primary:   #1a1a1a;
   --color-text-secondary: #666666;
-  --color-text-tertiary:  #aaaaaa;
+  /* Was #aaaaaa — ~2.3:1 against white, fails WCAG AA (4.5:1) for normal text.
+     #767671 clears 5:1+ while keeping the same "muted" role in the hierarchy. */
+  --color-text-tertiary:  #767671;
   --color-border-primary:   #cccccc;
   --color-border-secondary: #d8d8d2;
   --color-border-tertiary:  #e0e0da;
@@ -22,7 +24,8 @@
   height: 100%;
   min-height: 0;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 450;
   color: var(--color-text-primary);
   background: var(--color-background-secondary);
 }
@@ -39,8 +42,6 @@
 }
 .vc-tb-left { display: flex; align-items: center; gap: 8px; }
 .vc-logo-box { width: 24px; height: 24px; border-radius: 5px; flex-shrink: 0; object-fit: contain; display: block; }
-.vc-brand    { font-size: 13px; font-weight: 500; }
-.vc-bread    { font-size: 12px; color: var(--color-text-tertiary); }
 .vc-tb-right { display: flex; align-items: center; gap: 10px; }
 .vc-search {
   border: 0.5px solid var(--color-border-tertiary);
@@ -50,30 +51,6 @@
   color: var(--color-text-secondary); font-family: var(--font-sans);
 }
 .vc-search:focus { outline: none; border-color: var(--color-border-primary); }
-.vc-persona-chip {
-  font-size: 11px; font-weight: 500; color: #1e3a8a;
-  background: #dbeafe; border-radius: 12px; padding: 3px 10px;
-}
-.vc-av {
-  width: 26px; height: 26px; border-radius: 50%;
-  background: #374151; color: #fff;
-  font-size: 11px; font-weight: 500;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.vc-user-area { position: relative; display: flex; align-items: center; }
-.vc-av-btn { cursor: pointer; }
-.vc-av-btn:hover { opacity: 0.8; }
-.vc-user-menu {
-  position: absolute; top: calc(100% + 8px); right: 0;
-  background: #fff; border: 1px solid #e5e7eb; border-radius: 6px;
-  box-shadow: 0 4px 14px rgba(0,0,0,.10); min-width: 110px; z-index: 200; padding: 4px;
-}
-.vc-logout-btn {
-  display: block; width: 100%; background: none; border: none;
-  color: #374151; font-size: 12px; font-weight: 500;
-  padding: 7px 12px; cursor: pointer; text-align: left; border-radius: 4px;
-}
-.vc-logout-btn:hover { background: #f3f4f6; }
 
 /* ─── Body / sidebar ─────────────────────────────────────────────────────────── */
 .vc-body { display: flex; flex: 1; min-height: 0; overflow: visible; }
@@ -90,12 +67,14 @@
 }
 .vc-sb-note { font-size: 11px; color: var(--color-text-secondary); padding: 2px 16px; line-height: 1.4; }
 .vc-sb-item {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 8px; width: 100%;
   padding: 6px 16px; font-size: 12px;
   color: var(--color-text-secondary);
+  border: none; background: none; text-align: left; font-family: var(--font-sans);
   cursor: pointer; user-select: none; transition: background .1s;
 }
 .vc-sb-item:hover { background: var(--color-background-secondary); }
+.vc-sb-item:focus-visible { outline: 2px solid var(--color-accent, #2563eb); outline-offset: -2px; }
 .vc-sb-item.active {
   background: var(--color-background-secondary);
   color: var(--color-text-primary); font-weight: 500;
@@ -110,6 +89,7 @@
 /* ─── Main canvas / page header ─────────────────────────────────────────────── */
 .vc-main { flex: 1; min-height: 0; padding: 20px; overflow-y: auto; background: var(--color-background-secondary); }
 .vc-page-hdr { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; gap: 16px; }
+.vc-page-hdr-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .vc-page-title { font-size: 18px; font-weight: 500; }
 .vc-page-sub   { font-size: 11px; color: var(--color-text-tertiary); margin-top: 2px; max-width: 560px; line-height: 1.45; }
 .vc-pill-owns {
@@ -117,6 +97,21 @@
   background: var(--color-background-primary);
   border: 0.5px solid var(--color-border-tertiary);
   border-radius: 20px; padding: 4px 12px; white-space: nowrap; flex-shrink: 0;
+}
+/* "Profile Details" header button — secondary/outline action. Sizing (padding/
+   font-size) still comes from .vc-btn-sm so it matches the height of the
+   Evidence collection & handoff pill next to it; only color/border/radius are
+   owned here. .active reflects the modal being open — same position, just a
+   different fill, matching the assign-to-analyst-style active affordance. */
+.vc-profile-btn {
+  background: #FFFFFF; border: 1px solid #D8DDE6; color: #181818;
+  border-radius: 8px; font-weight: 500; font-family: var(--font-sans);
+  cursor: pointer; transition: background .12s, border-color .12s, color .12s, box-shadow .12s;
+}
+.vc-profile-btn:hover { border-color: #b9c2cf; }
+.vc-profile-btn.active {
+  background: #EAF3FF; border: 1px solid #0176D3; color: #0176D3;
+  box-shadow: 0 0 0 3px rgba(1, 118, 211, 0.15);
 }
 .vc-footer-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
@@ -156,6 +151,13 @@
 }
 .vc-finput:focus { outline: none; border-color: var(--color-text-primary); }
 .vc-fselect { appearance: auto; cursor: pointer; height: 31px; }
+.vc-view-value {
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  padding: 7px 10px; font-size: 12px;
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary); font-weight: 500;
+}
 
 /* ─── Badges / pills ─────────────────────────────────────────────────────────── */
 .vc-ai-badge {
@@ -175,6 +177,11 @@
 }
 .vc-btn-pri:hover { background: #1d4ed8; }
 .vc-btn-pri:disabled { background: #93b4f5; cursor: default; }
+/* Onboard directly — distinct green so it reads as a different, more final
+   action than the blue "Assign to analyst" it replaces when all-Approved. */
+.vc-btn-onboard { background: #16A34A; }
+.vc-btn-onboard:hover { background: #166534; }
+.vc-btn-onboard:disabled { background: #86efac; cursor: default; }
 .vc-btn-sec {
   border: 0.5px solid var(--color-border-secondary);
   border-radius: var(--border-radius-md);
@@ -193,7 +200,7 @@
 /* ─── Tables ─────────────────────────────────────────────────────────────────── */
 .vc-table-wrap { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; }
 .vc-tbl-head { display: grid; padding: 8px 16px; border-bottom: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); }
-.vc-p2-head { grid-template-columns: 1.8fr 1fr 1.1fr 1fr .7fr .8fr 1fr .7fr; }
+.vc-p2-head { grid-template-columns: 1.8fr 1fr 1fr 1fr .8fr 1fr .7fr; }
 .vc-tbl-col { font-size: 10px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--color-text-tertiary); }
 .vc-empty-table { padding: 36px 16px; text-align: center; font-size: 12px; color: var(--color-text-secondary); display: flex; flex-direction: column; gap: 4px; }
 
@@ -233,6 +240,7 @@
   display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
 }
 .vc-pz-icon  { font-size: 18px; flex-shrink: 0; }
+.vc-refresh-icon { font-size: 16px; vertical-align: -2px; display: inline-block; }
 .vc-pz-text  { flex: 1; }
 .vc-pz-label { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); }
 .vc-pz-hint  { font-size: 10px; color: var(--color-text-tertiary); font-family: var(--font-mono); margin-top: 2px; }
@@ -249,28 +257,60 @@
 .vc-notice-msg { font-size: 11px; color: #d1d5db; line-height: 1.4; }
 
 /* Wired-pass additions — domains, checklist, queue rows */
-.vc-dom-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0 4px; }
 .vc-dom-chip { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 12px; background: #EEF2FF; color: #3730A3; }
 .vc-dom-chip.sm { font-size: 10px; padding: 1px 7px; }
 .vc-cl-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 2px; border-bottom: 0.5px solid #f0f0ec; }
-.vc-cl-doc { font-size: 12.5px; color: var(--color-text-primary); }
+.vc-cl-doc { font-size: 12.5px; color: var(--color-text-primary); flex: 1; min-width: 0; }
+.vc-cl-remove {
+  border: none; background: none; cursor: pointer; flex-shrink: 0;
+  color: var(--color-text-tertiary); font-size: 13px; padding: 0 2px; line-height: 1;
+  font-family: var(--font-sans);
+}
+.vc-cl-remove:hover { color: #b91c1c; }
+.vc-cl-add-row { display: flex; gap: 8px; margin: 10px 0; align-items: center; }
+.vc-cl-add-input { flex: 1; min-width: 0; }
 .vc-row-open { font-size: 11px; font-weight: 600; color: #2563eb; }
+.vc-p2-action-cell { display: flex; align-items: center; justify-content: flex-end; gap: 8px; overflow: visible; }
+.vc-row-menu-btn {
+  background: none; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-sm, 4px);
+  width: 22px; height: 22px; line-height: 1; font-size: 14px; color: var(--color-text-secondary);
+  cursor: pointer; flex-shrink: 0;
+}
+.vc-row-menu-btn:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
+.vc-row-menu-floating {
+  position: fixed; z-index: 700; width: 170px;
+  background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md, 6px); box-shadow: 0 8px 24px rgba(0,0,0,.16);
+  display: flex; flex-direction: column; padding: 4px; gap: 2px;
+}
+.vc-row-menu-item {
+  display: block; width: 100%; text-align: left; background: none; border: none;
+  padding: 7px 10px; font-size: 12.5px; font-family: var(--font-sans); color: var(--color-text-primary);
+  border-radius: var(--border-radius-sm, 4px); cursor: pointer;
+}
+.vc-row-menu-item:hover { background: var(--color-background-secondary); }
 
 /* ─── P2 queue ROW grid — FIX: rows must use the SAME grid as the head, else
        every cell collapses into column one. ─────────────────────────────────── */
 .vc-tbl-row.vc-p2-row {
   display: grid;
-  grid-template-columns: 1.8fr 1fr 1.1fr 1fr .7fr .8fr 1fr .7fr;   /* match .vc-p2-head */
+  grid-template-columns: 1.8fr 1fr 1fr 1fr .8fr 1fr .7fr;   /* match .vc-p2-head */
   align-items: center;
+  width: 100%;
   padding: 11px 16px;
-  border-bottom: 0.5px solid var(--color-border-tertiary);
+  border: none; border-bottom: 0.5px solid var(--color-border-tertiary);
+  border-radius: 0;
+  background: none; font-family: var(--font-sans); text-align: left;
   cursor: pointer;
   transition: background 0.12s ease;
 }
 .vc-tbl-row.vc-p2-row:last-child { border-bottom: none; }
 .vc-tbl-row.vc-p2-row:hover { background: var(--color-background-secondary); }
+.vc-tbl-row.vc-p2-row:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
 .vc-tbl-cell { font-size: 12px; color: var(--color-text-secondary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vc-tbl-cell.vc-sn { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+.vc-docs-col { text-align: center; }
+.vc-col-center { text-align: center; }
 
 /* ─── P1 read-only oversight (AI-set) ───────────────────────────────────────── */
 /* Disabled slider keeps a clear AI-set color (amber accent), not greyed out. */
@@ -285,7 +325,7 @@
 /* ─── P3 back link, uploaded docs, AI summary, note ─────────────────────────── */
 .vc-back-link { background: none; border: none; cursor: pointer; font-family: var(--font-sans); font-size: 12px; color: #2563eb; padding: 0 0 8px; }
 .vc-back-link:hover { text-decoration: underline; }
-.vc-file-input { display: none; }
+.vc-file-input, .vc-row-file-input, .vc-add-file-input { display: none; }
 .vc-updoc { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 2px; border-bottom: 0.5px solid #f0f0ec; }
 .vc-updoc:last-child { border-bottom: none; }
 .vc-updoc-name { font-size: 12.5px; color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -311,33 +351,38 @@
   background: var(--color-background-primary); border-radius: var(--border-radius-lg);
   box-shadow: 0 12px 40px rgba(0,0,0,.22); padding: 20px;
 }
+/* Wider variant for forms with more fields (Edit supplier) — the base 420px
+   is sized for the assign-to-analyst list, too narrow for a multi-field grid. */
+.vc-modal-wide { width: 560px; }
+.vc-edit-grid { margin-bottom: 4px; }
 .vc-modal-title { font-size: 15px; font-weight: 600; color: var(--color-text-primary); }
 .vc-modal-sub { font-size: 12px; color: var(--color-text-secondary); margin: 4px 0 14px; line-height: 1.45; }
 .vc-assign-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
-.vc-assign-row { border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); padding: 9px 12px; cursor: pointer; transition: all 0.12s ease; }
+.vc-assign-row { display: block; width: 100%; text-align: left; font-family: var(--font-sans); background: var(--color-background-primary); border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); padding: 9px 12px; cursor: pointer; transition: all 0.12s ease; }
 .vc-assign-row:hover { background: var(--color-background-secondary); }
+.vc-assign-row:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
 .vc-assign-row.selected { border-color: #2563eb; background: #EFF6FF; }
 .vc-assign-name { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
 .vc-assign-role { font-size: 11px; color: var(--color-text-tertiary); margin-top: 1px; }
 .vc-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+/* Profile Details modal has a full 8-field grid right above its footer —
+   the default 4px gap under .vc-edit-grid read as the Cancel/Send email
+   buttons running into the fields. This adds real breathing room plus a
+   divider line so the footer reads as its own row, not part of the form. */
+.vc-modal-actions-sep { margin-top: 16px; padding-top: 14px; border-top: 0.5px solid var(--color-border-tertiary, #eee); }
 .vc-manual-note { background: #FEF3C7; border: 0.5px solid #FCD34D; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; }
 .vc-manual-note-title { font-size: 11px; font-weight: 600; color: #92400E; margin-bottom: 3px; }
 .vc-manual-note-body { font-size: 11.5px; color: #78350F; line-height: 1.45; }
+.vc-locked-note {
+  background: #EFF6FF; border: 0.5px solid #BFDBFE; border-radius: 6px;
+  color: #1E40AF; font-size: 11.5px; padding: 8px 12px; margin-bottom: 10px; line-height: 1.4;
+}
+.vc-handoff-blocked-note {
+  background: #FEF3C7; border: 0.5px solid #FCD34D; border-radius: 6px;
+  color: #92400E; font-size: 12px; padding: 9px 12px; margin-bottom: 10px; line-height: 1.4;
+}
 
 /* ─── Checklist reasoning + stale + no-match ────────────────────────────────── */
-/* Risk reasoning — minimalistic, readable. Subtle left rule, neutral text,
-   each reason on its own clean line (replaces the dense brown block). */
-.vc-reason-list { list-style: none; margin: 10px 0 2px; padding: 0; }
-.vc-reason-list li {
-  position: relative; font-size: 11.5px; color: var(--color-text-secondary);
-  line-height: 1.5; padding: 4px 0 4px 16px; border-bottom: 0.5px solid #f2f2ee;
-}
-.vc-reason-list li:last-child { border-bottom: none; }
-.vc-reason-list li::before {
-  content: ''; position: absolute; left: 2px; top: 11px;
-  width: 5px; height: 5px; border-radius: 50%; background: #d1a368;
-}
-
 /* Inline spinner for buttons during a callout */
 .vc-spinner {
   display: inline-block; width: 11px; height: 11px; margin-right: 6px;
@@ -359,7 +404,8 @@
 }
 
 /* ─── P3 existing-supplier snapshot ─────────────────────────────────────────── */
-.vc-snap-loading { font-size: 12px; color: var(--color-text-tertiary); padding: 2px 0 8px; }
+.vc-snap-loading { font-size: 12px; color: var(--color-text-tertiary); padding: 2px 0 8px; display: flex; align-items: center; }
+.vc-snap-loading .vc-spinner { border: 2px solid rgba(0,0,0,0.15); border-top-color: #888; }
 .vc-snap-strip {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
   background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary);
@@ -414,10 +460,12 @@
 
 /* ─── Sidebar sub-item (Documents & screening under Supplier queue) ─────────── */
 .vc-sb-subitem {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 8px; width: 100%;
   padding: 7px 10px 7px 26px; margin: 2px 0; border-radius: 6px;
   font-size: 12px; color: var(--color-text-secondary); cursor: pointer;
+  border: none; background: none; text-align: left; font-family: var(--font-sans);
 }
+.vc-sb-subitem:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
 .vc-sb-subitem.active { background: var(--color-background-tertiary); color: var(--color-text-primary); font-weight: 500; }
 .vc-sb-subdot { width: 5px; height: 5px; border-radius: 50%; background: #60a5fa; flex-shrink: 0; }
 
@@ -437,6 +485,10 @@
 .vc-doc-btn:hover { border-color: var(--color-border-primary); color: var(--color-text-primary); }
 .vc-doc-btn.danger { color: #b91c1c; border-color: #fecaca; }
 .vc-doc-btn.danger:hover { background: #fef2f2; border-color: #f87171; }
+.vc-doc-btn.approve { color: #166534; border-color: #bbf7d0; }
+.vc-doc-btn.approve:hover { background: #f0fdf4; border-color: #4ade80; }
+.vc-doc-btn.defer { color: #92400e; border-color: #fde68a; }
+.vc-doc-btn.defer:hover { background: #fffbeb; border-color: #f2c94c; }
 .vc-doc-preview {
   margin-top: 12px; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md);
   overflow: hidden; background: var(--color-background-secondary);
@@ -531,29 +583,105 @@
 /* ── Compliance documents (merged checklist + documents row) ───────────────── */
 .vc-cdoc-row { padding: 10px 0; border-bottom: 0.5px solid var(--color-border-tertiary, #eee); }
 .vc-cdoc-row:last-child { border-bottom: none; }
-/* 2-column layout: checkbox · required document | uploaded file | verdict+actions
-   Header and data rows share the SAME explicit column template (the last column
-   is fixed-width, not `auto`) so they line up — an `auto` column sizes to its
-   content and the empty header cell was collapsing, throwing the columns off. */
-.vc-cdoc-cols { display: grid; grid-template-columns: 26px minmax(0, 1.3fr) minmax(0, 1.1fr) 300px; gap: 10px; align-items: center; }
+/* 4 explicit columns: Required document | Uploaded file | Status (confidence
+   rides inline inside it) | Actions. Header and data rows share the SAME
+   explicit column template so they line up. The Actions column is a FIXED
+   width (not `auto`) — each row is its own independent grid, so an
+   auto/max-content Actions track sizes to THAT row's own button count,
+   shrinking the other 3 fr-based columns in rows with more buttons than
+   their neighbors (e.g. Status visibly drifting left). A fixed width keeps
+   every row's Actions track identical regardless of how many buttons it
+   renders; buttons wrap onto a second line (flex-wrap on .vc-cdoc-actions)
+   in the rare row with the max button count instead of stealing width. */
+.vc-cdoc-cols {
+    display: grid;
+    grid-template-columns:
+        minmax(200px, 1.6fr)
+        minmax(160px, 1.2fr)
+        minmax(140px, 1.1fr)
+        260px;
+    gap: 10px;
+    align-items: center;
+}
 .vc-cdoc-head { padding: 0 0 6px; border-bottom: 0.5px solid var(--color-border-tertiary, #eee); margin-bottom: 4px; }
-.vc-cdoc-head > span { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--color-text-tertiary, #999); }
-.vc-cdoc-h-req { grid-column: 2; }
-.vc-cdoc-h-file { grid-column: 3; }
-.vc-cdoc-label { font-size: 13.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.vc-cdoc-file { font-size: 12.5px; color: var(--color-text-secondary, #555); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.vc-cdoc-nofile { color: var(--color-text-tertiary, #aaa); font-style: italic; }
-.vc-cdoc-right { display: flex; align-items: center; gap: 8px; justify-content: flex-end; min-width: 0; }
+.vc-cdoc-head > span { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--color-text-tertiary, #999); text-align: center; }
+.vc-cdoc-h-actions { text-align: right; }
+.vc-cdoc-h-req { text-align: left; }
+/* Required document: checkbox + label together in one cell — left-aligned. */
+.vc-cdoc-req { display: flex; align-items: center; justify-content: flex-start; gap: 8px; min-width: 0; }
+/* Labels WRAP (not truncate) on narrow widths — filenames truncate instead, below. */
+.vc-cdoc-label { font-size: 13.5px; min-width: 0; overflow-wrap: break-word; }
+/* Uploaded file: single line, ellipsis-truncated (not wrapped) so a long file
+   name can't grow the row and push/overlap the Status column next to it. */
+.vc-cdoc-file { font-size: 12.5px; color: var(--color-text-secondary, #555); min-width: 0; text-align: center;
+    display: flex; align-items: center; justify-content: center; gap: 5px; }
+.vc-cdoc-file-icon { font-size: 11px; flex-shrink: 0; }
+.vc-cdoc-file-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc-cdoc-nofile { color: var(--color-text-tertiary, #767671); font-style: italic; }
+/* Latest-decision dot — a small glowing "bulb," not a flat badge, so it reads
+   as a live status light at a glance without competing with the filename
+   text next to it. Uses flex (not inline-block) with its OWN centered
+   content box so the glow (box-shadow) can extend beyond the 8px dot
+   without shifting the dot's own visual center — an inline-block dot with a
+   glow reads as sitting slightly off-baseline next to the text beside it,
+   which is exactly the misalignment this replaces. */
+.vc-decision-dot {
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%;
+    margin: 0 1px;
+}
+.vc-dot-blue   { background: #3B82F6; box-shadow: 0 0 4px 1px rgba(59, 130, 246, 0.65); }
+.vc-dot-red    { background: #EF4444; box-shadow: 0 0 4px 1px rgba(239, 68, 68, 0.65); }
+.vc-dot-yellow { background: #EAB308; box-shadow: 0 0 4px 1px rgba(234, 179, 8, 0.65); }
+/* Status cell now holds the pill AND confidence together, stacked/inline. */
+.vc-cdoc-status-cell { min-width: 0; display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; text-align: center; }
+.vc-cdoc-h-status { display: flex; justify-content: center; }
 .vc-cdoc-status { font-size: 11px; color: var(--color-text-tertiary, #999); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
 .vc-cdoc-conf { font-size: 11px; color: var(--color-text-secondary, #555); background: var(--color-background-secondary, #f2f2ef);
-    border-radius: 10px; padding: 2px 8px; white-space: nowrap; flex-shrink: 0; }
+    border-radius: 10px; padding: 2px 8px; white-space: nowrap; }
 .vc-cdoc-row.done .vc-cdoc-label { color: var(--color-text-primary, #1a1a1a); }
-.vc-cdoc-actions { display: flex; gap: 6px; flex-shrink: 0; }
-.vc-cdoc-toggle { margin: 6px 0 0 30px; background: none; border: none; padding: 0;
+.vc-pending-rereview-badge { white-space: nowrap; }
+/* Actions: refresh icon first, then Preview, then Remove item — all
+   right-aligned, consistent size regardless of decision state. */
+.vc-cdoc-actions { display: flex; gap: 6px; flex-wrap: nowrap; align-items: center; justify-content: flex-end; min-width: 0; }
+.vc-cdoc-actions .vc-doc-btn { flex-shrink: 0; white-space: nowrap; }
+.vc-doc-btn.icon { padding: 3px 7px; line-height: 1; }
+.vc-doc-btn.icon .vc-spinner { width: 10px; height: 10px; }
+
+/* "Show/Hide detail" — its own line below the row, left-aligned, controls
+   the WHOLE activity panel (not just the AI summary). */
+.vc-cdoc-toggle-row { margin: 6px 0 0 28px; }
+.vc-cdoc-toggle { margin: 0; background: none; border: none; padding: 0;
     font-size: 11.5px; color: #2563eb; cursor: pointer; font-family: var(--font-sans, inherit); }
 .vc-cdoc-toggle:hover { text-decoration: underline; }
-.vc-cdoc-detail { margin: 6px 0 2px 30px; padding: 10px 12px; border-radius: 6px;
+
+/* ── Unified activity panel — AI summary → Approve/Reject → Decision & notes,
+   ONE container/background/rhythm instead of 3 disconnected stacked blocks. ── */
+.vc-activity-panel { margin: 6px 0 2px 28px; padding: 10px 12px; border-radius: 6px;
     background: var(--color-background-secondary, #f7f7f5); border: 0.5px solid var(--color-border-tertiary, #eee); }
+.vc-activity-zone { margin: 0 0 12px; }
+.vc-activity-zone:last-child { margin-bottom: 0; }
+.vc-zone-label { font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--color-text-tertiary, #999); margin: 0 0 6px; display: flex; align-items: center; gap: 6px; }
+.vc-zone-label::after { content: ''; flex: 1; height: 1px; background: var(--color-border-tertiary, #eee); }
+.vc-ai-summary-box { background: var(--color-background-primary, #fff); border: 0.5px solid var(--color-border-tertiary, #eee);
+    border-radius: 4px; padding: 9px 11px; }
+.vc-linked-doc { background: var(--color-background-primary, #fff); border: 0.5px solid var(--color-border-tertiary, #eee);
+    border-radius: 4px; padding: 9px 11px; margin-bottom: 8px; }
+.vc-linked-doc:last-child { margin-bottom: 0; }
+.vc-linked-doc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.vc-linked-doc-title { font-size: 12.5px; font-weight: 600; flex: 1; min-width: 0; overflow-wrap: break-word; }
+.vc-decision-buttons-row { display: flex; gap: 8px; }
+.vc-decision-buttons-row .vc-doc-btn { padding: 6px 14px; font-size: 11.5px; }
+.vc-activity-entry { display: flex; align-items: center; gap: 8px; font-size: 11.5px; flex-wrap: wrap;
+    padding: 5px 0; border-bottom: 0.5px solid var(--color-border-tertiary, #eee); }
+.vc-activity-entry:last-child { border-bottom: none; }
+.vc-activity-note { color: var(--color-text-secondary, #555); }
+.vc-activity-when { font-size: 10.5px; color: var(--color-text-tertiary, #999); margin-left: auto; white-space: nowrap; }
+.vc-decision-composer { display: flex; flex-direction: column; gap: 8px; }
+.vc-decision-composer-label { font-size: 11px; font-weight: 700; color: var(--color-text-secondary, #555); }
+.vc-decision-composer-input { width: 100%; min-height: 60px; resize: vertical; font-family: var(--font-sans); }
+.vc-decision-composer-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 /* ── Rejected documents ────────────────────────────────────────────────────── */
 .vc-rejected-card { margin-bottom: 12px; border: 0.5px solid #f3c0bb; background: #fff8f7; }
@@ -565,14 +693,33 @@
 .vc-rej-name { font-weight: 600; font-size: 13.5px; color: #1a1a1a; }
 .vc-rej-for { font-size: 11.5px; color: var(--color-text-tertiary, #999); }
 .vc-rej-reason { font-size: 12.5px; color: #b3261e; margin-top: 2px; }
+.vc-rej-connect { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.vc-rej-select { flex: 1; max-width: 320px; }
 
 /* ── Structured AI summary (headline + facts + checks + concerns) ───────────── */
-.vc-assess-headline { font-size: 13px; font-weight: 600; color: var(--color-text-primary, #1a1a1a); line-height: 1.45; margin: 0 0 5px; }
-.vc-assess-facts { margin: 0 0 5px; padding-left: 16px; }
-.vc-assess-facts li { font-size: 12px; color: var(--color-text-secondary, #444); margin: 1px 0; }
-.vc-assess-checks { margin: 4px 0; display: flex; flex-direction: column; gap: 2px; }
-.vc-chkline { font-size: 12px; }
-.vc-chkline.pass { color: #1e7a4f; }
-.vc-chkline.fail { color: #b3261e; font-weight: 600; }
-.vc-assess-concerns { margin: 4px 0 0; padding-left: 16px; }
-.vc-assess-concerns li { font-size: 12px; color: #9a6213; margin: 1px 0; }
+.vc-assess-headline { font-size: 13px; font-weight: 600; color: var(--color-text-primary, #1a1a1a); line-height: 1.45; margin: 0 0 10px; }
+.vc-assess-evaluated { font-size: 11px; font-style: italic; color: #8a8378; margin: -6px 0 10px; }
+.vc-assess-confidence { font-size: 11px; color: var(--color-text-secondary, #555); margin: -6px 0 10px;
+    display: inline-block; background: var(--color-background-secondary, #f2f2ef); border-radius: 10px; padding: 2px 8px; }
+
+/* Two-section summary: what checks out (green) / what's wrong (red) —
+   labeled section headers with colored bullet dots, matching the reference
+   design. Replaces the old single pass/fail line-list + separate facts list. */
+.vc-assess-section { margin: 0 0 12px; }
+.vc-assess-section:last-child { margin-bottom: 0; }
+.vc-assess-section-label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em;
+    text-transform: uppercase; margin: 0 0 6px;
+}
+.vc-assess-section-label.pass { color: #1e7a4f; }
+.vc-assess-section-label.wrong { color: #b3261e; }
+.vc-assess-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.vc-assess-list li { font-size: 12.5px; line-height: 1.5; padding-left: 16px; position: relative; }
+.vc-assess-list.pass li { color: #1e7a4f; }
+.vc-assess-list.wrong li { color: #a83e1e; }
+.vc-assess-list li::before {
+    content: ''; position: absolute; left: 2px; top: 6px;
+    width: 6px; height: 6px; border-radius: 50%;
+}
+.vc-assess-list.pass li::before { background: #2e9e63; }
+.vc-assess-list.wrong li::before { background: #d1453b; }

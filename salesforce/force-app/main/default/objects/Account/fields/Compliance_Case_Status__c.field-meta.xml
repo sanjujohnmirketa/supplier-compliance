@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Compliance_Case_Status__c</fullName>
+    <description>Whether this supplier&apos;s compliance case is still active or has been formally closed by an Analyst (VendorPortalController.closeComplianceCase). Distinct from Onboarding_Status__c, which tracks WHERE the account is in the onboarding pipeline (Draft/Screening/In Review) — this tracks whether the CASE itself is done. &apos;Open&apos; is the only value both getAnalystQueue and getScreeningQueue filter on to remove a case from both queues once closed.</description>
+    <label>Compliance Case Status</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Open</fullName>
+                <default>true</default>
+                <label>Open</label>
+            </value>
+            <value>
+                <fullName>Closed - Compliant</fullName>
+                <default>false</default>
+                <label>Closed - Compliant</label>
+            </value>
+            <value>
+                <fullName>Closed - Rejected</fullName>
+                <default>false</default>
+                <label>Closed - Rejected</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

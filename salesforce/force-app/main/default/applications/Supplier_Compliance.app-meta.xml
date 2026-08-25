@@ -10,6 +10,7 @@
     <navType>Standard</navType>
     <tabs>Procurement_Console</tabs>
     <tabs>Analyst_Console</tabs>
+    <tabs>Intelligence_Dashboard</tabs>
     <tabs>Policy_Documents</tabs>
     <tabs>standard-Account</tabs>
     <tabs>Audit_Log__c</tabs>

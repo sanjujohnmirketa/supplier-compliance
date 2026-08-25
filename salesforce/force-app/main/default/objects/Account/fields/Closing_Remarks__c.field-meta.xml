@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Closing_Remarks__c</fullName>
+    <description>The Analyst&apos;s final note recorded when closing this supplier&apos;s compliance case (VendorPortalController.closeComplianceCase) — shown as the final remark on the Account page once the case is closed.</description>
+    <label>Closing Remarks</label>
+    <length>4000</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>LongTextArea</type>
+    <visibleLines>4</visibleLines>
+</CustomField>

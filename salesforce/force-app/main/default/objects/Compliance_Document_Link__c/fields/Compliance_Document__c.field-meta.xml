@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Compliance_Document__c</fullName>
+    <deleteConstraint>Cascade</deleteConstraint>
+    <description>The specific uploaded file this AI verdict/summary applies to. Cascade: deleting the underlying Compliance_Document__c (e.g. a supplier removing an unmatched upload) removes its link row too — the parent Compliance_Assessment__c requirement itself is untouched.</description>
+    <label>Compliance Document</label>
+    <referenceTo>Compliance_Document__c</referenceTo>
+    <relationshipLabel>Document Links</relationshipLabel>
+    <relationshipName>Document_Links</relationshipName>
+    <required>true</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

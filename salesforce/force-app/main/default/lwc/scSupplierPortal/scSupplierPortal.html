@@ -1,16 +1,20 @@
 <template>
 
     <!-- ── TOP BAR ───────────────────────────────────────────────────────────── -->
-    <div class="vc-topbar">
+    <!-- <div class="vc-topbar">
         <div class="vc-tb-left">
             <img class="vc-logo-box" src={logoUrl} alt="VERA">
             <span class="vc-brand">Supplier Portal</span>
+            <template if:true={snapName}>
+                <span class="vc-tb-divider">·</span>
+                <span class="vc-tb-supplier-name" title={snapName}>{snapName}</span>
+            </template>
             <span class="vc-bread">{breadcrumb}</span>
         </div>
         <div class="vc-tb-right">
             <span class="vc-persona-chip">Supplier</span>
             <div class="vc-user-area">
-                <div class="vc-av vc-av-btn" title={userName} onclick={handleAvatarClick}>{userInitials}</div>
+                <button type="button" class="vc-av vc-av-btn" title={userName} aria-haspopup="true" onclick={handleAvatarClick}>{userInitials}</button>
                 <template if:true={showUserMenu}>
                     <div class="vc-user-menu">
                         <button class="vc-logout-btn" onclick={handleLogout}>Log out</button>
@@ -18,22 +22,24 @@
                 </template>
             </div>
         </div>
-    </div>
+    </div> -->
 
     <div class="vc-body">
 
         <!-- ── SIDEBAR ───────────────────────────────────────────────────────── -->
         <nav class="vc-sidebar">
             <div class="vc-sb-section">Supplier Portal</div>
-            <div class={sbSp3Active} data-screen="sp3" onclick={handleNav}>
+            <button type="button" class={sbSp3Active} data-screen="sp3" onclick={handleNav}>
                 <div class={dotSp3}></div> Compliance summary
-            </div>
-            <div class={sbSp4Active} data-screen="sp4" onclick={handleNav}>
-                <div class={dotSp4}></div> My sub-suppliers
-            </div>
-            <hr class="vc-sb-divider">
+            </button>
+            <template if:false={isSubSupplier}>
+                <button type="button" class={sbSp4Active} data-screen="sp4" onclick={handleNav}>
+                    <div class={dotSp4}></div> My sub-suppliers
+                </button>
+            </template>
+            <!-- <hr class="vc-sb-divider">
             <div class="vc-sb-section">You own</div>
-            <div class="vc-sb-note">Upload required documents · track your compliance status.</div>
+            <div class="vc-sb-note">Upload required documents · track your compliance status.</div> -->
         </nav>
 
         <!-- ── MAIN CANVAS ───────────────────────────────────────────────────── -->
@@ -54,50 +60,248 @@
                 <div class="vc-page-hdr">
                     <div>
                         <div class="vc-page-title">Compliance summary</div>
-                        <div class="vc-page-sub">{snapName} · upload required documents · track your compliance status and risk score.</div>
+                        <!-- <div class="vc-page-sub">{snapName} · upload required documents · track your compliance status and risk score.</div> -->
                     </div>
                     <span class="vc-pill-owns">Your compliance snapshot</span>
                 </div>
 
                 <template if:true={snapshotLoading}>
-                    <div class="vc-snap-loading">Loading…</div>
+                    <div class="vc-snap-loading"><span class="vc-spinner"></span>Loading…</div>
                 </template>
-                <div class="vc-snap-strip">
-                    <div class="vc-snap-cell"><span class="vc-snap-k">Risk tier</span><span class="vc-snap-v">{snapTier}</span></div>
-                    <div class="vc-snap-cell"><span class="vc-snap-k">Status</span><span class="vc-snap-v">{snapStatus}</span></div>
-                    <div class="vc-snap-cell"><span class="vc-snap-k">Oversight</span><span class="vc-snap-v">{oversightLabel}</span></div>
-                    <div class="vc-snap-cell"><span class="vc-snap-k">Documents on file</span><span class="vc-snap-v">{storedDocsCount}</span></div>
-                </div>
 
                 <c-sc-compliance-dashboard
                     tier={snapTier}
                     docs={dashboardDocs}
-                    label="My risk score">
+                    risk-score={snapRiskScore}
+                    show-checklist-progress
+                    checklist-progress-label={checklistProgressLabel}>
                 </c-sc-compliance-dashboard>
 
-                <!-- Upload zone -->
-                <div class="vc-policy-zone">
-                    <div class="vc-pz-icon">⤓</div>
-                    <div class="vc-pz-text">
-                        <div class="vc-pz-label">Upload your documents — one or many</div>
-                        <div class="vc-pz-hint">AI reads each file, matches it to the required checklist, and validates it.</div>
+                <!-- Sub-supplier network risk — only shown to a parent supplier who
+                     has invited their own sub-suppliers; rolls up the worst-case
+                     risk found anywhere in their sub-tier network. -->
+                <template if:true={hasSubTierSuppliers}>
+                    <div class="vc-card vc-cascade-card">
+                        <div class="vc-panel-header">
+                            <div class="vc-card-title vc-card-title-nomargin">Sub-supplier network risk</div>
+                            <span class="vc-sm-muted">{subTierCountLabel}</span>
+                        </div>
+                        <div class="vc-cascade-row">
+                            <span class={cascadingRiskBadgeClass}>{cascadingRiskTier}</span>
+                            <template if:true={cascadingRiskNote}>
+                                <span class="vc-cascade-note">{cascadingRiskNote}</span>
+                            </template>
+                        </div>
                     </div>
-                    <button class="vc-btn-pri vc-btn-sm" onclick={handleAddFiles}>＋ Add files</button>
-                    <input type="file" multiple class="vc-file-input" onchange={handleFilesPicked}>
+                </template>
+
+                <!-- Sub-tabs: Checklist & Upload / Document Summary -->
+                <div class="vc-tab-row" role="tablist">
+                    <button type="button" class={checklistTabClass} data-tab="checklist" role="tab" aria-selected={isChecklistTab} onclick={handleSubTab}>Checklist &amp; Upload</button>
+                    <button type="button" class={summaryTabClass} data-tab="summary" role="tab" aria-selected={isSummaryTab} onclick={handleSubTab}>Document Summary</button>
                 </div>
 
-                <!-- Document & screening table -->
-                <template if:true={hasComplianceRows}>
+                <!-- ── TAB: Checklist & Upload ─────────────────────────────────── -->
+                <template if:true={isChecklistTab}>
+                    <div class="vc-policy-zone">
+                        <div class="vc-pz-icon">⤒</div>
+                        <div class="vc-pz-text">
+                            <div class="vc-pz-label">Upload your documents - one or many</div>
+                            <!-- <div class="vc-pz-hint">Each file is matched to a required checklist item and reviewed.</div> -->
+                        </div>
+                        <button class="vc-btn-pri vc-btn-sm" onclick={handleAddFiles}>＋ Add files</button>
+                        <input type="file" multiple class="vc-file-input" onchange={handleFilesPicked}>
+                        <!-- Re-upload (rejected-row response, WFL-04) targets this same
+                             hidden input via handleRenewClick/handleRenewFilePicked — needs
+                             its own copy here since this tab and Document Summary never
+                             render at the same time, and the Document Summary tab's copy
+                             (below) isn't in the DOM while this tab is active. -->
+                        <input type="file" class="vc-renew-file-input" onchange={handleRenewFilePicked}>
+                    </div>
+
+                    <template if:true={hasComplianceRows}>
+                        <div class="vc-card vc-checklist-card">
+                            <div class="vc-panel-header">
+                                <div class="vc-card-title vc-card-title-nomargin">Required documents</div>
+                                <span class="vc-ai-badge">{checklistProgressLabel}</span>
+                            </div>
+                            <div class="vc-cdoc-cols vc-cdoc-head">
+                                <span></span>
+                                <span class="vc-cdoc-h-req">Required document</span>
+                                <span class="vc-cdoc-h-file">Uploaded file</span>
+                                <span class="vc-cdoc-h-verdict"></span>
+                            </div>
+                            <template for:each={complianceRows} for:item="c">
+                                <div key={c.id} class={c.rowClass}>
+                                    <div class="vc-cdoc-cols vc-cdoc-top">
+                                        <span class={c.boxClass}>
+                                            <template if:true={c.ticked}>✓</template>
+                                        </span>
+                                        <span class="vc-cdoc-label">{c.label}</span>
+                                        <span class="vc-cdoc-file">
+                                            <template if:true={c.hasFileName}>{c.fileName}</template>
+                                            <template if:false={c.hasFileName}><span class="vc-cdoc-nofile">— not uploaded —</span></template>
+                                        </span>
+                                        <div class="vc-cdoc-right">
+                                            <div class="vc-cdoc-actions">
+                                                <template if:true={c.showUploadButton}>
+                                                    <button class="vc-doc-btn" data-assessment-id={c.assessmentId} data-label={c.label}
+                                                            onclick={handleRenewClick}
+                                                            title="Upload a file directly for this requirement.">⤒</button>
+                                                </template>
+                                                <template if:true={c.hasFile}>
+                                                    <button class="vc-doc-btn" data-id={c.fileId} onclick={handlePreviewDoc} title="Open this file in a preview panel.">👁</button>
+                                                    <button class="vc-doc-btn danger" data-id={c.fileId} onclick={handleRemoveDoc} title="Delete this uploaded file. You'll need to upload it again.">Remove</button>
+                                                </template>
+                                                <template if:false={c.commentOpen}>
+                                                    <button class="vc-btn-sec vc-btn-sm" data-key={c.key} onclick={handleOpenComment}
+                                                            title="Add a comment on this requirement.">Add comment</button>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Analyst's comment on a Non-Compliant document — always visible
+                                         (not behind the audit-history toggle below), same prominence as
+                                         a Procurement rejection reason, so the supplier immediately sees
+                                         why this document needs attention. -->
+                                    <template if:true={c.hasAnalystComment}>
+                                        <div class="vc-analyst-comment">
+                                            <span class="vc-badge bad">Analyst note</span>
+                                            <span class="vc-sm-muted">{c.analystComment}</span>
+                                        </div>
+                                    </template>
+
+                                    <!-- Procurement's own Approve/Reject decision + the supplier's own
+                                         replies, one combined dated thread. Every past entry stays
+                                         visible with its own timestamp (newest first), not just latest —
+                                         collapsed behind its own toggle, same pattern as the procurement
+                                         console's "Show/Hide detail" button. -->
+                                    <template if:true={c.hasComments}>
+                                        <button class="vc-cdoc-toggle vc-audit-toggle" data-key={c.key} onclick={handleToggleAuditHistory}
+                                                title="Show or hide the decision and comment history for this requirement.">{c.auditHistoryLabel}</button>
+                                    </template>
+                                    <template if:true={c.auditHistoryOpen}>
+                                        <div class="vc-proc-comments">
+                                            <template for:each={c.comments} for:item="pc">
+                                                <div key={pc.id} class="vc-proc-decision-note">
+                                                    <template if:true={pc.isSupplierComment}>
+                                                        <span class="vc-badge neutral">You</span>
+                                                        <span class="vc-sm-muted">{pc.reason}</span>
+                                                    </template>
+                                                    <template if:false={pc.isSupplierComment}>
+                                                        <span class={pc.badgeClass}>{pc.decision}</span>
+                                                        <span class="vc-sm-muted">by {pc.actorName} - {pc.reason}</span>
+                                                    </template>
+                                                    <span class="vc-proc-comment-date">{pc.dateLabel}</span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+
+                                    <!-- Add-comment box — available regardless of rejection state, so the
+                                         supplier can always reply/annotate this requirement, not just after
+                                         Procurement rejects the current document. -->
+                                    <template if:true={c.commentOpen}>
+                                        <div class="vc-rej-connect">
+                                            <input class="vc-finput" type="text" value={c.commentInput}
+                                                   data-key={c.key} oninput={handleCommentDraftInput}
+                                                   placeholder="Add a comment…">
+                                            <button class="vc-btn-pri vc-btn-sm" data-key={c.key}
+                                                    onclick={handleSendComment} disabled={c.commentSending}
+                                                    title="Send this reply to Procurement.">
+                                                <template if:true={c.commentSending}>Sending…</template>
+                                                <template if:false={c.commentSending}>Send</template>
+                                            </button>
+                                            <button class="vc-btn-sec vc-btn-sm" data-key={c.key}
+                                                    onclick={handleCancelComment} disabled={c.commentSending}>Cancel</button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <!-- Inline document preview -->
+                            <template if:true={hasPreview}>
+                                <div class="vc-doc-preview">
+                                    <div class="vc-doc-preview-head">
+                                        <span class="vc-doc-preview-title">{previewTitle}</span>
+                                        <button class="vc-doc-btn" onclick={closePreview}>Close ×</button>
+                                    </div>
+                                    <template if:true={showIframe}>
+                                        <div data-preview-container class="vc-doc-preview-container">
+                                            <template if:true={iframeLoading}>
+                                                <div class="vc-preview-loading">Loading preview...</div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <template if:false={showIframe}>
+                                        <template if:true={previewIsImage}>
+                                            <img class="vc-doc-img" src={previewUrl} alt={previewTitle}>
+                                        </template>
+                                        <template if:false={previewIsImage}>
+                                            <iframe class="vc-doc-frame" src={previewUrl} title={previewTitle}></iframe>
+                                        </template>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <template if:false={hasComplianceRows}>
+                        <div class="vc-card">
+                            <div class="vc-empty-inline">
+                                No required documents yet.
+                                <span class="vc-sm-muted">Once your procurement contact generates a checklist, required documents will appear here - use "Add files" above to upload them.</span>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Unmatched / rejected documents -->
+                    <template if:true={hasRejectedDocs}>
+                        <div class="vc-card vc-rejected-card">
+                            <div class="vc-panel-header">
+                                <div class="vc-card-title vc-card-title-nomargin vc-rejected-title">⚠ Unmatched documents</div>
+                            </div>
+                            <template for:each={rejectedDocs} for:item="r">
+                                <div key={r.id} class="vc-rej-row">
+                                    <div class="vc-rej-top">
+                                        <span class="vc-rej-name">{r.title}</span>
+                                        <button class="vc-doc-btn danger" data-id={r.id}
+                                                onclick={handleRemoveRejectedDoc} disabled={r.removing}
+                                                title="Delete this uploaded file. You'll need to upload it again.">
+                                            <template if:true={r.removing}>Removing…</template>
+                                            <template if:false={r.removing}>Remove</template>
+                                        </button>
+                                    </div>
+                                    <div class="vc-rej-reason">{r.reason}</div>
+                                    <template if:true={r.hasRequirementOptions}>
+                                        <div class="vc-rej-connect">
+                                            <select class="vc-finput vc-fselect vc-rej-select" data-id={r.id} onchange={handleRejectedRequirementChange}>
+                                                <option value="">This file is actually for…</option>
+                                                <template for:each={r.requirementOptions} for:item="opt">
+                                                    <option key={opt.value} value={opt.value}>{opt.label}<template if:true={opt.alreadyUploaded}> (replaces current document)</template></option>
+                                                </template>
+                                            </select>
+                                            <button class="vc-btn-sec vc-btn-sm" data-id={r.id}
+                                                    onclick={handleConnectRejected} disabled={r.connecting}
+                                                    title="Link this file to the selected checklist item.">
+                                                <template if:true={r.connecting}>Connecting…</template>
+                                                <template if:false={r.connecting}>Connect</template>
+                                            </button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </template>
+
+                <!-- ── TAB: Document Summary (gated — visible per document only
+                     once Procurement/Analyst has approved it) ─────────────── -->
+                <template if:true={isSummaryTab}>
+                    <input type="file" class="vc-renew-file-input" onchange={handleRenewFilePicked}>
                     <div class="vc-card vc-checklist-card">
                         <div class="vc-panel-header">
-                            <div class="vc-card-title vc-card-title-nomargin">Required documents</div>
-                            <span class="vc-ai-badge">✦ {checklistProgressLabel} · AI matched &amp; validated</span>
-                        </div>
-                        <div class="vc-cdoc-cols vc-cdoc-head">
-                            <span></span>
-                            <span class="vc-cdoc-h-req">Required document</span>
-                            <span class="vc-cdoc-h-file">Uploaded file</span>
-                            <span class="vc-cdoc-h-verdict"></span>
+                            <div class="vc-card-title vc-card-title-nomargin">Document compliance summary</div>
                         </div>
                         <template for:each={complianceRows} for:item="c">
                             <div key={c.id} class={c.rowClass}>
@@ -105,130 +309,97 @@
                                     <span class={c.boxClass}>
                                         <template if:true={c.ticked}>✓</template>
                                     </span>
-                                    <span class="vc-cdoc-label">{c.label}</span>
-                                    <span class="vc-cdoc-file">
-                                        <template if:true={c.hasFileName}>{c.fileName}</template>
-                                        <template if:false={c.hasFileName}><span class="vc-cdoc-nofile">— not uploaded —</span></template>
-                                    </span>
+                                    <div class="vc-cdoc-label-col">
+                                        <span class="vc-cdoc-label">{c.label}</span>
+                                        <template if:true={c.hasFileName}>
+                                            <span class="vc-cdoc-filename">{c.fileName}</span>
+                                        </template>
+                                    </div>
                                     <div class="vc-cdoc-right">
                                         <template if:true={c.hasVerdict}>
                                             <span class={c.verdictBadgeClass}>{c.verdict}</span>
-                                            <template if:true={c.hasConfidence}>
-                                                <span class="vc-cdoc-conf">{c.confidenceLabel}</span>
-                                            </template>
                                         </template>
                                         <template if:false={c.hasVerdict}>
                                             <span class="vc-cdoc-status">{c.statusText}</span>
                                         </template>
-                                        <template if:true={c.hasFile}>
-                                            <div class="vc-cdoc-actions">
-                                                <button class="vc-doc-btn" data-id={c.fileId} onclick={handlePreviewDoc}>Preview</button>
-                                                <button class="vc-doc-btn danger" data-id={c.fileId} onclick={handleRemoveDoc}>Remove</button>
-                                            </div>
-                                        </template>
                                     </div>
                                 </div>
+                                <template if:true={c.isExpired}>
+                                    <div class="vc-cdoc-renew-row">
+                                        <span class="vc-cdoc-renew-note">This document has expired and needs to be replaced.</span>
+                                        <button class="vc-btn-pri vc-btn-sm" data-assessment-id={c.assessmentId} data-label={c.label} onclick={handleRenewClick}>Renew document</button>
+                                    </div>
+                                </template>
                                 <template if:true={c.hasDetail}>
                                     <button class="vc-cdoc-toggle" data-key={c.key} onclick={handleToggleDetail}>{c.toggleLabel}</button>
                                     <template if:true={c.expanded}>
                                         <div class="vc-cdoc-detail">
-                                            <template if:true={c.hasHeadline}>
-                                                <div class="vc-assess-headline">{c.headline}</div>
-                                            </template>
-                                            <template if:true={c.hasChecks}>
-                                                <div class="vc-assess-checks">
-                                                    <template for:each={c.checks} for:item="k">
-                                                        <div key={k.id} class={k.chkClass}>
-                                                            <template if:true={k.pass}>✓ </template>
-                                                            <template if:false={k.pass}>✕ </template>{k.text}
+                                            <!-- Multi-document-per-requirement: each linked file's own
+                                                 status/summary, shown distinctly — same approved-only
+                                                 visibility gate as the rest of this detail block. -->
+                                            <template if:true={c.hasDocumentLinks}>
+                                                <div class="vc-linked-docs-zone">
+                                                    <template for:each={c.documentLinks} for:item="dl">
+                                                        <div key={dl.id} class="vc-linked-doc">
+                                                            <div class="vc-linked-doc-head">
+                                                                <span class="vc-linked-doc-title">📄 {dl.documentTitle}</span>
+                                                                <span class={dl.badgeClass}>{dl.status}</span>
+                                                            </div>
+                                                            <template if:true={dl.hasHeadline}>
+                                                                <div class="vc-assess-headline">{dl.headline}</div>
+                                                            </template>
+                                                            <template if:true={dl.hasChecksPassed}>
+                                                                <ul class="vc-assess-list pass">
+                                                                    <template for:each={dl.checksPassed} for:item="p">
+                                                                        <li key={p.id}>{p.text}</li>
+                                                                    </template>
+                                                                </ul>
+                                                            </template>
+                                                            <template if:true={dl.hasConcerns}>
+                                                                <ul class="vc-assess-list wrong">
+                                                                    <template for:each={dl.concerns} for:item="cc">
+                                                                        <li key={cc.id}>{cc.text}</li>
+                                                                    </template>
+                                                                </ul>
+                                                            </template>
                                                         </div>
                                                     </template>
                                                 </div>
                                             </template>
-                                            <template if:true={c.hasFacts}>
-                                                <ul class="vc-assess-facts">
-                                                    <template for:each={c.facts} for:item="f">
-                                                        <li key={f.id}>{f.text}</li>
-                                                    </template>
-                                                </ul>
+                                            <template if:true={c.hasHeadline}>
+                                                <div class="vc-assess-headline">{c.headline}</div>
+                                            </template>
+                                            <template if:true={c.hasEvaluatedLabel}>
+                                                <div class="vc-assess-evaluated">Evaluated by AI · {c.evaluatedLabel}</div>
+                                            </template>
+                                            <template if:true={c.hasChecksPassed}>
+                                                <div class="vc-assess-section">
+                                                    <div class="vc-assess-section-label pass">What checks out</div>
+                                                    <ul class="vc-assess-list pass">
+                                                        <template for:each={c.checksPassed} for:item="p">
+                                                            <li key={p.id}>{p.text}</li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
                                             </template>
                                             <template if:true={c.hasConcerns}>
-                                                <ul class="vc-assess-concerns">
-                                                    <template for:each={c.concerns} for:item="cc">
-                                                        <li key={cc.id}>⚠ {cc.text}</li>
-                                                    </template>
-                                                </ul>
+                                                <div class="vc-assess-section">
+                                                    <div class="vc-assess-section-label wrong">What's wrong</div>
+                                                    <ul class="vc-assess-list wrong">
+                                                        <template for:each={c.concerns} for:item="cc">
+                                                            <li key={cc.id}>{cc.text}</li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
                                             </template>
                                         </div>
                                     </template>
                                 </template>
-                            </div>
-                        </template>
-
-                        <!-- Inline document preview -->
-                        <template if:true={hasPreview}>
-                            <div class="vc-doc-preview">
-                                <div class="vc-doc-preview-head">
-                                    <span class="vc-doc-preview-title">{previewTitle}</span>
-                                    <button class="vc-doc-btn" onclick={closePreview}>Close ×</button>
-                                </div>
-                                <template if:true={showIframe}>
-                                    <div data-preview-container class="vc-doc-preview-container">
-                                        <template if:true={iframeLoading}>
-                                            <div class="vc-preview-loading">Loading preview...</div>
-                                        </template>
-                                    </div>
-                                </template>
-                                <template if:false={showIframe}>
-                                    <template if:true={previewIsImage}>
-                                        <img class="vc-doc-img" src={previewUrl} alt={previewTitle}>
-                                    </template>
-                                    <template if:false={previewIsImage}>
-                                        <iframe class="vc-doc-frame" src={previewUrl} title={previewTitle}></iframe>
+                                <template if:false={c.hasDetail}>
+                                    <template if:true={c.pendingApprovalLabel}>
+                                        <div class="vc-cdoc-pending">{c.pendingApprovalLabel} - summary not yet available.</div>
                                     </template>
                                 </template>
-                            </div>
-                        </template>
-
-                        <!-- Newly added (uploading / assessing) -->
-                        <template if:true={hasUploadedDocs}>
-                            <div class="vc-subhead">Just added</div>
-                            <template for:each={uploadedDocs} for:item="doc">
-                                <div key={doc.id} class="vc-updoc">
-                                    <span class="vc-updoc-name">{doc.name}</span>
-                                    <span class="vc-updoc-meta">{doc.sizeLabel} · {doc.status}</span>
-                                </div>
-                            </template>
-                        </template>
-                    </div>
-                </template>
-
-                <template if:false={hasComplianceRows}>
-                    <div class="vc-card">
-                        <div class="vc-empty-inline">
-                            No required documents yet.
-                            <span class="vc-sm-muted">Once your procurement contact generates a checklist, required documents will appear here — use "Add files" above to upload them.</span>
-                        </div>
-                    </div>
-                </template>
-
-                <!-- Unmatched / rejected documents -->
-                <template if:true={hasRejectedDocs}>
-                    <div class="vc-card vc-rejected-card">
-                        <div class="vc-panel-header">
-                            <div class="vc-card-title vc-card-title-nomargin vc-rejected-title">⚠ Unmatched documents</div>
-                        </div>
-                        <template for:each={rejectedDocs} for:item="r">
-                            <div key={r.id} class="vc-rej-row">
-                                <div class="vc-rej-top">
-                                    <span class="vc-rej-name">{r.title}</span>
-                                    <button class="vc-btn-sec vc-btn-sm" data-id={r.id}
-                                            onclick={handlePromoteRejected} disabled={r.promoting}>
-                                        <template if:true={r.promoting}>Adding…</template>
-                                        <template if:false={r.promoting}>＋ Add to checklist</template>
-                                    </button>
-                                </div>
-                                <div class="vc-rej-reason">{r.reason}</div>
                             </div>
                         </template>
                     </div>
@@ -293,7 +464,7 @@
                     <template if:false={hasSubSuppliers}>
                         <template if:false={subSuppliersLoading}>
                             <div class="vc-empty-table">
-                                No sub-suppliers yet — invite your first sub-supplier using the button above.
+                                No sub-suppliers yet - invite your first sub-supplier using the button above.
                             </div>
                         </template>
                     </template>
@@ -313,7 +484,7 @@
                     <div class="vc-modal-title">Invite sub-supplier</div>
                     <div class="vc-modal-sub">They'll receive a secure registration link to complete their compliance profile.</div>
                 </div>
-                <button class="vc-cp-close" onclick={handleCloseInvite}>×</button>
+                <button class="vc-cp-close" onclick={handleCloseInvite} title="Close without inviting.">×</button>
             </div>
 
             <div class="vc-invite-modal-body">

@@ -24,6 +24,20 @@ public with sharing class DocAssessService {
         public String documentType;    // the upload's type hint
         public String documentBase64;  // base64 file bytes
         public String fileName;        // used by the service to pick its extractor
+        // The supplier Account's legal Name — lets /assess deterministically
+        // compare the document's own extracted entity name (extracted_fields.
+        // subject_company) against who it's actually supposed to be FOR, and
+        // flag a mismatch (or a missing entity name) as its own compliance
+        // check, same as the existing expiry/coverage/identifier gates.
+        public String supplierName;
+        // The supplier's raw industry picklist label (Account.Industry /
+        // Industry__c) — same strict corpus filter /scope already applies
+        // (see ScopeService.ScopeRequest.industry). Previously never sent
+        // here at all, so /assess's policy-clause retrieval searched the
+        // ENTIRE corpus across every industry regardless of which supplier
+        // the document belonged to — the same class of cross-industry
+        // leakage bug found and fixed in /copilot.
+        public String industry;
     }
 
     // ── Response (mirrors app.py /assess output; extra fields ignored) ─────────
@@ -78,6 +92,7 @@ public with sharing class DocAssessService {
         if (m.get('citations') instanceof List<Object>) {
             for (Object o : (List<Object>) m.get('citations')) if (o != null) r.citations.add(String.valueOf(o));
         }
+        r.summary            = (Map<String, Object>) m.get('summary');
         r.extractedFields    = (Map<String, Object>) m.get('extractedFields');
         r.keyDates           = (Map<String, Object>) m.get('keyDates');
         r.clauseChecks       = (List<Object>)        m.get('clauseChecks');

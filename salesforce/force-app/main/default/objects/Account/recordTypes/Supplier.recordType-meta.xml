@@ -39,6 +39,40 @@
         </values>
     </picklistValues>
     <picklistValues>
+        <picklist>Cascading_Risk_Tier__c</picklist>
+        <values>
+            <fullName>Critical</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>High</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Low</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Medium</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Compliance_Case_Status__c</picklist>
+        <values>
+            <fullName>Closed - Compliant</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Closed - Rejected</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Open</fullName>
+            <default>true</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
         <picklist>CustomerPriority__c</picklist>
         <values>
             <fullName>High</fullName>
@@ -51,6 +85,52 @@
         <values>
             <fullName>Medium</fullName>
             <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Engagement_Type__c</picklist>
+        <values>
+            <fullName>Capital Equipment %2F Tooling</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Direct Material - Production %28Tier 1%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Direct Material - Production %28Tier 2%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Indirect %2F Non-production %28MRO%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Logistics %2F Distribution</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Raw Materials %2F Commodities</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Services %2F Consulting</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>HITL_Threshold__c</picklist>
+        <values>
+            <fullName>High</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Low</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Medium</fullName>
+            <default>true</default>
         </values>
     </picklistValues>
     <picklistValues>
@@ -195,11 +275,27 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Behavioral Health Facility</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Chemicals</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Electronics</fullName>
+            <fullName>Clinical %2F Diagnostic Lab</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Compounding Pharmacy %26 Infusion Supply</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Electronics %2F Semiconductors</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Energy %2F Utilities</fullName>
             <default>false</default>
         </values>
         <values>
@@ -211,15 +307,23 @@
             <default>false</default>
         </values>
         <values>
-            <fullName>Logistics</fullName>
+            <fullName>Industrial Equipment</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Other Manufacturing</fullName>
+            <fullName>Logistics %26 Distribution</fullName>
             <default>false</default>
         </values>
         <values>
-            <fullName>Pharma %26 Medical Devices</fullName>
+            <fullName>Medical Devices</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Other</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pharmaceutical</fullName>
             <default>false</default>
         </values>
         <values>
@@ -266,6 +370,25 @@
         </values>
     </picklistValues>
     <picklistValues>
+        <picklist>Profile_Risk_Tier__c</picklist>
+        <values>
+            <fullName>Critical</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>High</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Low</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Medium</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
         <picklist>Rating</picklist>
         <values>
             <fullName>Cold</fullName>
@@ -277,6 +400,21 @@
         </values>
         <values>
             <fullName>Warm</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Relationship_Type_To_Parent__c</picklist>
+        <values>
+            <fullName>Preferred</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Secondary</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sole Source</fullName>
             <default>false</default>
         </values>
     </picklistValues>
@@ -315,6 +453,21 @@
         </values>
         <values>
             <fullName>Silver</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Supplier_Tier__c</picklist>
+        <values>
+            <fullName>Tier 1</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Tier 2</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Tier 3</fullName>
             <default>false</default>
         </values>
     </picklistValues>

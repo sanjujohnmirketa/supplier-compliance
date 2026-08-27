@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Catalog of raw material types and service categories a supplier may provide, and the compliance domains each one guarantees. Single source of truth for the &quot;Raw material type&quot; / &quot;Service category&quot; dropdowns on supplier intake (scProcurementConsole) — replaces the hardcoded JS/Python lists so a new material (for any industry) can be added by creating a record here, with no code deploy on either the Salesforce or engine side. Domains__c values must match the domain slugs used by the Python RAG corpus (quality, conflict, material, cyber, trade, finance, general).</description>
+    <label>Material Type</label>
+    <pluralLabel>Material Types</pluralLabel>
+    <visibility>Public</visibility>
+</CustomObject>

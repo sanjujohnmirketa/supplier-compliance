@@ -87,6 +87,7 @@ public without sharing class VendorPortalController {
         // than replacing the industry/engagement blend above.
         if (String.isNotBlank(materialType))     req.materialType    = materialType;
         if (String.isNotBlank(serviceCategory))  req.serviceCategory = serviceCategory;
+        req.materialDomains = resolveMaterialDomains(materialType, serviceCategory);
 
         ScopeService.ScopeResponse resp;
         try {
@@ -138,7 +139,9 @@ public without sharing class VendorPortalController {
         String riskDomains,
         String supplierEmail,
         String hitlThreshold,
-        List<String> documents
+        List<String> documents,
+        String materialType,
+        String serviceCategory
     ) {
         if (String.isBlank(supplierName)) {
             throw new AuraHandledException('Supplier legal entity name is required.');
@@ -160,23 +163,139 @@ public without sharing class VendorPortalController {
                 ORDER BY CreatedDate DESC LIMIT 1];
             if (!dupes.isEmpty()) accountId = dupes[0].Id;
         }
-        // Persist the supplier so the request is tied to a record
+        // Persist the supplier so the request is tied to a record.
+        // checklistCurated=true: `documents` is the Procurement user's post-edit
+        // checklist — written verbatim below instead of letting the trigger-fired
+        // ScopeCalloutQueueable re-derive (and potentially resurrect removed
+        // items) from /scope.
         String accId = upsertSupplier(
             accountId, supplierName, country, requestedBy,
             industry, engagementType, annualSpend, riskDomains,
-            supplierEmail, hitlThreshold, 'In Review'
+            supplierEmail, hitlThreshold, 'In Review',
+            materialType, serviceCategory, true
         );
+        persistCuratedChecklist(accId, documents);
 
+        sendDocumentRequestEmail(accId, supplierName, supplierEmail, documents);
+        return accId;
+    }
+
+    // Persists the Procurement user's already-curated document list (post
+    // add/remove edits on the P1 preview) as the supplier's ACTUAL checklist —
+    // the same Compliance_Assessment__c shape ScopeCalloutQueueable creates,
+    // so the portal/analyst/procurement screens render it identically. Called
+    // instead of relying on the trigger-fired /scope re-derivation, which has
+    // no idea what the user removed (see Checklist_Seeded_By_Caller__c).
+    // Idempotent via upsert on Requirement_Key__c, same as ScopeCalloutQueueable,
+    // so re-submitting an existing supplier with an edited list updates cleanly
+    // rather than duplicating rows.
+    private static void persistCuratedChecklist(Id accId, List<String> documents) {
+        if (accId == null || documents == null || documents.isEmpty()) return;
+        // TEMP DIAGNOSTIC (investigating a report of items silently dropped
+        // between P1 preview and the persisted checklist) — captures the exact
+        // list this method received and every per-record upsert outcome, since
+        // Database.upsert's return value was previously discarded entirely, so
+        // a partial failure (allOrNone=false) had zero visibility anywhere.
+        // Remove once the live repro confirms/rules out a DML-level cause.
+        System.debug(LoggingLevel.ERROR, '[persistCuratedChecklist] accId=' + accId
+            + ' received ' + documents.size() + ' document(s): ' + JSON.serialize(documents));
+        List<Compliance_Assessment__c> toUpsert = new List<Compliance_Assessment__c>();
+        List<String> labelsInOrder = new List<String>();
+        Set<String> keysUsedThisBatch = new Set<String>();
+        for (String label : documents) {
+            if (String.isBlank(label)) continue;
+            // Requirement_Key__c is the upsert external ID (255-char field) — two
+            // labels sharing a long common prefix used to collide on the old
+            // 60-char-prefix-only key and silently overwrite each other via
+            // upsert. Slug the full label (not just the first 60 chars) and,
+            // since normalization can still collide two DIFFERENT labels onto
+            // the same slug, disambiguate with a running counter whenever a key
+            // repeats within this same batch.
+            String baseKey = ((String) accId) + '__SCOPE_'
+                + label.trim().toUpperCase().replaceAll('[^A-Z0-9]', '_').left(200);
+            String key = baseKey;
+            Integer dupSuffix = 2;
+            while (keysUsedThisBatch.contains(key)) {
+                key = baseKey.left(250) + '_' + dupSuffix;
+                dupSuffix++;
+            }
+            keysUsedThisBatch.add(key);
+            toUpsert.add(new Compliance_Assessment__c(
+                Name                   = abbreviateLabel(label, 'Requirement', 80),
+                Supplier__c            = accId,
+                Requirement_Key__c     = key,
+                Requirement_Label__c   = label.trim(),
+                Status__c              = 'Pending',
+                Severity__c            = 'Medium',
+                Evaluated_By__c        = 'Auto',
+                Evaluation_DateTime__c = DateTime.now(),
+                Reason_Code__c         = 'Missing Document'
+            ));
+            labelsInOrder.add(label.trim());
+        }
+        if (!toUpsert.isEmpty()) {
+            Database.UpsertResult[] results =
+                Database.upsert(toUpsert, Compliance_Assessment__c.Requirement_Key__c, false);
+            for (Integer i = 0; i < results.size(); i++) {
+                Database.UpsertResult r = results[i];
+                if (!r.isSuccess()) {
+                    String errMsg = '';
+                    for (Database.Error e : r.getErrors()) errMsg += e.getStatusCode() + ': ' + e.getMessage() + '; ';
+                    System.debug(LoggingLevel.ERROR, '[persistCuratedChecklist] FAILED for "'
+                        + labelsInOrder[i] + '": ' + errMsg);
+                    Database.insert(new Audit_Log__c(
+                        Event_Type__c        = 'Integration_Error',
+                        Related_Object__c    = 'Supplier',
+                        Related_Record_Id__c = accId,
+                        Event_DateTime__c    = DateTime.now(),
+                        Actor_Type__c        = 'System',
+                        Source_System__c     = 'Salesforce',
+                        New_Value__c         = '[persistCuratedChecklist] Checklist item "' + labelsInOrder[i]
+                            + '" failed to save: ' + errMsg
+                    ), false);
+                }
+            }
+        }
+
+        // Freeze N (checklist size) for RiskScoreService's per-document scoring
+        // — same rule as ScopeCalloutQueueable's own Checklist_Item_Count__c
+        // write: only set once, on the checklist's first generation, so a
+        // later edit (add/remove a document) doesn't silently reweight every
+        // already-scored document.
+        List<Account> accForCount = [SELECT Id, Checklist_Item_Count__c FROM Account WHERE Id = :accId LIMIT 1];
+        if (!accForCount.isEmpty() && accForCount[0].Checklist_Item_Count__c == null && !labelsInOrder.isEmpty()) {
+            update new Account(Id = accId, Checklist_Item_Count__c = labelsInOrder.size());
+        }
+    }
+
+    private static String abbreviateLabel(String value, String fallback, Integer max) {
+        if (String.isBlank(value)) return fallback;
+        return value.length() > max ? value.left(max) : value;
+    }
+
+    // Shared by requestDocumentsFromSupplier and submitAndScreen — one place that
+    // generates the portal link, sends the checklist email, and audits the
+    // request, so both entry points behave identically instead of duplicating
+    // (and risking drifting) the same logic.
+    private static void sendDocumentRequestEmail(
+        String accId, String supplierName, String supplierEmail, List<String> documents
+    ) {
         // Generate a personal portal URL for this supplier (stable: same token on re-send).
         String portalUrl = null;
         try { portalUrl = generateSupplierPortalUrl(accId); } catch (Exception e) { /* non-fatal */ }
 
-        // Build + send the request email
         Messaging.SingleEmailMessage msg = new Messaging.SingleEmailMessage();
         msg.setToAddresses(new List<String>{ supplierEmail });
         msg.setSubject('Required compliance documents — ' + supplierName + ' onboarding');
         msg.setPlainTextBody(buildRequestBody(supplierName, documents, portalUrl));
         msg.setSaveAsActivity(false);
+
+        // Send as the org's Supplier Compliance Team identity, not the running
+        // user — without this, Salesforce defaults the sender to whoever clicked
+        // "Email supplier" (matches the pattern already used by the sub-supplier
+        // invite email in SubSupplierController.cls).
+        List<OrgWideEmailAddress> orgEmails = [SELECT Id FROM OrgWideEmailAddress LIMIT 1];
+        if (!orgEmails.isEmpty()) msg.setOrgWideEmailAddressId(orgEmails[0].Id);
 
         Messaging.SendEmailResult[] results =
             Messaging.sendEmail(new List<Messaging.SingleEmailMessage>{ msg }, false);
@@ -187,7 +306,6 @@ public without sharing class VendorPortalController {
             throw new AuraHandledException('Email send failed: ' + err);
         }
 
-        // Audit the request
         Database.insert(new Audit_Log__c(
             Event_Type__c        = 'Status_Changed',
             Related_Object__c    = 'Supplier',
@@ -198,8 +316,38 @@ public without sharing class VendorPortalController {
             New_Value__c         = 'Requested ' + documents.size()
                 + ' document(s) from ' + supplierEmail
         ), false);
+    }
 
-        return accId;
+    // Resends the document-request email (with the supplier's portal link) for
+    // an EXISTING supplier, without touching any other field — reuses the same
+    // sendDocumentRequestEmail helper requestDocumentsFromSupplier/submitAndScreen
+    // already call, so the email/template/portal-link logic is never duplicated.
+    // The checklist is read fresh from the supplier's current, persisted
+    // requirements (not re-submitted), so this reflects whatever Procurement
+    // has added/removed since the original request.
+    @AuraEnabled
+    public static void resendDocumentRequestEmail(Id accountId) {
+        if (accountId == null) throw new AuraHandledException('No supplier selected.');
+        Account a = [SELECT Id, Name, Supplier_Contact_Email__c FROM Account WHERE Id = :accountId LIMIT 1];
+        if (String.isBlank(a.Supplier_Contact_Email__c)) {
+            throw new AuraHandledException('This supplier has no contact email on file — use Edit to add one first.');
+        }
+        List<String> documents = new List<String>();
+        for (Compliance_Assessment__c x : [
+            SELECT Requirement_Label__c
+            FROM   Compliance_Assessment__c
+            WHERE  Supplier__c = :accountId
+            AND    Requirement_Label__c != null
+            AND    (NOT Requirement_Label__c LIKE 'Screening — %')
+            AND    (NOT Requirement_Label__c LIKE '%Manual verification%')
+            ORDER BY Requirement_Label__c
+        ]) {
+            documents.add(x.Requirement_Label__c);
+        }
+        if (documents.isEmpty()) {
+            throw new AuraHandledException('This supplier has no checklist items to request yet.');
+        }
+        sendDocumentRequestEmail(accountId, a.Name, a.Supplier_Contact_Email__c, documents);
     }
 
     private static String buildRequestBody(String supplierName, List<String> documents) {
@@ -218,7 +366,7 @@ public without sharing class VendorPortalController {
         if (String.isNotBlank(portalUrl)) {
             body += '\nUpload your documents directly via your personal supplier portal:\n'
                  + portalUrl + '\n'
-                 + '\nThe portal shows your required checklist, upload status, and AI compliance results in real time.\n';
+                 + '\nThe portal shows your required checklist, upload status, and compliance results in real time.\n';
         } else {
             body += '\nPlease reply to this email with the documents attached, or upload them '
                  + 'via the supplier portal link provided by your procurement contact.\n';
@@ -244,6 +392,37 @@ public without sharing class VendorPortalController {
         if (String.isBlank(key)) return null;
         Integer i = key.indexOf('__SCOPE_');
         return i >= 0 ? key.substring(i + 8) : null;
+    }
+
+    // Resolves the selected material type / service category to their guaranteed
+    // compliance domains via Material_Type__mdt (MaterialTypeController's catalog)
+    // — sent to /scope as ScopeRequest.materialDomains so the engine no longer
+    // needs its own hardcoded material-to-domain dict. A new Custom Metadata
+    // record (any industry's material) takes effect here with no code change.
+    // Public: also called by ScopeCalloutQueueable so the trigger-seeded checklist
+    // resolves domains identically to this screen's live preview.
+    public static List<String> resolveMaterialDomains(String materialType, String serviceCategory) {
+        Set<String> domains = new Set<String>();
+        if (String.isBlank(materialType) && String.isBlank(serviceCategory)) {
+            return new List<String>();
+        }
+        for (Material_Type__mdt m : [
+            SELECT Domains__c
+            FROM   Material_Type__mdt
+            WHERE  Active__c = true
+              AND  Value_Key__c IN :new List<String>{
+                       String.isNotBlank(materialType)    ? materialType    : '',
+                       String.isNotBlank(serviceCategory) ? serviceCategory : ''
+                   }
+        ]) {
+            if (String.isNotBlank(m.Domains__c)) {
+                for (String d : m.Domains__c.split(',')) {
+                    String trimmed = d.trim();
+                    if (String.isNotBlank(trimmed)) domains.add(trimmed);
+                }
+            }
+        }
+        return new List<String>(domains);
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -433,7 +612,7 @@ public without sharing class VendorPortalController {
         if (accountId == null || String.isBlank(question)) {
             throw new AuraHandledException('A supplier and a question are required.');
         }
-        Account a = [SELECT Name FROM Account WHERE Id = :accountId LIMIT 1];
+        Account a = [SELECT Name, Industry, Industry__c FROM Account WHERE Id = :accountId LIMIT 1];
         // Ground the answer in the supplier's assessment state, but SEPARATE
         // "documents actually uploaded" from "checklist items still missing", so
         // the co-pilot doesn't report un-uploaded checklist rows as shared files.
@@ -473,8 +652,9 @@ public without sharing class VendorPortalController {
         }
         String context = String.join(ctx, '\n');
         if (context.length() > 6000) context = context.left(6000);
+        String industry = String.isNotBlank(a.Industry) ? a.Industry : a.Industry__c;
         try {
-            return CopilotService.ask(question, a.Name, context);
+            return CopilotService.ask(question, a.Name, context, null, null, industry);
         } catch (Exception e) {
             throw new AuraHandledException('Co-pilot failed: ' + e.getMessage());
         }
@@ -582,6 +762,47 @@ public without sharing class VendorPortalController {
         return ca.Id;
     }
 
+    // Removes a required document from a supplier's PERSISTED checklist
+    // (post-submit — the Account record page's checklist, as opposed to the
+    // pre-submit preview on the intake screen, which is edited purely as
+    // local LWC state before anything is saved). This is a genuine delete —
+    // if the requirement had an uploaded/linked document, that Compliance_
+    // Document__c stays (the file itself isn't destroyed), only the
+    // requirement tracking row goes away, so it stops appearing on the
+    // supplier portal checklist immediately (getSupplierSnapshot's query is
+    // simply narrower next time it runs).
+    @AuraEnabled
+    public static void removeChecklistRequirement(Id assessmentId) {
+        if (assessmentId == null) throw new AuraHandledException('No checklist item selected.');
+        Compliance_Assessment__c ca = [
+            SELECT Id, Requirement_Label__c, Supplier__c
+            FROM   Compliance_Assessment__c
+            WHERE  Id = :assessmentId
+            LIMIT  1
+        ];
+        assertNotHandedOff(ca.Supplier__c);
+
+        try {
+            AuditLogService.logAssessmentChange(
+                ca.Id, ca.Requirement_Label__c, null,
+                'Procurement removed a required document from the checklist',
+                'Human');
+        } catch (Exception ignored) { /* audit is best-effort */ }
+
+        delete ca;
+    }
+
+    // Adds a NEW required document to a supplier's PERSISTED checklist (post-
+    // submit) — this is the record-page equivalent of adding a document on
+    // the intake screen's preview. Thin wrapper over addRequirementFromDocument
+    // (requirementKey left blank so a fresh USERADD_ key is generated) so both
+    // entry points share one implementation.
+    @AuraEnabled
+    public static Id addChecklistRequirement(Id accountId, String documentLabel) {
+        assertNotHandedOff(accountId);
+        return addRequirementFromDocument(accountId, documentLabel, null);
+    }
+
     // ═════════════════════════════════════════════════════════════════════════
     // Supplier snapshot — everything Documents & Screening (P3) needs to render
     // an EXISTING record in one call: supplier detail, the persisted checklist /
@@ -601,6 +822,15 @@ public without sharing class VendorPortalController {
         @AuraEnabled public List<AssessmentSummary> assessments; // past AI summaries
         @AuraEnabled public Integer  docCount;
         @AuraEnabled public Integer  assessedCount;
+        // Checklist coverage — SAME definition as getScreeningQueue's
+        // docsUploaded/docsTotal (Screening rows excluded, "uploaded" means
+        // Compliance_Document__c is linked regardless of AI verdict). Added
+        // here so P3's "Documents on file" strip and the Supplier Portal can
+        // show actual checklist progress instead of a raw ContentDocument
+        // count, which included superseded/unmatched files and never matched
+        // the checklist size next to it.
+        @AuraEnabled public Integer  docsUploaded;
+        @AuraEnabled public Integer  docsTotal;
         // Multi-tier cascading risk (docs/multi-tier-risk-rollup.md) — computed
         // by MultiTierRollupService, distinct from this supplier's own riskTier.
         @AuraEnabled public Decimal  riskScore;             // this supplier's own score (0-100)
@@ -612,21 +842,127 @@ public without sharing class VendorPortalController {
         // a second, separate signal from cascadingRiskTier's worst-case propagation.
         @AuraEnabled public Decimal  cascadingRiskScore;
         @AuraEnabled public Boolean  cascadingRiskFlagged;
+        // True when this Account was invited as someone else's sub-supplier
+        // (Account.ParentId set) — the portal uses this to show a restricted,
+        // single-tab view instead of the full Tier-1 experience (no "My
+        // sub-suppliers" tab, no other supplier's data reachable).
+        @AuraEnabled public Boolean  isSubSupplier;
+        // Segregation of duties (Three Lines of Defense): routedToAnalyst is
+        // TRUE once the risk tier exceeds the HITL threshold (routeDecision()
+        // says 'Needs analyst'), even BEFORE assignToAnalyst() has actually
+        // run — lets the Procurement Console proactively greyed-out its
+        // approve action instead of only rejecting it after the fact.
+        // isAssignedToAnalyst is TRUE only once the handoff has genuinely
+        // happened (Analyst_Assigned_DateTime__c set) — the same signal
+        // approveDocumentAsProcurement enforces server-side.
+        @AuraEnabled public Boolean  routedToAnalyst;
+        @AuraEnabled public Boolean  isAssignedToAnalyst;
+
+        // Case close (VendorPortalController.closeComplianceCase) — once true,
+        // the portal shows a closed/approved banner instead of the live
+        // in-progress checklist view. Documents stay visible, read-only.
+        @AuraEnabled public Boolean  isCaseClosed;
+        @AuraEnabled public String   closingRemarks;
+        @AuraEnabled public DateTime caseClosedDateTime;
     }
 
     public class AssessmentSummary {
+        @AuraEnabled public Id     assessmentId;   // Compliance_Assessment__c Id — needed to call approveDocumentAsProcurement/saveDocValidation
         @AuraEnabled public String requirementKey;
         @AuraEnabled public String requirementLabel;
         @AuraEnabled public String status;        // Compliant | Non-Compliant | Needs Analyst | Pending
         @AuraEnabled public String severity;
+        @AuraEnabled public String reasonCode;    // Missing_Document | Expired | Rule_Not_Met | Other —
+                                                    // 'Expired' (set by ComplianceExpiryBatch) distinguishes
+                                                    // "this was fine, now it's stale" from a real AI rejection,
+                                                    // so the portal can offer Renew instead of a generic upload.
         @AuraEnabled public String reason;        // AI summary / reason detail
+        // The Analyst's own comment (Analyst_Comment__c) — previously only
+        // ever returned to the Analyst's own console (AnalystDoc.analystComment
+        // below); when the Analyst marks a document Non-Compliant, the
+        // supplier had no way to see WHY beyond the AI's own summary. Surfaced
+        // here (and rendered in scSupplierPortal) so an Analyst rejection
+        // gives the supplier the same explanation a Procurement rejection
+        // already does via procurementDecisionReason.
+        @AuraEnabled public String analystComment;
         @AuraEnabled public String validUntil;    // key date if extracted
         @AuraEnabled public String evaluatedLabel;
         @AuraEnabled public String badgeClass;    // ok | warn | bad | neutral (UI hint)
         @AuraEnabled public Boolean uploaded;     // a document IS linked to this requirement
         @AuraEnabled public String documentTitle; // the linked document's title (for the rejected list)
+        // The uploaded file's real ContentDocumentId — scProcurementConsole.js
+        // matches this against storedDocs to resolve Approve/Reject/Defer's
+        // target file (see its own comment on why NOT to fuzzy-match
+        // documentTitle, which is the requirement's label, not the filename).
+        // Previously this field didn't exist on the DTO at all, so that match
+        // always fell through to the fragile title-fuzzy-match fallback —
+        // silently hiding the decision buttons whenever it missed.
+        @AuraEnabled public String contentDocumentId;
         @AuraEnabled public Boolean rejected;     // uploaded but failed/unmatched → "Rejected" section
         @AuraEnabled public Integer aiConfidence; // AI engine's 0-100 confidence in this assessment
+        @AuraEnabled public Boolean approved;     // Analyst_Validated__c — gates supplier-visible summary on the portal
+        @AuraEnabled public String  procurementDecision;       // Procurement_Decision__c — Approved | Rejected | Deferred | null
+        @AuraEnabled public String  procurementDecisionReason; // Procurement_Decision_Reason__c
+        // Supplier-facing replacement for a Deferred document's status — the
+        // internal word "Deferred" is never shown to the supplier (see
+        // getSupplierSnapshot's isSupplierRunningUser() block). Null for
+        // every other decision state; the LWC falls back to its normal
+        // status/verdict display when this is blank.
+        @AuraEnabled public String  supplierStatusOverride;
+        // Full history of Procurement's Approve/Reject comments on this
+        // requirement (newest first) — reuses the existing Audit_Log__c trail
+        // already written by recordProcurementDecision, so re-deciding after a
+        // document replacement keeps every prior comment visible with its
+        // timestamp instead of only showing the latest one.
+        @AuraEnabled public List<ProcurementComment> procurementComments;
+        // WFL-03: true once the supplier has responded to a rejection — either
+        // by re-uploading a new file (which clears Procurement_Decision__c,
+        // making a fresh rejection look identical to "never reviewed" without
+        // this flag) or by leaving a reply comment with no new file (decision
+        // stays 'Rejected' but a newer Supplier_Comment_Added entry exists).
+        // Computed in getSupplierSnapshot, not stored — distinguishes "waiting
+        // on the supplier" from "the supplier already responded, look again."
+        @AuraEnabled public Boolean pendingReReview;
+        // internal only — not sent to the client, used to compute pendingReReview
+        // after the comment-log loop below has run.
+        public transient Datetime procurementDecisionDateTime;
+        // Multi-document-per-requirement: every file individually linked to
+        // this requirement via Compliance_Document_Link__c, each with its OWN
+        // verdict/summary — empty when the requirement still uses the single
+        // Compliance_Document__c pointer (never had a second file added).
+        // The UI renders these as distinct sub-rows so a requirement with
+        // multiple documents shows each one's own finding, not one blended
+        // summary — status/reason/documentTitle above stay the ROLLED-UP
+        // requirement-level view (worst-wins, see DocAssessQueueable.
+        // rollupRequirementStatus) for anything that only reads the single-
+        // document shape.
+        @AuraEnabled public List<LinkedDocument> documentLinks;
+    }
+
+    public class LinkedDocument {
+        @AuraEnabled public Id     docLinkId;      // Compliance_Document_Link__c Id
+        @AuraEnabled public String documentTitle;  // the linked Compliance_Document__c's title
+        @AuraEnabled public String status;         // this FILE's own verdict — Compliant | Non-Compliant | At Risk | Pending
+        @AuraEnabled public String severity;
+        @AuraEnabled public String reason;         // this file's own AI summary
+        @AuraEnabled public String validUntil;
+        @AuraEnabled public Integer aiConfidence;
+        @AuraEnabled public String versionId;        // ContentVersion Id — preview/download
+        @AuraEnabled public String contentDocumentId;
+        @AuraEnabled public String fileType;
+        @AuraEnabled public String badgeClass;
+    }
+
+    public class ProcurementComment {
+        @AuraEnabled public String decision;   // Approved | Rejected | Deferred | null (plain reply)
+        @AuraEnabled public String reason;
+        @AuraEnabled public String actorName;
+        @AuraEnabled public String dateLabel;   // Event_DateTime__c, formatted
+        // WFL-04: distinguishes a Procurement decision from the supplier's own
+        // reply in the SAME combined, dated thread — the LWC uses this to
+        // style/attribute each entry rather than inferring it from `decision`
+        // being blank (which is also true for old rows with no value at all).
+        @AuraEnabled public Boolean isSupplierComment;
     }
 
     @AuraEnabled(cacheable=false)
@@ -638,7 +974,9 @@ public without sharing class VendorPortalController {
                    Risk_Tier__c, Risk_Score__c, Risk_Domains__c, Onboarding_Status__c,
                    Cascading_Risk_Tier__c, Cascading_Risk_Source__c,
                    Cascading_Risk_Driver__c, Sub_Tier_Supplier_Count__c,
-                   Cascading_Risk_Score__c, Cascading_Risk_Flag__c
+                   Cascading_Risk_Score__c, Cascading_Risk_Flag__c, ParentId,
+                   HITL_Threshold__c, Analyst_Assigned_DateTime__c,
+                   Compliance_Case_Status__c, Closing_Remarks__c, Case_Closed_DateTime__c
             FROM   Account WHERE Id = :accountId LIMIT 1
         ];
 
@@ -656,6 +994,14 @@ public without sharing class VendorPortalController {
         s.cascadingRiskDriverId = a.Cascading_Risk_Driver__c;
         s.subTierSupplierCount = a.Sub_Tier_Supplier_Count__c == null ? 0 : a.Sub_Tier_Supplier_Count__c.intValue();
         s.cascadingRiskScore   = a.Cascading_Risk_Score__c;
+        s.cascadingRiskFlagged = (a.Cascading_Risk_Flag__c == true);
+        s.isCaseClosed         = (a.Compliance_Case_Status__c == 'Closed - Compliant'
+                                   || a.Compliance_Case_Status__c == 'Closed - Rejected');
+        s.closingRemarks       = a.Closing_Remarks__c;
+        s.caseClosedDateTime   = a.Case_Closed_DateTime__c;
+        s.isSubSupplier        = (a.ParentId != null);
+        s.isAssignedToAnalyst  = (a.Analyst_Assigned_DateTime__c != null);
+        s.routedToAnalyst      = ('Needs analyst' == routeDecision(a.Risk_Tier__c, a.HITL_Threshold__c));
         s.cascadingRiskFlagged = a.Cascading_Risk_Flag__c == true;
 
         s.domains = new List<String>();
@@ -672,10 +1018,13 @@ public without sharing class VendorPortalController {
 
         // Past AI summaries — one row per assessed requirement.
         s.assessments = new List<AssessmentSummary>();
-        for (Compliance_Assessment__c x : [
-            SELECT Requirement_Key__c, Requirement_Label__c, Status__c, Severity__c,
-                   Reason_Detail__c, Valid_Until__c, Evaluation_DateTime__c,
-                   AI_Confidence__c,
+        Integer docsUploaded = 0, docsTotal = 0;
+        List<Compliance_Assessment__c> assessmentRows = [
+            SELECT Id, Requirement_Key__c, Requirement_Label__c, Status__c, Severity__c,
+                   Reason_Code__c, Reason_Detail__c, Valid_Until__c, Evaluation_DateTime__c,
+                   AI_Confidence__c, Analyst_Validated__c, Analyst_Comment__c,
+                   Procurement_Decision__c, Procurement_Decision_Reason__c,
+                   Procurement_Decision_DateTime__c, LastModifiedDate,
                    Compliance_Document__c,
                    Compliance_Document__r.Document_Type__c,
                    Compliance_Document__r.Source_File__c
@@ -683,13 +1032,51 @@ public without sharing class VendorPortalController {
             WHERE  Supplier__c = :accountId
             ORDER BY Requirement_Label__c
             LIMIT  100
-        ]) {
+        ];
+        // Resolve each linked Compliance_Document__c's real ContentDocumentId —
+        // same ContentDocumentLink lookup pattern as getDocumentLinksByAssessment/
+        // getCaseForAnalyst — so the client can match the uploaded FILE (not just
+        // fuzzy-match the requirement's label) and correctly show Approve/Reject/Defer.
+        Set<Id> snapCompDocIds = new Set<Id>();
+        for (Compliance_Assessment__c x : assessmentRows) {
+            if (x.Compliance_Document__c != null) snapCompDocIds.add(x.Compliance_Document__c);
+        }
+        Map<Id, Id> snapCdByComp = new Map<Id, Id>();
+        if (!snapCompDocIds.isEmpty()) {
+            for (ContentDocumentLink cdl : [SELECT LinkedEntityId, ContentDocumentId
+                                             FROM ContentDocumentLink WHERE LinkedEntityId IN :snapCompDocIds]) {
+                snapCdByComp.put(cdl.LinkedEntityId, cdl.ContentDocumentId);
+            }
+        }
+        for (Compliance_Assessment__c x : assessmentRows) {
             AssessmentSummary as1 = new AssessmentSummary();
+            as1.assessmentId     = x.Id;
+            as1.approved         = (x.Analyst_Validated__c == true);
+            // linkDocumentToCompliance clears these whenever the linked document
+            // is replaced, so a non-blank value here always reflects a decision
+            // made on the CURRENTLY linked document — no separate staleness
+            // check needed.
+            as1.procurementDecision       = x.Procurement_Decision__c;
+            as1.procurementDecisionReason = x.Procurement_Decision_Reason__c;
+            as1.procurementDecisionDateTime = x.Procurement_Decision_DateTime__c;
+            as1.procurementComments = new List<ProcurementComment>();
+            // Case 1 — supplier re-uploaded: DocumentProcessingController's
+            // re-upload update clears Procurement_Decision__c to null AND
+            // bumps LastModifiedDate, so a NEWLY-cleared decision with a file
+            // modified after the last recorded decision means the supplier
+            // responded, not that this was never reviewed. Case 2 (a reply
+            // comment with no new file, decision still 'Rejected') is folded
+            // in after the comment-log loop below, once those timestamps exist.
+            as1.pendingReReview = (x.Procurement_Decision__c == null
+                && x.Procurement_Decision_DateTime__c != null
+                && x.LastModifiedDate > x.Procurement_Decision_DateTime__c);
             as1.requirementKey   = x.Requirement_Key__c;
             as1.requirementLabel = x.Requirement_Label__c;
             as1.status           = String.isBlank(x.Status__c) ? 'Pending' : x.Status__c;
             as1.severity         = x.Severity__c;
+            as1.reasonCode       = x.Reason_Code__c;
             as1.reason           = x.Reason_Detail__c;
+            as1.analystComment   = x.Analyst_Comment__c;
             as1.validUntil       = x.Valid_Until__c == null ? null : x.Valid_Until__c.format();
             as1.evaluatedLabel   = x.Evaluation_DateTime__c == null
                                    ? null : x.Evaluation_DateTime__c.format('MMM d, h:mm a');
@@ -702,11 +1089,114 @@ public without sharing class VendorPortalController {
                     ? x.Compliance_Document__r.Document_Type__c
                     : x.Compliance_Document__r.Source_File__c;
             }
+            if (as1.uploaded && snapCdByComp.containsKey(x.Compliance_Document__c)) {
+                as1.contentDocumentId = snapCdByComp.get(x.Compliance_Document__c);
+            }
             as1.rejected = as1.uploaded && (as1.status == 'Non-Compliant');
             as1.aiConfidence = (x.AI_Confidence__c == null) ? null : Integer.valueOf(x.AI_Confidence__c);
+            as1.documentLinks = new List<LinkedDocument>();
             s.assessments.add(as1);
+            // Same rule getScreeningQueue uses for docsUploaded/docsTotal —
+            // Screening rows excluded, "uploaded" = a document is linked.
+            if (x.Requirement_Key__c == null || !x.Requirement_Key__c.startsWith('SCREEN_')) {
+                docsTotal++;
+                if (as1.uploaded) docsUploaded++;
+            }
         }
         s.assessedCount = s.assessments.size();
+        s.docsUploaded  = docsUploaded;
+        s.docsTotal     = docsTotal;
+
+        // Multi-document-per-requirement: bulk-attach every linked document's
+        // OWN verdict/summary, keyed by parent assessment — a requirement
+        // only has more than one of these once "add another file" has been
+        // used on it, so this is empty (no extra query cost) for the common
+        // single-document case.
+        attachDocumentLinks(s.assessments);
+
+        // Bulk-attach Procurement's full comment history (newest first) from the
+        // Audit_Log__c trail recordProcurementDecision already writes — one
+        // query for every assessment instead of per-row, then grouped in memory.
+        Set<String> assessmentIdStrs = new Set<String>();
+        for (AssessmentSummary row : s.assessments) assessmentIdStrs.add(row.assessmentId);
+        if (!assessmentIdStrs.isEmpty()) {
+            Map<Id, AssessmentSummary> byId = new Map<Id, AssessmentSummary>();
+            for (AssessmentSummary row : s.assessments) byId.put(row.assessmentId, row);
+
+            // Format in the ORG's timezone explicitly (not the calling user's) —
+            // DateTime.format() with no timezone arg uses the running user's own
+            // timezone, which is why the same comment showed a different clock
+            // time to an internal Salesforce user vs. a Guest portal visitor
+            // (each defaults to their own timezone). One fixed zone keeps the
+            // timestamp identical everywhere.
+            String orgTz = [SELECT TimeZoneSidKey FROM Organization LIMIT 1].TimeZoneSidKey;
+
+            // Deferred entries are an internal note for whichever Analyst the
+            // case is later assigned to — never surfaced to the supplier,
+            // regardless of which auth path (logged-in portal user or Guest
+            // token) they're calling through.
+            Boolean hideDeferred = isSupplierRunningUser();
+            for (Audit_Log__c log : [
+                SELECT Related_Record_Id__c, New_Value__c, Reason__c, Event_DateTime__c,
+                       Event_Type__c, Actor_User__c
+                FROM   Audit_Log__c
+                WHERE  Related_Object__c = 'Compliance_Assessment'
+                AND    Related_Record_Id__c IN :assessmentIdStrs
+                AND    Event_Type__c IN ('Procurement_Decision_Recorded', 'Supplier_Comment_Added', 'Document_Uploaded')
+                ORDER BY Event_DateTime__c DESC
+            ]) {
+                Boolean isUpload = (log.Event_Type__c == 'Document_Uploaded');
+                // An upload has no Actor_User__c when it came from the guest/
+                // portal side (see linkDocumentToCompliance) — same convention
+                // every other entry in this thread uses to decide Supplier vs
+                // Procurement.
+                Boolean isSupplierComment = (log.Event_Type__c == 'Supplier_Comment_Added')
+                    || (isUpload && log.Actor_User__c == null);
+                if (hideDeferred && log.New_Value__c == 'Deferred') continue;
+                AssessmentSummary row = byId.get((Id) log.Related_Record_Id__c);
+                if (row == null) continue;
+                ProcurementComment c = new ProcurementComment();
+                // Uploads never carry a real Approved/Rejected/Deferred value —
+                // 'Uploaded' is just a label for the small badge next to it.
+                c.decision  = isSupplierComment ? null : (isUpload ? 'Uploaded' : log.New_Value__c);
+                // The actual uploaded file's name — Reason__c already holds it
+                // for Document_Uploaded rows (see linkDocumentToCompliance).
+                c.reason    = isUpload ? ('Uploaded ' + log.Reason__c) : log.Reason__c;
+                // Fixed team-level labels, not the acting user's real name —
+                // Guest/portal sessions can't safely resolve User.Name (Salesforce
+                // masks it for Guest Users), which is why the portal showed a
+                // garbled placeholder like "User1780...". A team-level label
+                // avoids that entirely and matches everywhere.
+                c.actorName = isSupplierComment ? 'Supplier' : 'Procurement';
+                c.isSupplierComment = isSupplierComment;
+                c.dateLabel = log.Event_DateTime__c == null
+                    ? null : log.Event_DateTime__c.format('MMM d, yyyy h:mm a', orgTz);
+                row.procurementComments.add(c);
+                // WFL-03 case 2 — supplier replied without a new file: the
+                // decision is still 'Rejected' (no re-upload cleared it), but a
+                // Supplier_Comment_Added entry newer than the decision itself
+                // means the supplier has already spoken, so it's no longer
+                // simply "waiting on the supplier."
+                if (isSupplierComment && row.procurementDecision == 'Rejected'
+                    && row.procurementDecisionDateTime != null
+                    && log.Event_DateTime__c > row.procurementDecisionDateTime) {
+                    row.pendingReReview = true;
+                }
+            }
+        }
+        // Supplier-facing status override for a Deferred document — never
+        // shows the internal "Deferred" word (see the earlier UX call: the
+        // supplier sees "Pending review", plain and non-alarming). Applied
+        // AFTER the comment loop above so it doesn't depend on comment
+        // visibility — the row's own procurementDecision field already
+        // carries this regardless of whether the reason text was included.
+        if (isSupplierRunningUser()) {
+            for (AssessmentSummary row : s.assessments) {
+                if (row.procurementDecision == 'Deferred') {
+                    row.supplierStatusOverride = 'Pending review';
+                }
+            }
+        }
         return s;
     }
 
@@ -716,6 +1206,89 @@ public without sharing class VendorPortalController {
         if (t.contains('needs') || t.contains('review'))       return 'warn';
         if (t.contains('compliant') || t.contains('clear'))    return 'ok';
         return 'neutral';
+    }
+
+    // getSupplierSnapshot-specific attach: fills each AssessmentSummary's
+    // documentLinks from the shared bulk fetch above.
+    private static void attachDocumentLinks(List<AssessmentSummary> assessments) {
+        Set<Id> ids = new Set<Id>();
+        for (AssessmentSummary a : assessments) if (a.assessmentId != null) ids.add(a.assessmentId);
+        Map<Id, List<LinkedDocument>> byAssessment = getDocumentLinksByAssessment(ids);
+        for (AssessmentSummary a : assessments) {
+            if (byAssessment.containsKey(a.assessmentId)) {
+                a.documentLinks = byAssessment.get(a.assessmentId);
+            }
+        }
+    }
+
+    // Multi-document-per-requirement: bulk-fetches every Compliance_Document_Link__c
+    // row for the given assessment Ids, mapped to the per-file LinkedDocument
+    // DTO, grouped by parent assessment. Shared by getSupplierSnapshot and
+    // getCaseForAnalyst so both consoles render the same per-file data.
+    private static Map<Id, List<LinkedDocument>> getDocumentLinksByAssessment(Set<Id> assessmentIds) {
+        Map<Id, List<LinkedDocument>> out = new Map<Id, List<LinkedDocument>>();
+        if (assessmentIds == null || assessmentIds.isEmpty()) return out;
+
+        List<Compliance_Document_Link__c> links = [
+            SELECT Id, Compliance_Assessment__c, Status__c, Severity__c, Reason_Detail__c,
+                   Valid_Until__c, AI_Confidence__c,
+                   Compliance_Document__c, Compliance_Document__r.Document_Type__c,
+                   Compliance_Document__r.Source_File__c
+            FROM   Compliance_Document_Link__c
+            WHERE  Compliance_Assessment__c IN :assessmentIds
+            AND    Status__c != 'Superseded'
+            ORDER BY CreatedDate ASC
+        ];
+        if (links.isEmpty()) return out;
+
+        Set<Id> compDocIds = new Set<Id>();
+        for (Compliance_Document_Link__c l : links) if (l.Compliance_Document__c != null) compDocIds.add(l.Compliance_Document__c);
+
+        // Same ContentVersion resolution pattern used elsewhere (getCaseForAnalyst) —
+        // Compliance Document → ContentDocumentId → latest ContentVersion.
+        Map<Id, Id> cdByComp = new Map<Id, Id>();
+        if (!compDocIds.isEmpty()) {
+            for (ContentDocumentLink cdl : [SELECT LinkedEntityId, ContentDocumentId
+                                             FROM ContentDocumentLink WHERE LinkedEntityId IN :compDocIds]) {
+                cdByComp.put(cdl.LinkedEntityId, cdl.ContentDocumentId);
+            }
+        }
+        Map<Id, ContentVersion> cvByCd = new Map<Id, ContentVersion>();
+        if (!cdByComp.values().isEmpty()) {
+            for (ContentVersion v : [SELECT Id, Title, FileType, ContentDocumentId
+                                     FROM ContentVersion
+                                     WHERE ContentDocumentId IN :cdByComp.values() AND IsLatest = true]) {
+                cvByCd.put(v.ContentDocumentId, v);
+            }
+        }
+
+        for (Compliance_Document_Link__c l : links) {
+            LinkedDocument ld = new LinkedDocument();
+            ld.docLinkId  = l.Id;
+            ld.status     = String.isBlank(l.Status__c) ? 'Pending' : l.Status__c;
+            ld.severity   = l.Severity__c;
+            ld.reason     = l.Reason_Detail__c;
+            ld.validUntil = l.Valid_Until__c == null ? null : l.Valid_Until__c.format();
+            ld.aiConfidence = (l.AI_Confidence__c == null) ? null : Integer.valueOf(l.AI_Confidence__c);
+            ld.badgeClass = statusBadge(ld.status);
+            if (l.Compliance_Document__r != null) {
+                ld.documentTitle = String.isNotBlank(l.Compliance_Document__r.Document_Type__c)
+                    ? l.Compliance_Document__r.Document_Type__c
+                    : l.Compliance_Document__r.Source_File__c;
+            }
+            if (l.Compliance_Document__c != null && cdByComp.containsKey(l.Compliance_Document__c)) {
+                Id cdId = cdByComp.get(l.Compliance_Document__c);
+                ContentVersion v = cvByCd.get(cdId);
+                if (v != null) {
+                    ld.versionId         = v.Id;
+                    ld.contentDocumentId = cdId;
+                    ld.fileType          = v.FileType;
+                }
+            }
+            if (!out.containsKey(l.Compliance_Assessment__c)) out.put(l.Compliance_Assessment__c, new List<LinkedDocument>());
+            out.get(l.Compliance_Assessment__c).add(ld);
+        }
+        return out;
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -761,11 +1334,44 @@ public without sharing class VendorPortalController {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
         if (analystUserId == null) throw new AuraHandledException('Choose an analyst to assign.');
 
+        // WFL-05 — every checklist item is mandatory: block handoff while any
+        // UPLOADED document still has no Procurement decision (Approved/
+        // Rejected/Deferred). Server-side twin of the client-side gate on P4's
+        // "Assign to analyst" button — the UI disabling the button isn't
+        // itself enforcement, a direct Apex call could still bypass it.
+        // Un-uploaded rows are a different, already-visible gap and aren't
+        // blocked here — Approve/Reject/Defer can't act on them anyway.
+        Integer undecided = [
+            SELECT COUNT()
+            FROM   Compliance_Assessment__c
+            WHERE  Supplier__c = :accountId
+              AND  Compliance_Document__c != null
+              AND  Procurement_Decision__c = null
+              AND  (NOT Requirement_Key__c LIKE 'SCREEN_%')
+        ];
+        if (undecided > 0) {
+            throw new AuraHandledException(
+                undecided + ' document' + (undecided == 1 ? '' : 's') + ' still need'
+                + (undecided == 1 ? 's' : '') + ' a decision (Approve/Reject/Defer) before handoff.');
+        }
+
         // Set the owner to the analyst + status so it lands in the analyst queue.
+        // Analyst_Assigned_DateTime__c is the authoritative "has this genuinely
+        // been handed off" signal — Onboarding_Status__c = 'In Review' alone is
+        // NOT enough, because upsertSupplier also uses 'In Review' pre-handoff
+        // (see requestDocumentsFromSupplier), so the same status string can't
+        // distinguish the two. This field only gets set here, exactly once.
+        // Assigned_By__c/Assignment_Reason__c give the Analyst real handoff
+        // context on the case itself instead of only an audit-log row —
+        // reason reuses the same note Procurement already types here, just
+        // persisted somewhere the Analyst console can actually render it.
         Account a = new Account(
-            Id                   = accountId,
-            OwnerId              = analystUserId,
-            Onboarding_Status__c = 'In Review'
+            Id                           = accountId,
+            OwnerId                      = analystUserId,
+            Onboarding_Status__c         = 'In Review',
+            Analyst_Assigned_DateTime__c = System.now(),
+            Assigned_By__c               = UserInfo.getUserId(),
+            Assignment_Reason__c         = note
         );
         update a;
 
@@ -777,6 +1383,44 @@ public without sharing class VendorPortalController {
             Actor_Type__c        = 'User',
             Source_System__c     = 'Other',
             New_Value__c         = 'Assigned to analyst ' + analystUserId
+                + (String.isNotBlank(note) ? (' · note: ' + note) : '')
+        ), false);
+        return accountId;
+    }
+
+    // Inverse of assignToAnalyst — the Analyst hands the case back to
+    // Procurement instead of routing/closing it (e.g. a document needs
+    // re-requesting from the supplier, or the case doesn't belong with this
+    // analyst). Clears Analyst_Assigned_DateTime__c (the authoritative
+    // "has this genuinely been handed off" flag assignToAnalyst sets) and
+    // resets Onboarding_Status__c to 'Screening' — distinct from 'In Review',
+    // which is used both pre- and post-handoff (see assignToAnalyst's own
+    // comment) and would leave the case looking unchanged to Procurement.
+    // Ownership reverts to whoever sent it TO the analyst (Assigned_By__c),
+    // falling back to the running user if that's somehow blank.
+    @AuraEnabled
+    public static String sendCaseBackToProcurement(Id accountId, String note) {
+        if (accountId == null) throw new AuraHandledException('No supplier selected.');
+
+        Account existing = [SELECT Assigned_By__c FROM Account WHERE Id = :accountId LIMIT 1];
+        Id returnTo = (existing.Assigned_By__c != null) ? existing.Assigned_By__c : UserInfo.getUserId();
+
+        update new Account(
+            Id                           = accountId,
+            OwnerId                      = returnTo,
+            Onboarding_Status__c         = 'Screening',
+            Analyst_Assigned_DateTime__c = null,
+            Assignment_Reason__c         = note
+        );
+
+        Database.insert(new Audit_Log__c(
+            Event_Type__c        = 'Status_Changed',
+            Related_Object__c    = 'Supplier',
+            Related_Record_Id__c = accountId,
+            Event_DateTime__c    = DateTime.now(),
+            Actor_Type__c        = 'User',
+            Source_System__c     = 'Other',
+            New_Value__c         = 'Sent back to Procurement'
                 + (String.isNotBlank(note) ? (' · note: ' + note) : '')
         ), false);
         return accountId;
@@ -801,14 +1445,22 @@ public without sharing class VendorPortalController {
         @AuraEnabled public String stageLabel;
         @AuraEnabled public String requestedBy;
         @AuraEnabled public String ageLabel;
+        @AuraEnabled public Boolean isMine;          // OwnerId == running user
+        @AuraEnabled public String stageAgeLabel;    // time in CURRENT stage
+        @AuraEnabled public Boolean isStalled;        // stageAgeLabel >= STALLED_THRESHOLD_DAYS
     }
 
     // Suppliers that have reached the analyst (in review / handed over). Shows the
     // EXISTING requests. MUST be cacheable=true — it's consumed via @wire in the
     // analyst LWC, and @wire silently returns no data for a non-cacheable method
     // (which is why the queue rendered empty even when rows existed).
+    //
+    // Defaults to the RUNNING analyst's own assigned cases only — previously this
+    // returned every 'In Review' account to every analyst regardless of who it was
+    // assigned to. showTeamQueue=true opts into the full shared view for
+    // supervisors who need it; nothing is hidden, just not the default anymore.
     @AuraEnabled(cacheable=true)
-    public static List<AnalystQueueRow> getAnalystQueue() {
+    public static List<AnalystQueueRow> getAnalystQueue(Boolean showTeamQueue) {
         // Flag + validated + doc counts per supplier, from persisted assessments.
         Map<Id, Integer> flagsByAcc = new Map<Id, Integer>();
         Map<Id, Integer> docByAcc   = new Map<Id, Integer>();
@@ -831,16 +1483,37 @@ public without sharing class VendorPortalController {
         // 'In Review' is the post-routing state (set by assignToAnalyst / the
         // analyst's own route). Pre-routing states (Draft, and the procurement
         // 'Screening' bucket) belong to the Procurement queue, not here.
+        Id me = UserInfo.getUserId();
+        List<Account> accs;
+        if (showTeamQueue == true) {
+            accs = [
+                SELECT Id, Name, Industry, Risk_Tier__c, Onboarding_Status__c,
+                       Requested_By__c, CreatedDate, OwnerId, Stage_Entered_DateTime__c
+                FROM   Account
+                WHERE  RecordType.DeveloperName = 'Supplier'
+                  AND  Onboarding_Status__c = 'In Review'
+                  AND  Compliance_Case_Status__c != 'Closed - Compliant'
+                  AND  Compliance_Case_Status__c != 'Closed - Rejected'
+                ORDER BY CreatedDate DESC
+                LIMIT  200
+            ];
+        } else {
+            accs = [
+                SELECT Id, Name, Industry, Risk_Tier__c, Onboarding_Status__c,
+                       Requested_By__c, CreatedDate, OwnerId, Stage_Entered_DateTime__c
+                FROM   Account
+                WHERE  RecordType.DeveloperName = 'Supplier'
+                  AND  Onboarding_Status__c = 'In Review'
+                  AND  Compliance_Case_Status__c != 'Closed - Compliant'
+                  AND  Compliance_Case_Status__c != 'Closed - Rejected'
+                  AND  OwnerId = :me
+                ORDER BY CreatedDate DESC
+                LIMIT  200
+            ];
+        }
+
         List<AnalystQueueRow> out = new List<AnalystQueueRow>();
-        for (Account a : [
-            SELECT Id, Name, Industry, Risk_Tier__c, Onboarding_Status__c,
-                   Requested_By__c, CreatedDate
-            FROM   Account
-            WHERE  RecordType.DeveloperName = 'Supplier'
-              AND  Onboarding_Status__c = 'In Review'
-            ORDER BY CreatedDate DESC
-            LIMIT  200
-        ]) {
+        for (Account a : accs) {
             AnalystQueueRow r = new AnalystQueueRow();
             r.id             = a.Id;
             r.name           = a.Name;
@@ -853,6 +1526,9 @@ public without sharing class VendorPortalController {
             r.stageLabel     = mapStage(a.Onboarding_Status__c);
             r.requestedBy    = a.Requested_By__c;
             r.ageLabel       = ageLabel(a.CreatedDate);
+            r.isMine         = (a.OwnerId == me);
+            r.stageAgeLabel  = stageAgeLabel(a.Stage_Entered_DateTime__c);
+            r.isStalled      = isStalled(a.Stage_Entered_DateTime__c);
             out.add(r);
         }
         return out;
@@ -874,6 +1550,36 @@ public without sharing class VendorPortalController {
         @AuraEnabled public String  fileType;        // e.g. PDF, PNG, DOCX
         @AuraEnabled public String  docUrl;          // fallback download link
         @AuraEnabled public String  docTitle;        // uploaded file title
+        // Provenance: who last reviewed THIS document and when — was captured
+        // (Evaluator_User__c/Evaluation_DateTime__c) but never surfaced before,
+        // so a freshly-handed-off case and an untouched one looked identical.
+        @AuraEnabled public String  evaluatedByName;
+        @AuraEnabled public String  evaluatedDateLabel;
+        // Procurement's own decision on this document — surfaced to the
+        // Analyst specifically so a Deferred document's note ("why
+        // Procurement couldn't make this call") is visible exactly where
+        // it's needed once the case is assigned. Not shown anywhere on the
+        // Supplier Portal (see getSupplierSnapshot's isSupplierRunningUser
+        // filter) — this is the Analyst-only counterpart to that gate.
+        @AuraEnabled public String  procurementDecision;
+        @AuraEnabled public String  procurementDecisionReason;
+        // Full comment/upload history (newest first) — the same
+        // Audit_Log__c-based thread Procurement's own console gets via
+        // AssessmentSummary.procurementComments (see getSupplierSnapshot).
+        // Previously the Analyst only ever saw the single latest
+        // procurementDecisionReason string above, with no dated history —
+        // this gives full context (every past decision + supplier reply +
+        // upload) on a case that may have gone through several rounds before
+        // ever reaching the Analyst queue.
+        @AuraEnabled public List<ProcurementComment> commentHistory;
+        @AuraEnabled public Boolean isDeferred;
+        // True when this document was (re-)uploaded after the case was handed
+        // off to the Analyst — see the WFL-06 build note at getCaseForAnalyst.
+        @AuraEnabled public Boolean isNewSinceHandoff;
+        // Multi-document-per-requirement — see AssessmentSummary.documentLinks
+        // for the full rationale. Empty for a requirement that only ever had
+        // its single default document.
+        @AuraEnabled public List<LinkedDocument> documentLinks;
     }
     public class AnalystCase {
         @AuraEnabled public Id      accountId;
@@ -881,32 +1587,66 @@ public without sharing class VendorPortalController {
         @AuraEnabled public String  industry;
         @AuraEnabled public String  country;
         @AuraEnabled public String  aiTier;
+        // Account.Risk_Score__c — the REAL server-computed score (see
+        // RiskScoreService), not re-derived here. scComplianceDashboard used
+        // to compute its own separate score client-side from `docs`, which
+        // silently diverged from this real number.
+        @AuraEnabled public Decimal riskScore;
         @AuraEnabled public Integer docCount;
         @AuraEnabled public Integer validatedCount;
         @AuraEnabled public List<AnalystDoc> docs;
+        // Handoff context — who assigned this case, when, and why — rendered as
+        // a banner on the case header so the analyst isn't starting cold.
+        @AuraEnabled public String  assignedByName;
+        @AuraEnabled public String  assignedDateLabel;
+        @AuraEnabled public String  assignmentReason;
+        @AuraEnabled public Boolean hasAssignment;
+        // Case_Closed_By__c/_DateTime__c are already written by
+        // closeComplianceCase (see closeCaseInternal) — exposed here so the
+        // Analyst Console's "Approved by" strip can show the REAL approver
+        // once the case is closed, instead of a permanently-static "pending"
+        // placeholder. Null/blank on any still-open case — that's correct,
+        // not a bug: nobody has approved it yet.
+        @AuraEnabled public String   approvedByName;
+        @AuraEnabled public String   approvedDateLabel;
+        @AuraEnabled public Boolean  hasApproval;
     }
 
     @AuraEnabled(cacheable=false)
     public static AnalystCase getCaseForAnalyst(Id accountId) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
         Account a = [
-            SELECT Id, Name, Industry, BillingCountry, Country_of_Origin__c, Risk_Tier__c
+            SELECT Id, Name, Industry, BillingCountry, Country_of_Origin__c, Risk_Tier__c, Risk_Score__c,
+                   Assigned_By__r.Name, Analyst_Assigned_DateTime__c, Assignment_Reason__c,
+                   Case_Closed_By__r.Name, Case_Closed_DateTime__c
             FROM   Account WHERE Id = :accountId LIMIT 1
         ];
         AnalystCase c = new AnalystCase();
         c.accountId = a.Id;
         c.name      = a.Name;
         c.industry  = a.Industry;
+        c.riskScore = a.Risk_Score__c;
         c.country   = String.isNotBlank(a.Country_of_Origin__c) ? a.Country_of_Origin__c : a.BillingCountry;
         c.aiTier    = a.Risk_Tier__c;
         c.docs      = new List<AnalystDoc>();
+        c.assignedByName    = a.Assigned_By__r != null ? a.Assigned_By__r.Name : null;
+        c.assignedDateLabel = a.Analyst_Assigned_DateTime__c == null ? null
+                               : a.Analyst_Assigned_DateTime__c.format('MMM d, h:mm a');
+        c.assignmentReason  = a.Assignment_Reason__c;
+        c.hasAssignment     = (a.Analyst_Assigned_DateTime__c != null);
+        c.approvedByName    = a.Case_Closed_By__r != null ? a.Case_Closed_By__r.Name : null;
+        c.approvedDateLabel = a.Case_Closed_DateTime__c == null ? null
+                               : a.Case_Closed_DateTime__c.format('MMM d, h:mm a');
+        c.hasApproval       = (a.Case_Closed_DateTime__c != null);
         Integer validated = 0;
         // Pre-resolve the latest ContentVersion download URL for each uploaded
         // Compliance Document, so the analyst can PREVIEW the real file (not just
         // the AI summary) before marking it validated.
         List<Compliance_Assessment__c> rows = [
             SELECT Id, Requirement_Label__c, Status__c, Severity__c, Reason_Detail__c,
-                   Analyst_Comment__c, Analyst_Validated__c, Compliance_Document__c
+                   Analyst_Comment__c, Analyst_Validated__c, Compliance_Document__c,
+                   Evaluator_User__r.Name, Evaluation_DateTime__c, LastModifiedDate,
+                   Procurement_Decision__c, Procurement_Decision_Reason__c
             FROM   Compliance_Assessment__c
             WHERE  Supplier__c = :accountId
             ORDER BY Analyst_Validated__c ASC, Requirement_Label__c ASC
@@ -940,6 +1680,22 @@ public without sharing class VendorPortalController {
             d.analystComment   = x.Analyst_Comment__c;
             d.validated        = x.Analyst_Validated__c;
             d.badgeClass       = statusBadge(d.aiStatus);
+            d.evaluatedByName  = x.Evaluator_User__r != null ? x.Evaluator_User__r.Name : null;
+            d.evaluatedDateLabel = x.Evaluation_DateTime__c == null ? null
+                                    : x.Evaluation_DateTime__c.format('MMM d, h:mm a');
+            d.procurementDecision       = x.Procurement_Decision__c;
+            d.procurementDecisionReason = x.Procurement_Decision_Reason__c;
+            d.commentHistory = new List<ProcurementComment>();
+            d.isDeferred = (x.Procurement_Decision__c == 'Deferred');
+            // Flags a document that was (re-)uploaded AFTER the handoff — the
+            // supplier's upload path is never locked (see assertNotHandedOff),
+            // so this is the only signal the analyst has that a document in
+            // front of them isn't the one Procurement actually reviewed before
+            // handing the case over. LastModifiedDate is bumped by
+            // DocumentProcessingController's re-upload update (which also
+            // resets Status__c/Procurement_Decision__c) — no new field needed.
+            d.isNewSinceHandoff = a.Analyst_Assigned_DateTime__c != null
+                && x.LastModifiedDate > a.Analyst_Assigned_DateTime__c;
             if (x.Compliance_Document__c != null && cdByComp.containsKey(x.Compliance_Document__c)) {
                 Id cdId = cdByComp.get(x.Compliance_Document__c);
                 ContentVersion v = cvByCd.get(cdId);
@@ -956,20 +1712,372 @@ public without sharing class VendorPortalController {
         }
         c.docCount       = c.docs.size();
         c.validatedCount = validated;
+
+        // Bulk-attach the full comment/upload history (newest first) — same
+        // Audit_Log__c trail and query shape as getSupplierSnapshot's own
+        // block, just never hiding Deferred entries (the Analyst is exactly
+        // who's supposed to see WHY Procurement deferred something).
+        Set<String> analystAssessmentIdStrs = new Set<String>();
+        for (AnalystDoc d : c.docs) if (d.assessmentId != null) analystAssessmentIdStrs.add(d.assessmentId);
+        if (!analystAssessmentIdStrs.isEmpty()) {
+            Map<Id, AnalystDoc> docById = new Map<Id, AnalystDoc>();
+            for (AnalystDoc d : c.docs) docById.put(d.assessmentId, d);
+
+            String orgTz2 = [SELECT TimeZoneSidKey FROM Organization LIMIT 1].TimeZoneSidKey;
+            for (Audit_Log__c log : [
+                SELECT Related_Record_Id__c, New_Value__c, Reason__c, Event_DateTime__c,
+                       Event_Type__c, Actor_User__c
+                FROM   Audit_Log__c
+                WHERE  Related_Object__c = 'Compliance_Assessment'
+                AND    Related_Record_Id__c IN :analystAssessmentIdStrs
+                AND    Event_Type__c IN ('Procurement_Decision_Recorded', 'Supplier_Comment_Added',
+                                          'Document_Uploaded', 'Analyst_Decision_Recorded')
+                ORDER BY Event_DateTime__c DESC
+            ]) {
+                Boolean isUpload = (log.Event_Type__c == 'Document_Uploaded');
+                Boolean isAnalystDecision = (log.Event_Type__c == 'Analyst_Decision_Recorded');
+                Boolean isSupplierComment = (log.Event_Type__c == 'Supplier_Comment_Added')
+                    || (isUpload && log.Actor_User__c == null);
+                AnalystDoc d = docById.get((Id) log.Related_Record_Id__c);
+                if (d == null) continue;
+                ProcurementComment pc = new ProcurementComment();
+                pc.decision  = isSupplierComment ? null : (isUpload ? 'Uploaded' : log.New_Value__c);
+                pc.reason    = isUpload ? ('Uploaded ' + log.Reason__c) : log.Reason__c;
+                pc.actorName = isSupplierComment ? 'Supplier' : (isAnalystDecision ? 'Analyst' : 'Procurement');
+                pc.isSupplierComment = isSupplierComment;
+                pc.dateLabel = log.Event_DateTime__c == null
+                    ? null : log.Event_DateTime__c.format('MMM d, yyyy h:mm a', orgTz2);
+                d.commentHistory.add(pc);
+            }
+        }
+
+        // Multi-document-per-requirement — see AssessmentSummary.documentLinks.
+        Set<Id> analystAssessmentIds = new Set<Id>();
+        for (AnalystDoc d : c.docs) if (d.assessmentId != null) analystAssessmentIds.add(d.assessmentId);
+        Map<Id, List<LinkedDocument>> byAssessment = getDocumentLinksByAssessment(analystAssessmentIds);
+        for (AnalystDoc d : c.docs) {
+            if (byAssessment.containsKey(d.assessmentId)) {
+                d.documentLinks = byAssessment.get(d.assessmentId);
+            }
+        }
         return c;
     }
 
-    // Persist the analyst's per-document comment + validated flag.
+    // Persist the analyst's per-document comment + validated flag. finalStatus is
+    // optional (existing callers that only toggle validation, e.g. handleMarkValidated,
+    // omit it and leave Status__c untouched) — when supplied it's the analyst's own
+    // compliance decision (Compliant/Non-Compliant — hyphenated, matching
+    // DocAssessQueueable.mapVerdict's spelling; scAnalystConsole._normalizedAiStatus
+    // sends this same form), confirming or overriding the AI's Status__c.
+    // Human-in-the-loop: this write always wins over whatever the AI set,
+    // since it's the analyst explicitly recording their own final call.
     @AuraEnabled
-    public static void saveDocValidation(Id assessmentId, String comment, Boolean validated) {
+    public static void saveDocValidation(Id assessmentId, String comment, Boolean validated, String finalStatus) {
         if (assessmentId == null) throw new AuraHandledException('No document selected.');
-        update new Compliance_Assessment__c(
-            Id                  = assessmentId,
-            Analyst_Comment__c  = comment,
-            Analyst_Validated__c = (validated == true),
-            Evaluator_User__c   = UserInfo.getUserId(),
+        Compliance_Assessment__c ca = new Compliance_Assessment__c(
+            Id                     = assessmentId,
+            Analyst_Comment__c    = comment,
+            Analyst_Validated__c  = (validated == true),
+            Evaluator_User__c     = UserInfo.getUserId(),
             Evaluation_DateTime__c = System.now()
         );
+        if (String.isNotBlank(finalStatus)) {
+            ca.Status__c = finalStatus;
+        }
+        update ca;
+
+        // Every other decision-recording action in this class (Procurement's
+        // Approve/Reject/Defer, closeComplianceCase) writes an Audit_Log__c
+        // row so it shows up in the dated history thread both consoles read
+        // (getSupplierSnapshot.procurementComments / getCaseForAnalyst.
+        // commentHistory) — this one never did, so an Analyst's Confirm/
+        // Override call left literally no trace anywhere. Only logged when a
+        // real compliance call was made (finalStatus set) — a bare
+        // handleMarkValidated toggle with no status change stays unlogged,
+        // same as before, since there's no decision to record yet.
+        if (String.isNotBlank(finalStatus)) {
+            Database.insert(new Audit_Log__c(
+                Event_Type__c        = 'Analyst_Decision_Recorded',
+                Related_Object__c    = 'Compliance_Assessment',
+                Related_Record_Id__c = assessmentId,
+                Event_DateTime__c    = DateTime.now(),
+                Actor_Type__c        = 'User',
+                Actor_User__c        = UserInfo.getUserId(),
+                Source_System__c     = 'Other',
+                New_Value__c          = finalStatus,
+                Reason__c             = comment
+            ), false);
+        }
+
+        // The Analyst's Confirm/Override is a real change to Status__c — the
+        // dashboard risk score must reflect it (confirming a Non-Compliant
+        // verdict shouldn't leave the score looking like everything passed;
+        // overriding one to Compliant should bring the score back down).
+        if (String.isNotBlank(finalStatus)) {
+            try {
+                Compliance_Assessment__c withSupplier = [
+                    SELECT Supplier__c FROM Compliance_Assessment__c WHERE Id = :assessmentId LIMIT 1
+                ];
+                RiskScoreService.recompute(withSupplier.Supplier__c);
+            } catch (Exception e) {
+                System.debug(LoggingLevel.WARN, '[saveDocValidation] risk score recompute failed: ' + e.getMessage());
+            }
+        }
+    }
+
+    // WFL-06 — server-side twin of the Procurement Console's isPostHandoffLocked.
+    // Client-side hiding of Approve/Reject/Defer/Add files/Remove item is UX,
+    // not enforcement — any of these Apex entry points is still directly
+    // callable, so each one that changes case content post-handoff needs its
+    // own guard. Reuses the exact Analyst_Assigned_DateTime__c signal
+    // approveDocumentAsProcurement already established below.
+    private static void assertNotHandedOff(Id accountId) {
+        if (accountId == null) return;
+        Account a = [SELECT Analyst_Assigned_DateTime__c FROM Account WHERE Id = :accountId LIMIT 1];
+        if (a.Analyst_Assigned_DateTime__c != null) {
+            throw new AuraHandledException(
+                'This supplier has already been handed off to the Analyst — Procurement can no '
+                + 'longer edit this case.');
+        }
+    }
+    private static void assertAssessmentNotHandedOff(Id assessmentId) {
+        if (assessmentId == null) return;
+        Compliance_Assessment__c ca = [
+            SELECT Supplier__r.Analyst_Assigned_DateTime__c
+            FROM   Compliance_Assessment__c
+            WHERE  Id = :assessmentId
+            LIMIT  1
+        ];
+        if (ca.Supplier__r.Analyst_Assigned_DateTime__c != null) {
+            throw new AuraHandledException(
+                'This supplier has already been handed off to the Analyst — Procurement can no '
+                + 'longer edit this case.');
+        }
+    }
+
+    // Segregation of duties (Three Lines of Defense model): Procurement (First
+    // Line, owns the vendor relationship) can release a document's AI summary
+    // to the supplier ONLY until the case is genuinely handed off to the
+    // Analyst (Second Line, owns the actual risk sign-off). The status string
+    // alone can't gate this — Onboarding_Status__c = 'In Review' is used BOTH
+    // pre-handoff (requestDocumentsFromSupplier) and as the value
+    // assignToAnalyst sets — so this checks Analyst_Assigned_DateTime__c,
+    // which is only ever written once, by assignToAnalyst itself.
+    //
+    // Procurement-side equivalent of saveDocValidation — writes the SAME
+    // Analyst_Validated__c/Analyst_Comment__c fields (no separate approval
+    // field: one supplier-visibility gate, settable by whichever persona
+    // currently owns the case) but ONLY while the supplier hasn't yet been
+    // handed to the Analyst. This is what unlocks the document's compliance
+    // summary on the supplier portal (see scSupplierPortal) while Procurement
+    // is still the owning persona.
+    @AuraEnabled
+    public static void approveDocumentAsProcurement(Id assessmentId, String comment, Boolean approved) {
+        if (assessmentId == null) throw new AuraHandledException('No document selected.');
+
+        Compliance_Assessment__c ca = [
+            SELECT Id, Supplier__r.Analyst_Assigned_DateTime__c
+            FROM   Compliance_Assessment__c
+            WHERE  Id = :assessmentId
+            LIMIT  1
+        ];
+        if (ca.Supplier__r.Analyst_Assigned_DateTime__c != null) {
+            throw new AuraHandledException(
+                'This supplier has already been handed to the Analyst — approval is now '
+                + 'the Analyst\'s responsibility.');
+        }
+
+        update new Compliance_Assessment__c(
+            Id                     = assessmentId,
+            Analyst_Comment__c     = comment,
+            Analyst_Validated__c   = (approved == true),
+            Evaluator_User__c      = UserInfo.getUserId(),
+            Evaluation_DateTime__c = System.now()
+        );
+    }
+
+    // Re-runs AI assessment for ONE already-uploaded document — the per-
+    // document counterpart to the whole-supplier "Refresh" action that used
+    // to live at the top of Documents & Screening (removed: it silently
+    // re-summarized every document at once, with no way to target just the
+    // one a user actually wanted re-checked). Reuses the exact same
+    // DocAssessQueueable the original upload path enqueues — same /assess
+    // call, same verdict-writing logic — just re-triggered on demand instead
+    // of only at upload time.
+    @AuraEnabled
+    public static void reassessDocument(Id assessmentId) {
+        if (assessmentId == null) throw new AuraHandledException('No document selected.');
+
+        Compliance_Assessment__c ca = [
+            SELECT Id, Supplier__c, Requirement_Label__c, Compliance_Document__c,
+                   Compliance_Document__r.Source_File__c,
+                   Compliance_Document__r.Document_Type__c
+            FROM   Compliance_Assessment__c
+            WHERE  Id = :assessmentId
+            LIMIT  1
+        ];
+        if (ca.Compliance_Document__c == null || ca.Compliance_Document__r.Source_File__c == null) {
+            throw new AuraHandledException('This requirement has no uploaded document to re-assess.');
+        }
+
+        List<ContentVersion> cv = [
+            SELECT Id FROM ContentVersion
+            WHERE  ContentDocumentId = :ca.Compliance_Document__r.Source_File__c
+            AND    IsLatest = true
+            LIMIT  1
+        ];
+        if (cv.isEmpty()) {
+            throw new AuraHandledException('Could not locate the uploaded file to re-assess.');
+        }
+
+        String docType = String.isNotBlank(ca.Compliance_Document__r.Document_Type__c)
+            ? ca.Compliance_Document__r.Document_Type__c : ca.Requirement_Label__c;
+
+        // Same "in progress" placeholder the original upload path sets, so
+        // the row shows it's re-checking instead of leaving the OLD (possibly
+        // now-wrong) summary visible while the queueable runs.
+        update new Compliance_Assessment__c(
+            Id               = assessmentId,
+            Reason_Detail__c = 'Re-assessment requested — pending AI extraction'
+        );
+
+        System.enqueueJob(new DocAssessQueueable(
+            ca.Compliance_Document__c, cv[0].Id, ca.Supplier__c, docType, assessmentId));
+    }
+
+    // True for anyone NOT an internal Salesforce user — logged-in Experience
+    // Cloud supplier portal users (PowerCustomerSuccess/PowerPartner/
+    // CustomerSuccess, same check as DocumentProcessingController.
+    // getPortalContactId) and true Guest Users alike. Used to keep a
+    // Deferred document's internal note (Analyst-only) out of anything the
+    // supplier can see, regardless of which of the two portal auth paths
+    // (logged-in vs. guest token) they're calling through.
+    // Public so DocumentProcessingController.linkDocumentToCompliance can log
+    // upload events with the same Supplier-vs-internal distinction this class
+    // already uses for the comment/decision thread (see getSupplierSnapshot).
+    public static Boolean isSupplierRunningUser() {
+        String userType = UserInfo.getUserType();
+        return userType == 'PowerCustomerSuccess' || userType == 'PowerPartner'
+            || userType == 'CustomerSuccess' || userType == 'Guest';
+    }
+
+    // Procurement's OWN Approve/Reject/Deferred decision on an uploaded
+    // document — a genuinely separate checkpoint from Analyst_Validated__c/
+    // Analyst_Comment__c (the supplier-visibility gate above), which is why
+    // this writes its own Procurement_Decision__c/_Reason__c/_By__c/
+    // _DateTime__c fields rather than reusing the Analyst's.
+    //
+    // Approved/Rejected DO now also update Status__c to the equivalent
+    // AI-verdict value (Compliant/Non-Compliant) — Procurement's decision IS
+    // the effective compliance call whenever no Analyst reviews the case (the
+    // common case: routeDecision() auto-routes anything at/below the HITL
+    // threshold and no Analyst ever sees it). Previously Status__c stayed
+    // frozen at the AI's original verdict even after Procurement explicitly
+    // overrode it, so an all-Approved supplier's requirements still read
+    // "Non-Compliant" everywhere that reads Status__c directly — including
+    // closeComplianceCase's all-Compliant gate, which could never be
+    // satisfied by Procurement approvals alone.
+    // Deferred leaves Status__c untouched — Procurement isn't making a
+    // compliance call, just routing the document to a human (the Analyst) for
+    // one; the reason is an internal note for that Analyst, never shown to
+    // the supplier (see getSupplierSnapshot's isSupplierRunningUser() filter).
+    @AuraEnabled
+    public static void recordProcurementDecision(Id assessmentId, String decision, String reason) {
+        if (assessmentId == null) throw new AuraHandledException('No document selected.');
+        if (decision != 'Approved' && decision != 'Rejected' && decision != 'Deferred') {
+            throw new AuraHandledException('Decision must be Approved, Rejected, or Deferred.');
+        }
+        if (String.isBlank(reason)) {
+            throw new AuraHandledException('A reason is required to record this decision.');
+        }
+        assertAssessmentNotHandedOff(assessmentId);
+
+        Compliance_Assessment__c upd = new Compliance_Assessment__c(
+            Id                               = assessmentId,
+            Procurement_Decision__c          = decision,
+            Procurement_Decision_Reason__c   = reason,
+            Procurement_Decision_By__c       = UserInfo.getUserId(),
+            Procurement_Decision_DateTime__c = System.now()
+        );
+        if (decision == 'Approved') {
+            upd.Status__c = 'Compliant';
+        } else if (decision == 'Rejected') {
+            upd.Status__c = 'Non-Compliant';
+        }
+        update upd;
+
+        // One row per decision (never updated/deleted — Audit_Log__c is
+        // create-only) so getSupplierSnapshot can surface the FULL comment
+        // history, not just the latest — see AssessmentSummary.procurementComments.
+        Database.insert(new Audit_Log__c(
+            Event_Type__c        = 'Procurement_Decision_Recorded',
+            Related_Object__c    = 'Compliance_Assessment',
+            Related_Record_Id__c = assessmentId,
+            Event_DateTime__c    = DateTime.now(),
+            Actor_Type__c        = 'User',
+            Actor_User__c        = UserInfo.getUserId(),
+            Source_System__c     = 'Other',
+            New_Value__c          = decision,
+            Reason__c             = reason
+        ), false);
+
+        // Procurement's Approve/Reject is real human judgment, and for any
+        // supplier whose risk tier auto-routes below the HITL threshold (see
+        // routeDecision()), it's the ONLY human judgment that document will
+        // ever get — no Analyst will review it. Without this, the dashboard
+        // score stayed frozen at whatever the AI alone said, even after
+        // Procurement explicitly overruled a finding. RiskScoreService now
+        // weighs Procurement_Decision__c over Status__c when they disagree.
+        // Deferred is excluded — Procurement couldn't decide, so it's not a
+        // compliance signal either way; recompute() already ignores it.
+        try {
+            Compliance_Assessment__c withSupplier = [
+                SELECT Supplier__c FROM Compliance_Assessment__c WHERE Id = :assessmentId LIMIT 1
+            ];
+            RiskScoreService.recompute(withSupplier.Supplier__c);
+        } catch (Exception e) {
+            System.debug(LoggingLevel.WARN, '[recordProcurementDecision] risk score recompute failed: ' + e.getMessage());
+        }
+    }
+
+    // WFL-04: the supplier's own reply on a rejected requirement, when what's
+    // needed is an explanation rather than a fresh file (e.g. "the expiry
+    // date on the certificate is a typo, the real one is 2027"). Reuses the
+    // exact same Audit_Log__c thread recordProcurementDecision writes to, so
+    // the two consoles render one combined, dated conversation instead of
+    // two separate comment lists.
+    @AuraEnabled
+    public static void addSupplierComment(Id assessmentId, String note) {
+        if (assessmentId == null) throw new AuraHandledException('No document selected.');
+        if (String.isBlank(note)) {
+            throw new AuraHandledException('Enter a comment before sending.');
+        }
+        Database.insert(new Audit_Log__c(
+            Event_Type__c        = 'Supplier_Comment_Added',
+            Related_Object__c    = 'Compliance_Assessment',
+            Related_Record_Id__c = assessmentId,
+            Event_DateTime__c    = DateTime.now(),
+            Actor_Type__c        = 'User',
+            Actor_User__c        = isSupplierRunningUser() ? null : UserInfo.getUserId(),
+            Source_System__c     = 'Other',
+            New_Value__c         = 'Comment',
+            Reason__c             = note
+        ), false);
+    }
+
+    // Guest/token counterpart — same verify-then-act pattern as every other
+    // *ByToken method (assessmentId is looked up as belonging to the token's
+    // account first, so a guest can't comment on a document that isn't theirs).
+    @AuraEnabled
+    public static void addSupplierCommentByToken(String token, Id assessmentId, String note) {
+        Id accountId = verifyPortalTokenId(token);
+        if (accountId == null) throw new AuraHandledException('Invalid or expired link.');
+        if (assessmentId == null) throw new AuraHandledException('No document selected.');
+        Compliance_Assessment__c ca = [
+            SELECT Id FROM Compliance_Assessment__c
+            WHERE  Id = :assessmentId AND Supplier__c = :accountId LIMIT 1
+        ];
+        addSupplierComment(ca.Id, note);
     }
 
     // Generative co-pilot: the analyst types a rough observation; the co-pilot
@@ -979,7 +2087,8 @@ public without sharing class VendorPortalController {
     public static String copilotDraftComment(Id accountId, String requirementLabel,
                                              String aiSummary, String observation) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
-        Account a = [SELECT Name FROM Account WHERE Id = :accountId LIMIT 1];
+        Account a = [SELECT Name, Industry, Industry__c FROM Account WHERE Id = :accountId LIMIT 1];
+        String industry = String.isNotBlank(a.Industry) ? a.Industry : a.Industry__c;
         String context =
             'You are helping a compliance analyst write a concise, professional '
             + 'validation comment for a supplier document. Document: '
@@ -989,7 +2098,7 @@ public without sharing class VendorPortalController {
             'The analyst observed: "' + (String.isBlank(observation) ? 'looks acceptable' : observation)
             + '". Write a 1-2 sentence formal validation comment capturing this judgement.';
         try {
-            CopilotService.CopilotResponse r = CopilotService.ask(question, a.Name, context);
+            CopilotService.CopilotResponse r = CopilotService.ask(question, a.Name, context, null, null, industry);
             return (r != null && String.isNotBlank(r.answer)) ? r.answer : observation;
         } catch (Exception e) {
             throw new AuraHandledException('Co-pilot draft failed: ' + e.getMessage());
@@ -1013,7 +2122,8 @@ public without sharing class VendorPortalController {
         return upsertSupplier(
             accountId, supplierName, country, requestedBy,
             industry, engagementType, annualSpend, riskDomains,
-            supplierEmail, hitlThreshold, 'Draft'
+            supplierEmail, hitlThreshold, 'Draft',
+            null, null
         );
     }
 
@@ -1034,16 +2144,18 @@ public without sharing class VendorPortalController {
         return upsertSupplier(
             accountId, supplierName, country, requestedBy,
             industry, engagementType, annualSpend, riskDomains,
-            supplierEmail, hitlThreshold, 'In Review'
+            supplierEmail, hitlThreshold, 'In Review',
+            null, null
         );
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    // Submit → documents & screening. Persists the supplier (status 'Screening')
-    // and kicks off PRE-DOCUMENT screening asynchronously (the AI engine runs
-    // registry / sanctions / conflict / media checks). The user is returned to a
-    // refreshed screen; the supplier appears in the screening queue with the
-    // screening results already attached when opened.
+    // Submit → documents & screening. Persists the supplier (status 'Screening'),
+    // kicks off PRE-DOCUMENT screening asynchronously (the AI engine runs
+    // registry / sanctions / conflict / media checks), AND sends the supplier
+    // their checklist + portal-access email in the same action — previously
+    // this was a separate manual "Email supplier" step the user had to
+    // remember to click; now Submit alone is enough to grant portal access.
     // ═════════════════════════════════════════════════════════════════════════
     @AuraEnabled
     public static String submitAndScreen(
@@ -1055,7 +2167,10 @@ public without sharing class VendorPortalController {
         String annualSpend,
         String riskDomains,
         String supplierEmail,
-        String hitlThreshold
+        String hitlThreshold,
+        List<String> documents,
+        String materialType,
+        String serviceCategory
     ) {
         if (String.isBlank(supplierName)) {
             throw new AuraHandledException('Supplier legal entity name is required.');
@@ -1076,13 +2191,25 @@ public without sharing class VendorPortalController {
         if (!dupes.isEmpty()) existingId = dupes[0].Id;
 
         // 1. Persist the supplier (DML) with status 'Screening' — update if found.
+        // checklistCurated=true: `documents` below is the Procurement user's
+        // post-edit checklist (already emailed as-is) — the trigger-fired
+        // ScopeCalloutQueueable must not re-derive and overwrite it from /scope.
         String accId = upsertSupplier(
             existingId, supplierName, country, requestedBy,
             industry, engagementType, annualSpend, riskDomains,
-            supplierEmail, hitlThreshold, 'Screening'
+            supplierEmail, hitlThreshold, 'Screening',
+            materialType, serviceCategory, true
         );
+        persistCuratedChecklist(accId, documents);
         // 2. Run pre-document screening asynchronously (callout-after-DML rule).
         System.enqueueJob(new ScreeningQueueable((Id) accId));
+        // Submit does NOT send the checklist/portal-access email — that's the
+        // dedicated "Email supplier" action's job (requestDocumentsFromSupplier).
+        // Previously both this method AND the Email button sent an email, and
+        // nothing stopped a user clicking both, resulting in the supplier
+        // getting the same email twice. Submit now only persists + screens;
+        // the user must explicitly click "Email supplier" to actually notify
+        // the supplier and grant portal access.
         return accId;
     }
 
@@ -1098,7 +2225,38 @@ public without sharing class VendorPortalController {
         String riskDomains,
         String supplierEmail,
         String hitlThreshold,
-        String status
+        String status,
+        String materialType,
+        String serviceCategory
+    ) {
+        return upsertSupplier(
+            accountId, supplierName, country, requestedBy,
+            industry, engagementType, annualSpend, riskDomains,
+            supplierEmail, hitlThreshold, status, materialType, serviceCategory,
+            false
+        );
+    }
+
+    // checklistCurated = true when the caller (submitAndScreen /
+    // requestDocumentsFromSupplier) already sent/will send a specific,
+    // human-edited document list — sets Checklist_Seeded_By_Caller__c so
+    // ScopeCalloutQueueable doesn't re-derive and overwrite it from /scope.
+    // See Checklist_Seeded_By_Caller__c.field-meta.xml for the full rationale.
+    private static String upsertSupplier(
+        String accountId,
+        String supplierName,
+        String country,
+        String requestedBy,
+        String industry,
+        String engagementType,
+        String annualSpend,
+        String riskDomains,
+        String supplierEmail,
+        String hitlThreshold,
+        String status,
+        String materialType,
+        String serviceCategory,
+        Boolean checklistCurated
     ) {
         if (String.isBlank(supplierName)) {
             throw new AuraHandledException('Supplier name is required.');
@@ -1114,6 +2272,13 @@ public without sharing class VendorPortalController {
         acc.Engagement_Type__c       = engagementType;
         acc.Risk_Domains__c          = riskDomains;
         acc.Onboarding_Status__c     = status;
+        acc.Checklist_Seeded_By_Caller__c = checklistCurated;
+        // Persisted so ScopeCalloutQueueable (the trigger-fired /scope call that
+        // seeds the ACTUAL Compliance_Assessment__c rows) can resolve the same
+        // materialDomains this screen's live preview used — otherwise the emailed
+        // preview checklist and the persisted/portal checklist silently diverge.
+        if (String.isNotBlank(materialType))    acc.Material_Type__c    = materialType;
+        if (String.isNotBlank(serviceCategory)) acc.Service_Category__c = serviceCategory;
         if (String.isNotBlank(supplierEmail)) {
             acc.Supplier_Contact_Email__c = supplierEmail;
         }
@@ -1141,6 +2306,71 @@ public without sharing class VendorPortalController {
             insert sp;
             return acc.Id;
         }
+    }
+
+    // ── Supplier Queue: Edit supplier details ──────────────────────────────────
+    // A lightweight, dedicated editor — deliberately NOT the "New Supplier"
+    // intake wizard, since that flow is bundled with AI checklist generation/
+    // risk scoring and would risk re-deriving the checklist just to fix a typo.
+    // Only Name/Annual Spend/Email are user-editable (per the UI); the rest are
+    // read back here and re-sent unchanged in updateSupplierDetails so saving
+    // can't silently blank them out.
+    public class SupplierEditDetails {
+        @AuraEnabled public String accountId;
+        @AuraEnabled public String supplierName;
+        @AuraEnabled public String country;
+        @AuraEnabled public String industry;
+        @AuraEnabled public String engagementType;
+        @AuraEnabled public String annualSpend;
+        @AuraEnabled public String supplierEmail;
+        @AuraEnabled public String materialType;
+        @AuraEnabled public String serviceCategory;
+    }
+
+    @AuraEnabled(cacheable=false)
+    public static SupplierEditDetails getSupplierEditDetails(Id accountId) {
+        if (accountId == null) throw new AuraHandledException('No supplier selected.');
+        Account a = [
+            SELECT Id, Name, BillingCountry, Industry, Engagement_Type__c,
+                   Annual_Spend_Est__c, Supplier_Contact_Email__c,
+                   Material_Type__c, Service_Category__c
+            FROM   Account WHERE Id = :accountId LIMIT 1
+        ];
+        SupplierEditDetails d = new SupplierEditDetails();
+        d.accountId       = a.Id;
+        d.supplierName    = a.Name;
+        d.country         = a.BillingCountry;
+        d.industry        = a.Industry;
+        d.engagementType  = a.Engagement_Type__c;
+        d.annualSpend     = a.Annual_Spend_Est__c == null ? '' : String.valueOf(a.Annual_Spend_Est__c);
+        d.supplierEmail   = a.Supplier_Contact_Email__c;
+        d.materialType    = a.Material_Type__c;
+        d.serviceCategory = a.Service_Category__c;
+        return d;
+    }
+
+    // Reuses upsertSupplier (no duplicate save logic) — first reads back the
+    // fields this editor doesn't expose (Requested_By__c, Risk_Domains__c,
+    // Onboarding_Status__c, HITL_Threshold__c, Checklist_Seeded_By_Caller__c)
+    // so the update can't silently blank/reset them.
+    @AuraEnabled
+    public static void updateSupplierDetails(
+        Id accountId, String supplierName, String country, String industry,
+        String engagementType, String annualSpend, String supplierEmail,
+        String materialType, String serviceCategory
+    ) {
+        if (accountId == null) throw new AuraHandledException('No supplier selected.');
+        Account existing = [
+            SELECT Requested_By__c, Risk_Domains__c, Onboarding_Status__c,
+                   HITL_Threshold__c, Checklist_Seeded_By_Caller__c
+            FROM   Account WHERE Id = :accountId LIMIT 1
+        ];
+        upsertSupplier(
+            accountId, supplierName, country, existing.Requested_By__c,
+            industry, engagementType, annualSpend, existing.Risk_Domains__c,
+            supplierEmail, existing.HITL_Threshold__c, existing.Onboarding_Status__c,
+            materialType, serviceCategory, existing.Checklist_Seeded_By_Caller__c
+        );
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -1172,7 +2402,13 @@ public without sharing class VendorPortalController {
         @AuraEnabled public String   routing;        // Auto-approve | Needs analyst
         @AuraEnabled public String   aiStatus;       // Onboarded | AI cleared | Needs analyst | Screening
         @AuraEnabled public String   durationLabel;  // time in pipeline since created (E1)
-        @AuraEnabled public Integer  confidence;     // supplier-level AI confidence, avg of doc assessments (E3)
+        @AuraEnabled public Boolean  isAssignedToAnalyst; // TRUE only once assignToAnalyst() has actually run —
+                                                            // distinct from aiStatus=='Needs analyst', which is
+                                                            // just the AI's recommendation before any human acts.
+        @AuraEnabled public String   stageAgeLabel;  // time in CURRENT stage (distinct from durationLabel)
+        @AuraEnabled public Boolean  isStalled;      // stageAgeLabel >= STALLED_THRESHOLD_DAYS
+        @AuraEnabled public Integer  docsUploaded;   // same definition as P3's checklistProgressLabel
+        @AuraEnabled public Integer  docsTotal;      // total non-screening checklist items
     }
 
     @AuraEnabled(cacheable=true)
@@ -1188,16 +2424,33 @@ public without sharing class VendorPortalController {
             flagsByAcc.put((Id) ar.get('sid'), (Integer) ar.get('c'));
         }
 
-        // Supplier-level AI confidence = average of its document assessments (E3).
-        Map<Id, Decimal> confByAcc = new Map<Id, Decimal>();
+        // Documents progress per supplier — SAME definition as checklistProgressLabel
+        // on Documents & Screening (P3): uploaded / total checklist items. "Uploaded"
+        // means a document is linked (Compliance_Document__c != null), same test the
+        // snapshot uses to set AssessmentSummary.uploaded — regardless of AI verdict.
+        // Screening rows excluded.
+        // NOTE: AI_Confidence__c is intentionally NOT aggregated to supplier level
+        // anywhere in this class — it's a document-level extraction-quality signal
+        // (see AssessmentRow.aiConfidence in getSupplierSnapshot) and stays there.
+        // Risk_Score__c (RiskScoreService) is the one supplier-level risk number.
+        Map<Id, Integer> docsTotalByAcc    = new Map<Id, Integer>();
+        Map<Id, Integer> docsUploadedByAcc = new Map<Id, Integer>();
         for (AggregateResult ar : [
-            SELECT Supplier__c sid, AVG(AI_Confidence__c) avgc
+            SELECT Supplier__c sid, COUNT(Id) c
             FROM   Compliance_Assessment__c
-            WHERE  AI_Confidence__c != null
+            WHERE  (NOT Requirement_Key__c LIKE 'SCREEN_%')
+            GROUP BY Supplier__c
+        ]) {
+            docsTotalByAcc.put((Id) ar.get('sid'), (Integer) ar.get('c'));
+        }
+        for (AggregateResult ar : [
+            SELECT Supplier__c sid, COUNT(Id) c
+            FROM   Compliance_Assessment__c
+            WHERE  Compliance_Document__c != null
                AND (NOT Requirement_Key__c LIKE 'SCREEN_%')
             GROUP BY Supplier__c
         ]) {
-            confByAcc.put((Id) ar.get('sid'), (Decimal) ar.get('avgc'));
+            docsUploadedByAcc.put((Id) ar.get('sid'), (Integer) ar.get('c'));
         }
 
         ScreeningQueue q = new ScreeningQueue();
@@ -1208,9 +2461,12 @@ public without sharing class VendorPortalController {
         for (Account a : [
             SELECT Id, Name, Industry, Risk_Tier__c, Risk_Score__c,
                    Onboarding_Status__c, Risk_Domains__c, Requested_By__c,
-                   HITL_Threshold__c, CreatedDate, LastModifiedDate
+                   HITL_Threshold__c, CreatedDate, LastModifiedDate,
+                   Stage_Entered_DateTime__c, Analyst_Assigned_DateTime__c
             FROM   Account
             WHERE  RecordType.DeveloperName = 'Supplier'
+              AND  Compliance_Case_Status__c != 'Closed - Compliant'
+              AND  Compliance_Case_Status__c != 'Closed - Rejected'
             ORDER BY CreatedDate DESC
             LIMIT  200
         ]) {
@@ -1221,7 +2477,6 @@ public without sharing class VendorPortalController {
             r.riskTier      = a.Risk_Tier__c;
             r.riskScore     = a.Risk_Score__c;
             r.status        = a.Onboarding_Status__c;
-            r.stageLabel    = mapStage(a.Onboarding_Status__c);
             r.riskDomains   = a.Risk_Domains__c;
             r.requestedBy   = a.Requested_By__c;
             r.flags         = flagsByAcc.containsKey(a.Id) ? flagsByAcc.get(a.Id) : 0;
@@ -1231,7 +2486,12 @@ public without sharing class VendorPortalController {
             r.routing       = routeDecision(a.Risk_Tier__c, a.HITL_Threshold__c);
             r.aiStatus      = aiStatus(a.Onboarding_Status__c, a.Risk_Tier__c, r.flags, r.routing);
             r.durationLabel = durationLabel(a.CreatedDate);
-            r.confidence    = confByAcc.containsKey(a.Id) ? Integer.valueOf(confByAcc.get(a.Id).round()) : null;
+            r.isAssignedToAnalyst = (a.Analyst_Assigned_DateTime__c != null);
+            r.stageAgeLabel = stageAgeLabel(a.Stage_Entered_DateTime__c);
+            r.isStalled     = isStalled(a.Stage_Entered_DateTime__c);
+            r.docsTotal    = docsTotalByAcc.containsKey(a.Id) ? docsTotalByAcc.get(a.Id) : 0;
+            r.docsUploaded = docsUploadedByAcc.containsKey(a.Id) ? docsUploadedByAcc.get(a.Id) : 0;
+            r.stageLabel    = queueStage(a.Onboarding_Status__c, r.isAssignedToAnalyst, r.aiStatus, r.docsUploaded, r.docsTotal);
             q.rows.add(r);
 
             if (a.Onboarding_Status__c == 'In Review') prospective++;
@@ -1294,6 +2554,27 @@ public without sharing class VendorPortalController {
         return 'Draft';
     }
 
+    // Single-list queue stage — replaces the old 4-tab bucketing (In review /
+    // Drafts / Awaiting documents / Handed to analyst), which lived client-side
+    // in scProcurementConsole.js's _inBucket() and had a real bug: it treated
+    // aiStatus=='Needs analyst' (the AI's ROUTING RECOMMENDATION, computed the
+    // instant risk tier crosses the HITL threshold) as equivalent to an actual
+    // handoff — so a supplier the AI merely flagged showed up in "Handed to
+    // analyst" before any human had assigned it, making the handoff look
+    // automatic when it was never anything but a human clicking Assign
+    // (VendorPortalController.assignToAnalyst). isAssignedToAnalyst (from
+    // Analyst_Assigned_DateTime__c, set ONLY by assignToAnalyst) is the one
+    // signal that actually distinguishes "recommended" from "handed off."
+    private static String queueStage(String status, Boolean assigned, String aiStat, Integer docsUploaded, Integer docsTotal) {
+        if (status == 'Draft') return 'Draft';
+        if (assigned == true)  return 'Handed to Analyst';
+        if (aiStat == 'Needs analyst') return 'Flagged - Needs Review';
+        if (docsTotal != null && docsTotal > 0 && (docsUploaded == null || docsUploaded < docsTotal)) {
+            return 'Awaiting Documents';
+        }
+        return 'In review';
+    }
+
     private static String ageLabel(Datetime created) {
         if (created == null) return '';
         Long mins = (System.now().getTime() - created.getTime()) / 60000;
@@ -1310,6 +2591,30 @@ public without sharing class VendorPortalController {
         if (mins < 60)        return mins + 'm';
         if (mins < 60 * 24)   return (mins / 60) + 'h';
         return (mins / (60 * 24)) + 'd';
+    }
+
+    // ── "Days in this stage" (SLA/aging indicator) ────────────────────────────
+    // Distinct from durationLabel above (total time since the record was
+    // created): this is how long the record has sat in whatever
+    // Onboarding_Status__c it's CURRENTLY in — set/refreshed by
+    // AccountTriggerHandler whenever the status actually changes. A case that
+    // just moved to a new stage reads "0h in stage" even if it's been in the
+    // pipeline for weeks; a case stuck in one stage for a long time is what
+    // this is meant to surface.
+    private static final Integer STALLED_THRESHOLD_DAYS = 5;
+
+    private static String stageAgeLabel(Datetime stageEntered) {
+        if (stageEntered == null) return '—';
+        Long mins = (System.now().getTime() - stageEntered.getTime()) / 60000;
+        if (mins < 60)        return mins + 'm in stage';
+        if (mins < 60 * 24)   return (mins / 60) + 'h in stage';
+        return (mins / (60 * 24)) + 'd in stage';
+    }
+
+    private static Boolean isStalled(Datetime stageEntered) {
+        if (stageEntered == null) return false;
+        Long days = (System.now().getTime() - stageEntered.getTime()) / (60000L * 60 * 24);
+        return days >= STALLED_THRESHOLD_DAYS;
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -1351,6 +2656,7 @@ public without sharing class VendorPortalController {
         if (e == 'AI_Extraction')        return 'Extracted document data';
         if (e == 'Manual_Override')      return 'Analyst decision recorded';
         if (e == 'Status_Changed')       return 'Status changed';
+        if (e == 'Case_Closed')          return 'Compliance case closed';
         return 'Activity';
     }
 
@@ -1363,11 +2669,24 @@ public without sharing class VendorPortalController {
         String riskTier = mapUiTier(tier);
         String status   = (tier == 'LOW') ? 'Approved' : 'In Review';
 
-        update new Account(
+        Account upd = new Account(
             Id                   = accountId,
             Risk_Tier__c         = riskTier,
             Onboarding_Status__c = status
         );
+        // A LOW-confirmed tier auto-approves and leaves the analyst's hands
+        // for good — clear Analyst_Assigned_DateTime__c (the ONLY signal
+        // Procurement's queueStage/isAssignedToAnalyst reads, see
+        // getScreeningQueue) so the case stops showing "Handed to Analyst"
+        // there. Previously this only changed Onboarding_Status__c, which
+        // dropped the case out of getAnalystQueue's 'In Review' filter but
+        // left Procurement's queue label stale/wrong — the two screens read
+        // two different fields for "is this with the analyst," and only one
+        // of them was ever updated here.
+        if (status == 'Approved') {
+            upd.Analyst_Assigned_DateTime__c = null;
+        }
+        update upd;
 
         Database.insert(new Audit_Log__c(
             Event_Type__c        = 'Manual_Override',
@@ -1381,6 +2700,79 @@ public without sharing class VendorPortalController {
         ), false);
 
         return accountId;
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // Close compliance case — the Analyst's final action once every checklist
+    // document is Compliant. Ends the case: pulls the supplier out of BOTH the
+    // Analyst queue (getAnalystQueue) and the Procurement queue
+    // (getScreeningQueue), and leaves the final score/tier/remarks as the
+    // permanent record shown on the Account page (scSupplierRiskDashboard).
+    // ═════════════════════════════════════════════════════════════════════════
+    @AuraEnabled
+    public static void closeComplianceCase(Id accountId, String closingRemarks) {
+        closeCaseInternal(accountId, closingRemarks, 'Compliance case closed');
+    }
+
+    // Procurement's direct-onboard action (WFL, Issue 5/6): when EVERY
+    // checklist document is Procurement-Approved (no Deferred, nothing left
+    // undecided), Procurement can onboard the supplier immediately without
+    // ever routing the case to an Analyst — the case never enters the Analyst
+    // queue at all. Uses the exact same close mechanics as closeComplianceCase
+    // (queue removal via Compliance_Case_Status__c, Onboarding_Status__c=
+    // Approved, Account-page final record) since both represent the same
+    // real-world outcome — "this supplier's compliance case is done" — just
+    // reached via a different path (Procurement alone vs. Procurement+Analyst).
+    @AuraEnabled
+    public static void onboardSupplierDirectly(Id accountId, String closingRemarks) {
+        if (accountId == null) throw new AuraHandledException('No supplier selected.');
+
+        List<Compliance_Assessment__c> checklist = [
+            SELECT Id, Procurement_Decision__c
+            FROM   Compliance_Assessment__c
+            WHERE  Supplier__c = :accountId
+            AND    (NOT Requirement_Key__c LIKE 'SCREEN_%')
+        ];
+        if (checklist.isEmpty()) {
+            throw new AuraHandledException('This supplier has no checklist items to onboard.');
+        }
+        for (Compliance_Assessment__c ca : checklist) {
+            if (ca.Procurement_Decision__c != 'Approved') {
+                throw new AuraHandledException(
+                    'Every checklist document must be Approved (none Deferred or undecided) to onboard directly. '
+                    + 'Defer at least one document if this case needs Analyst review instead.');
+            }
+        }
+
+        closeCaseInternal(accountId, closingRemarks, 'Supplier onboarded directly by Procurement');
+    }
+
+    // Shared close mechanics for closeComplianceCase (Analyst) and
+    // onboardSupplierDirectly (Procurement) — both remove the case from
+    // whichever queue(s) it's currently in and leave the same final record on
+    // the Account page. The two callers differ only in WHO can call it and
+    // WHAT they gate on (Status__c=Compliant vs. Procurement_Decision__c=
+    // Approved) — the actual state change is identical.
+    private static void closeCaseInternal(Id accountId, String closingRemarks, String auditPrefix) {
+        update new Account(
+            Id                        = accountId,
+            Compliance_Case_Status__c = 'Closed - Compliant',
+            Onboarding_Status__c      = 'Approved',
+            Closing_Remarks__c        = closingRemarks,
+            Case_Closed_DateTime__c   = DateTime.now(),
+            Case_Closed_By__c         = UserInfo.getUserId()
+        );
+
+        Database.insert(new Audit_Log__c(
+            Event_Type__c        = 'Case_Closed',
+            Related_Object__c    = 'Supplier',
+            Related_Record_Id__c = accountId,
+            Event_DateTime__c    = DateTime.now(),
+            Actor_Type__c        = 'User',
+            Source_System__c     = 'Other',
+            New_Value__c         = auditPrefix
+                + (String.isNotBlank(closingRemarks) ? (' · ' + closingRemarks) : '')
+        ), false);
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -1453,6 +2845,31 @@ public without sharing class VendorPortalController {
     // Declared without sharing so guest community users can call it.
     @AuraEnabled(cacheable=false)
     public static String resolveSupplierToken(String token) {
+        return verifyPortalToken(token);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Guest-portal access verification (security fix)
+    //
+    // WHY THIS EXISTS: the portal token used to be resolved to an accountId
+    // ONCE, at page load — every other guest-callable method just trusted
+    // whatever accountId the client sent back on later calls, with nothing
+    // re-checking it server-side. Since these methods are `without sharing`
+    // (required for guest access) and took a plain client-supplied Id, any
+    // guest visitor holding ANY valid portal token could call
+    // getSupplierSnapshot/removeSupplierDocument/etc. directly (bypassing the
+    // LWC UI) with a DIFFERENT supplier's Account Id and read or modify their
+    // data — a real IDOR, not theoretical.
+    //
+    // FIX: every guest-facing method now takes the TOKEN, not a trusted
+    // accountId, and re-resolves it server-side on EVERY call via this
+    // helper — mirroring resolveSupplierToken exactly so there is only one
+    // definition of "does this token grant access to this account." The
+    // token itself stays long-lived (weeks, matching how long a real
+    // onboarding can take) — this isn't a short session, it's re-verifying
+    // the same durable credential on every request instead of trusting a
+    // value the client already had.
+    public static Id verifyPortalTokenId(String token) {
         if (String.isBlank(token)) throw new AuraHandledException('Token is required.');
         List<Account> matches = [
             SELECT Id FROM Account
@@ -1462,61 +2879,137 @@ public without sharing class VendorPortalController {
         if (matches.isEmpty()) throw new AuraHandledException('Invalid or expired portal link.');
         return matches[0].Id;
     }
+    private static String verifyPortalToken(String token) {
+        return String.valueOf(verifyPortalTokenId(token));
+    }
+
+    // ── Guest-scoped wrappers ───────────────────────────────────────────────
+    // Each re-derives accountId from the token, then delegates to the same
+    // internal logic the authenticated Procurement/Analyst consoles use — no
+    // duplicated business logic, just a verified accountId instead of a
+    // trusted one.
+
+    @AuraEnabled(cacheable=false)
+    public static SupplierSnapshot getSupplierSnapshotByToken(String token) {
+        return getSupplierSnapshot(verifyPortalTokenId(token));
+    }
+
+    @AuraEnabled
+    public static void removeSupplierDocumentByToken(String token, Id contentDocumentId) {
+        Id accountId = verifyPortalTokenId(token);
+        // Ownership check: the document must actually belong to THIS supplier
+        // (linked to their Account or one of their Compliance_Document__c
+        // records) — otherwise a guest could pass any ContentDocumentId in
+        // the org and delete a file that isn't theirs.
+        if (!documentBelongsToSupplier(contentDocumentId, accountId)) {
+            throw new AuraHandledException('Document not found for this supplier.');
+        }
+        removeSupplierDocument(accountId, contentDocumentId);
+    }
+
+    @AuraEnabled
+    public static String addRequirementFromDocumentByToken(String token, String documentTitle, String requirementKey) {
+        Id accountId = verifyPortalTokenId(token);
+        return addRequirementFromDocument(accountId, documentTitle, requirementKey);
+    }
+
+    // True if contentDocumentId is linked to the supplier's Account directly,
+    // or to one of the supplier's own Compliance_Document__c records.
+    private static Boolean documentBelongsToSupplier(Id contentDocumentId, Id accountId) {
+        if (contentDocumentId == null || accountId == null) return false;
+        Set<Id> ownedEntityIds = new Set<Id>{ accountId };
+        for (Compliance_Document__c cd : [
+            SELECT Id FROM Compliance_Document__c WHERE Account__c = :accountId
+        ]) {
+            ownedEntityIds.add(cd.Id);
+        }
+        for (ContentDocumentLink l : [
+            SELECT LinkedEntityId FROM ContentDocumentLink
+            WHERE ContentDocumentId = :contentDocumentId AND LinkedEntityId IN :ownedEntityIds
+        ]) {
+            return true;
+        }
+        return false;
+    }
 
     // ═════════════════════════════════════════════════════════════════════════
     // Generate public document URLs for iframe preview — creates a
     // ContentDistribution (public sharing link) via the latest ContentVersion.
+    //
+    // SECURITY: this used to take a bare contentDocumentId with NO ownership
+    // check and mint a PERMANENT (PreferencesExpires=false), unauthenticated
+    // public URL to it — any caller (including a guest) could pass ANY
+    // ContentDocumentId in the org, not just their own supplier's files, and
+    // get a link nothing ever expired. Fixed two ways:
+    //   1. Every new distribution now expires (30 days — generous for the
+    //      preview use case, but bounded, not permanent).
+    //   2. Guest callers must go through generatePublicDocumentUrlByToken,
+    //      which verifies the document actually belongs to the token's
+    //      supplier before minting anything. This internal method stays
+    //      callable by the authenticated Procurement/Analyst consoles, which
+    //      operate under normal Salesforce auth and can legitimately preview
+    //      any supplier's documents.
     // ═════════════════════════════════════════════════════════════════════════
     @AuraEnabled
     public static String generatePublicDocumentUrl(Id contentDocumentId) {
         if (contentDocumentId == null) throw new AuraHandledException('Content Document ID required.');
-        
+
         // Get the latest ContentVersion for this ContentDocument
         List<ContentVersion> versions = [
             SELECT Id FROM ContentVersion
             WHERE ContentDocumentId = :contentDocumentId AND IsLatest = true
             LIMIT 1
         ];
-        
+
         if (versions.isEmpty()) {
             throw new AuraHandledException('No valid document version found.');
         }
-        
+
         Id contentVersionId = versions[0].Id;
-        
+
         // Check if a distribution already exists for this version
         List<ContentDistribution> existing = [
-            SELECT Id, DistributionPublicUrl 
-            FROM ContentDistribution 
-            WHERE ContentVersionId = :contentVersionId 
+            SELECT Id, DistributionPublicUrl
+            FROM ContentDistribution
+            WHERE ContentVersionId = :contentVersionId
             LIMIT 1
         ];
-        
+
         if (!existing.isEmpty()) {
             // Public URL already exists, return it
             return existing[0].DistributionPublicUrl;
         }
-        
+
         // Create a new public distribution linking to the ContentVersion
         ContentDistribution dist = new ContentDistribution();
         dist.ContentVersionId = contentVersionId;
         dist.Name = 'Public Share - ' + System.now().getTime();
         dist.PreferencesAllowViewInBrowser = true;
-        dist.PreferencesExpires = false;  // No expiration
-        
+        dist.PreferencesExpires = true;
+        dist.ExpiryDate = Date.today().addDays(30);
+
         try {
             insert dist;
             // Retrieve the newly created distribution to get the public URL
             ContentDistribution created = [
-                SELECT DistributionPublicUrl 
-                FROM ContentDistribution 
-                WHERE Id = :dist.Id 
+                SELECT DistributionPublicUrl
+                FROM ContentDistribution
+                WHERE Id = :dist.Id
                 LIMIT 1
             ];
             return created.DistributionPublicUrl;
         } catch (Exception e) {
             throw new AuraHandledException('Failed to generate public document URL: ' + e.getMessage());
         }
+    }
+
+    @AuraEnabled
+    public static String generatePublicDocumentUrlByToken(String token, Id contentDocumentId) {
+        Id accountId = verifyPortalTokenId(token);
+        if (!documentBelongsToSupplier(contentDocumentId, accountId)) {
+            throw new AuraHandledException('Document not found for this supplier.');
+        }
+        return generatePublicDocumentUrl(contentDocumentId);
     }
 
     private static String generateUUID() {

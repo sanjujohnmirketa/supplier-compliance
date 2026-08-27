@@ -1,52 +1,41 @@
 <template>
     <!-- ── TOP BAR ───────────────────────────────────────────────────────────── -->
-    <div class="vc-topbar">
+    <!-- <div class="vc-topbar">
         <div class="vc-tb-left">
             <img class="vc-logo-box" src={logoUrl} alt="Compliance">
-            <span class="vc-brand">Vendor Portal</span>
-            <span class="vc-bread">{breadcrumb}</span>
         </div>
         <div class="vc-tb-right">
             <template if:true={showSearch}>
                 <input class="vc-search" type="text" placeholder="Search suppliers…"
                        value={searchTerm} oninput={handleSearch}>
             </template>
-            <span class="vc-persona-chip">Procurement · Executor</span>
-            <div class="vc-user-area">
-                <div class="vc-av vc-av-btn" title={userName} onclick={handleAvatarClick}>{userInitials}</div>
-                <template if:true={showUserMenu}>
-                    <div class="vc-user-menu">
-                        <button class="vc-logout-btn" onclick={handleLogout}>Log out</button>
-                    </div>
-                </template>
-            </div>
         </div>
-    </div>
+    </div> -->
 
     <div class="vc-body">
 
         <!-- ── SIDEBAR ───────────────────────────────────────────────────────── -->
         <nav class="vc-sidebar">
-            <div class="vc-sb-section">Pre-contract · Procurement</div>
-            <div class={sbP1Active} data-screen="p1" onclick={handleNav}>
+            <div class="vc-sb-section">Procurement</div>
+            <button type="button" class={sbP1Active} data-screen="p1" onclick={handleNav}>
                 <div class={dotP1}></div> New supplier
-            </div>
-            <div class={sbP2Active} data-screen="p2" onclick={handleNav}>
+            </button>
+            <button type="button" class={sbP2Active} data-screen="p2" onclick={handleNav}>
                 <div class={dotP2}></div> Supplier queue
-            </div>
+            </button>
             <!-- Documents & screening shows as a sub-item under the queue only
                  while a supplier is open. -->
             <template if:true={showP3SubNav}>
-                <div class={sbP3SubActive} onclick={handleP3NavClick}>
+                <button type="button" class={sbP3SubActive} onclick={handleP3NavClick}>
                     <div class="vc-sb-subdot"></div> Documents &amp; screening
-                </div>
-                <div class={sbP4SubActive} onclick={handleP4NavClick}>
+                </button>
+                <button type="button" class={sbP4SubActive} onclick={handleP4NavClick}>
                     <div class="vc-sb-subdot"></div> Submission summary
-                </div>
+                </button>
             </template>
             <hr class="vc-sb-divider">
-            <div class="vc-sb-section">You own</div>
-            <div class="vc-sb-note">Intake &amp; document request · screening run · handoff to the analyst.</div>
+            <!-- <div class="vc-sb-section">You own</div>
+            <div class="vc-sb-note">Intake &amp; document request · screening run · handoff to the analyst.</div> -->
         </nav>
 
         <!-- ── MAIN CANVAS ───────────────────────────────────────────────────── -->
@@ -59,15 +48,13 @@
                 <div class="vc-page-hdr">
                     <div>
                         <div class="vc-page-title">Set up a new supplier</div>
-                        <div class="vc-page-sub">Capture the supplier, let AI build the evidence checklist, and request documents — before anything goes to the analyst.</div>
+                        <!-- <div class="vc-page-sub">Capture the supplier, let AI build the evidence checklist, and request documents — before anything goes to the analyst.</div> -->
                     </div>
-                    <span class="vc-pill-owns">You own: Intake &amp; document request</span>
+                    <span class="vc-pill-owns">Intake &amp; document request</span>
                 </div>
 
-                <div class="vc-two-col vc-p1-grid">
-                    <!-- LEFT: supplier + risk domains + oversight -->
-                    <div>
-                        <div class="vc-card">
+                <!-- Supplier — primary section, full width -->
+                <div class="vc-card">
                             <div class="vc-card-title">Supplier</div>
                             <div class="vc-form-grid3">
                                 <div class="vc-field">
@@ -110,7 +97,7 @@
                                 <div class="vc-field">
                                     <div class="vc-flabel">Annual spend (est.)</div>
                                     <input class="vc-finput" type="text" value={intakeSpend}
-                                           data-field="intakeSpend" placeholder="e.g. € 2.4M"
+                                           data-field="intakeSpend" placeholder="e.g. $25000"
                                            oninput={handleIntakeField}>
                                 </div>
                                 <div class="vc-field">
@@ -125,7 +112,7 @@
                             </div>
                             <div class="vc-form-grid3">
                                 <div class="vc-field">
-                                    <div class="vc-flabel">Raw material type <span class="vc-field-optional">(optional — sharpens checklist)</span></div>
+                                    <div class="vc-flabel">Raw material type </div>
                                     <select class="vc-finput vc-fselect" data-field="intakeMaterialType" onchange={handleIntakeField}>
                                         <template for:each={materialTypeOptions} for:item="opt">
                                             <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
@@ -133,7 +120,7 @@
                                     </select>
                                 </div>
                                 <div class="vc-field">
-                                    <div class="vc-flabel">Service category <span class="vc-field-optional">(optional — sharpens checklist)</span></div>
+                                    <div class="vc-flabel">Service category </div>
                                     <select class="vc-finput vc-fselect" data-field="intakeServiceCategory" onchange={handleIntakeField}>
                                         <template for:each={serviceCategoryOptions} for:item="opt">
                                             <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
@@ -143,70 +130,21 @@
                             </div>
                         </div>
 
-                        <!-- Applicable risk domains — AI auto-detected (placeholder, empty) -->
-                        <div class="vc-card">
-                            <div class="vc-panel-header">
-                                <div class="vc-card-title vc-card-title-nomargin">Applicable risk domains</div>
-                                <span class="vc-ai-badge">✦ auto-detected</span>
-                            </div>
-                            <template if:true={hasDomains}>
-                                <div class="vc-dom-row">
-                                    <template for:each={checklistDomains} for:item="d">
-                                        <span key={d.id} class="vc-dom-chip">{d.label}</span>
-                                    </template>
-                                </div>
-                                <div class="vc-sm-muted vc-p1-email-sub">Detected risk tier: <strong>{checklistTier}</strong> · suggested oversight: <strong>{recommendedHitl}</strong></div>
-                                <!-- Why this tier — reasoning from the supplier profile -->
-                                <template if:true={hasRiskReasons}>
-                                    <ul class="vc-reason-list">
-                                        <template for:each={riskReasons} for:item="r">
-                                            <li key={r.id}>{r.text}</li>
-                                        </template>
-                                    </ul>
-                                </template>
-                            </template>
-                            <template if:false={hasDomains}>
-                                <div class="vc-empty-inline">
-                                    Generate the checklist to auto-detect risk domains.
-                                    <span class="vc-sm-muted">Domains drive which documents are required.</span>
-                                </div>
-                            </template>
-                        </div>
-
-                        <!-- Human oversight level — AI-SET, read-only -->
-                        <div class="vc-card">
-                            <div class="vc-panel-header">
-                                <div class="vc-card-title vc-card-title-nomargin">Human oversight level</div>
-                                <span class="vc-ai-badge">✦ AI-set</span>
-                            </div>
-                            <div class="vc-oversight readonly">
-                                <span class="vc-os-end">Auto-clear</span>
-                                <div class="vc-os-track">
-                                    <div class="vc-os-fill" style={oversightFillStyle}></div>
-                                    <div class="vc-os-thumb" style={oversightThumbStyle}></div>
-                                </div>
-                                <span class="vc-os-end">Full review</span>
-                            </div>
-                            <div class="vc-os-current"><strong>{oversightLabel}</strong></div>
-                            <div class="vc-route-hint analyst">
-                                <strong>What this means:</strong> the oversight level is set automatically by AI from
-                                the supplier's risk tier — it isn't adjusted by hand. A higher level means a human
-                                analyst must review and sign off before approval.
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- RIGHT: document checklist -->
+                <!-- Document checklist + Human oversight level — together, directly below Supplier -->
+                <div class="vc-two-col vc-p1-grid">
+                    <!-- LEFT: document checklist -->
                     <div>
                         <div class="vc-card">
                             <div class="vc-panel-header">
                                 <div class="vc-card-title vc-card-title-nomargin">Document checklist</div>
-                                <span class="vc-ai-badge">✦ auto-generated</span>
+                                <template if:true={hasChecklist}>
+                                    <span class="vc-pill-owns">{checklistCountLabel}</span>
+                                </template>
                             </div>
                             <!-- Stale banner: a driving input changed since generation -->
                             <template if:true={checklistStale}>
                                 <div class="vc-stale-banner">
-                                    A supplier detail changed — this checklist may be out of date.
+                                    A supplier detail changed - this checklist may be out of date.
                                     <button class="vc-stale-regen" onclick={handleGenerateChecklist}>Regenerate</button>
                                 </div>
                             </template>
@@ -221,8 +159,19 @@
                                     <div key={item.id} class="vc-cl-item">
                                         <span class="vc-cl-doc">{item.document}</span>
                                         <span class="vc-dom-chip sm">{item.domain}</span>
+                                        <button class="vc-cl-remove" data-id={item.id} onclick={handleRemoveChecklistItem} title="Remove this document">✕</button>
                                     </div>
                                 </template>
+
+                                <!-- Add an extra document TYPE not covered by AI generation — this
+                                     only adds a checklist row, no file (wording explicit so it isn't
+                                     mistaken for uploading a file). -->
+                                <div class="vc-cl-add-row">
+                                    <input class="vc-finput vc-cl-add-input" type="text" value={newChecklistDocName}
+                                           placeholder="Name a new required document to add to this checklist…" oninput={handleNewChecklistDocChange}>
+                                    <button class="vc-btn-sec vc-btn-sm" onclick={handleAddChecklistItem} disabled={isAddChecklistDisabled}>＋ Add to checklist</button>
+                                </div>
+
                                 <button class="vc-btn-sec vc-btn-sm" onclick={handleGenerateChecklist} disabled={checklistLoading}>
                                     <template if:true={checklistLoading}><span class="vc-spinner"></span></template>
                                     {regenerateLabel}
@@ -230,19 +179,48 @@
                             </template>
                             <template if:false={hasChecklist}>
                                 <div class="vc-cl-empty">
-                                    <div class="vc-sm-muted">No checklist yet — generate it from the supplier profile.</div>
+                                    <div class="vc-sm-muted">No checklist yet - generate it from the supplier profile.</div>
                                     <button class="vc-btn-pri vc-btn-sm" onclick={handleGenerateChecklist} disabled={checklistLoading}>
                                         <template if:true={checklistLoading}><span class="vc-spinner"></span></template>
                                         {generateLabel}
                                     </button>
                                 </div>
                             </template>
-                            <button class="vc-btn-pri vc-p1-email" onclick={handleEmailSupplier} disabled={emailSending}>
+                            <!-- This is the ONLY action that emails the supplier. "Submit" below
+                                 persists the supplier and runs screening, but does not notify
+                                 them — the two used to BOTH send an email with nothing stopping
+                                 a user from clicking both, which sent the supplier the same
+                                 email twice. -->
+                            <button class="vc-btn-sec vc-p1-email" onclick={handleEmailSupplier} disabled={emailSending}
+                                    title="Emails the supplier a link to upload documents. Submit below does not send anything.">
                                 <template if:true={emailSending}><span class="vc-spinner"></span></template>
                                 {emailLabel}
                             </button>
-                            <div class="vc-sm-muted vc-p1-email-sub">
-                                Sends a branded request with upload link · auto-chases after 3 days.
+                            <!-- <div class="vc-sm-muted vc-p1-email-sub">
+                                Sends a branded request with upload link · auto-chases after 3 days. This is the only action that notifies the supplier — Submit below persists and screens, but does not send an email.
+                            </div> -->
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: human oversight level -->
+                    <div>
+                        <div class="vc-card">
+                            <div class="vc-panel-header">
+                                <div class="vc-card-title vc-card-title-nomargin">Human oversight level</div>
+                            </div>
+                            <div class="vc-oversight readonly">
+                                <span class="vc-os-end">Auto-clear</span>
+                                <div class="vc-os-track">
+                                    <div class="vc-os-fill" style={oversightFillStyle}></div>
+                                    <div class="vc-os-thumb" style={oversightThumbStyle}></div>
+                                </div>
+                                <span class="vc-os-end">Full review</span>
+                            </div>
+                            <div class="vc-os-current"><strong>{oversightLabel}</strong></div>
+                            <div class="vc-route-hint analyst">
+                                <strong>What this means:</strong> the oversight level is set automatically by AI from
+                                the supplier's risk tier - it isn't adjusted by hand. A higher level means a human
+                                analyst must review and sign off before approval.
                             </div>
                         </div>
                     </div>
@@ -264,40 +242,43 @@
                 <div class="vc-page-hdr">
                     <div>
                         <div class="vc-page-title">Supplier queue</div>
-                        <div class="vc-page-sub">Suppliers you've submitted that are in review — track each one's stage, chase missing documents, or resume a draft.</div>
+                        <!-- <div class="vc-page-sub">Suppliers you've submitted that are in review — track each one's stage, chase missing documents, or resume a draft.</div> -->
                     </div>
-                    <span class="vc-pill-owns">You own: Your supplier queue</span>
+                    <div class="vc-page-hdr-actions">
+                        <span class="vc-pill-owns">Your supplier queue</span>
+                        <button class="vc-btn-sec vc-btn-sm" onclick={handleRefreshQueue} disabled={queueRefreshing}>
+                            <span class="vc-refresh-icon">⟳</span> Refresh
+                        </button>
+                    </div>
                 </div>
 
-                <div class="vc-tab-row">
-                    <button class={tabInReviewClass} data-tab="inReview" onclick={handleQueueTab}>In review</button>
-                    <button class={tabDraftsClass} data-tab="drafts" onclick={handleQueueTab}>Drafts</button>
-                    <button class={tabAwaitingClass} data-tab="awaiting" onclick={handleQueueTab}>Awaiting documents</button>
-                    <button class={tabHandedClass} data-tab="handed" onclick={handleQueueTab}>Handed to analyst</button>
-                </div>
+                <template if:true={queueRefreshing}>
+                    <div class="vc-snap-loading"><span class="vc-spinner"></span>Refreshing supplier queue…</div>
+                </template>
 
                 <div class="vc-table-wrap">
                     <div class="vc-tbl-head vc-p2-head">
                         <div class="vc-tbl-col">Supplier</div>
                         <div class="vc-tbl-col">Industry</div>
-                        <div class="vc-tbl-col">Stage</div>
-                        <div class="vc-tbl-col">Checklist</div>
-                        <div class="vc-tbl-col">Duration</div>
-                        <div class="vc-tbl-col">Confidence</div>
-                        <div class="vc-tbl-col">Last activity</div>
+                        <div class="vc-tbl-col vc-col-center">Risk Tier</div>
+                        <div class="vc-tbl-col vc-col-center">Stage</div>
+                        <div class="vc-tbl-col vc-docs-col">Documents</div>
+                        <div class="vc-tbl-col vc-col-center">Last activity</div>
                         <div class="vc-tbl-col">Action</div>
                     </div>
                     <template if:true={hasQueueRows}>
                         <template for:each={queueRows} for:item="row">
-                            <div key={row.id} class="vc-tbl-row vc-p2-row" data-id={row.id} data-name={row.name} onclick={handleOpenSupplier}>
+                            <div key={row.id} class="vc-tbl-row vc-p2-row" data-id={row.id} data-name={row.name} onclick={handleOpenSupplier} role="button" tabindex="0">
                                 <div class="vc-tbl-cell vc-sn">{row.name}</div>
                                 <div class="vc-tbl-cell vc-ind">{row.industry}</div>
-                                <div class="vc-tbl-cell vc-ind">{row.stageLabel}</div>
-                                <div class="vc-tbl-cell vc-ind">{row.checklistLabel}</div>
-                                <div class="vc-tbl-cell vc-ind">{row.durationLabel}</div>
-                                <div class="vc-tbl-cell vc-ind">{row.confidenceLabel}</div>
-                                <div class="vc-tbl-cell vc-st">{row.lastActivity}</div>
-                                <div class="vc-tbl-cell"><span class="vc-row-open">Open →</span></div>
+                                <div class="vc-tbl-cell vc-ind vc-col-center"><span class={row.riskTierBadgeClass}>{row.riskTier}</span></div>
+                                <div class="vc-tbl-cell vc-ind vc-col-center"><span class={row.stageBadgeClass}>{row.stageLabel}</span></div>
+                                <div class="vc-tbl-cell vc-ind vc-docs-col">{row.docsProgressLabel}</div>
+                                <div class="vc-tbl-cell vc-st vc-col-center">{row.lastActivity}</div>
+                                <div class="vc-tbl-cell vc-p2-action-cell">
+                                    <span class="vc-row-open">Open →</span>
+                                    <button type="button" class="vc-row-menu-btn" data-id={row.id} data-name={row.name} onclick={handleToggleRowMenu} title="More actions">⋮</button>
+                                </div>
                             </div>
                         </template>
                     </template>
@@ -314,21 +295,23 @@
                 <button class="vc-back-link" onclick={handleBackToQueue}>‹ Back to supplier queue</button>
                 <div class="vc-page-hdr">
                     <div>
-                        <div class="vc-page-title">Documents &amp; screening</div>
-                        <div class="vc-page-sub">{selectedSupplierName} · review evidence &amp; AI summaries · run screening · assign to an analyst.</div>
+                        <div class="vc-page-title">{selectedSupplierName}</div>
                     </div>
-                    <span class="vc-pill-owns">You own: Evidence collection &amp; handoff</span>
+                    <div class="vc-page-hdr-actions">
+                        <button class={profileDetailsBtnClass} onclick={handleOpenProfileDetails}>Profile Details</button>
+                        <span class="vc-pill-owns">Evidence collection &amp; handoff</span>
+                    </div>
                 </div>
 
                 <!-- Existing-supplier detail strip -->
                 <template if:true={snapshotLoading}>
-                    <div class="vc-snap-loading">Loading supplier record…</div>
+                    <div class="vc-snap-loading"><span class="vc-spinner"></span>Loading supplier record…</div>
                 </template>
                 <div class="vc-snap-strip">
                     <div class="vc-snap-cell"><span class="vc-snap-k">Risk tier</span><span class="vc-snap-v">{snapTier}</span></div>
                     <div class="vc-snap-cell"><span class="vc-snap-k">Status</span><span class="vc-snap-v">{snapStatus}</span></div>
-                    <div class="vc-snap-cell"><span class="vc-snap-k">Oversight</span><span class="vc-snap-v">{oversightLabel}</span></div>
-                    <div class="vc-snap-cell"><span class="vc-snap-k">Documents on file</span><span class="vc-snap-v">{storedDocsCount}</span></div>
+                    <div class="vc-snap-cell"><span class="vc-snap-k">Checklist progress</span><span class="vc-snap-v">{checklistCoverageLabel}</span></div>
+                    <div class="vc-snap-cell"><span class="vc-snap-k">Owner</span><span class="vc-snap-v">{ownerLabel}</span></div>
                 </div>
 
                 <!-- P3 tabs: Documents · Screening -->
@@ -340,13 +323,16 @@
                 <!-- ─── DOCUMENTS TAB ─────────────────────────────────────────── -->
                 <template if:true={isDocsTab}>
                     <div class="vc-policy-zone">
-                        <div class="vc-pz-icon">⤓</div>
+                        <div class="vc-pz-icon">⤒</div>
                         <div class="vc-pz-text">
-                            <div class="vc-pz-label">Add documents — one or many</div>
-                            <div class="vc-pz-hint">AI reads each file, matches it to the checklist, and validates it.</div>
+                            <div class="vc-pz-label">Add documents - one or many</div>
+                            <!-- <div class="vc-pz-hint">AI reads each file, matches it to the checklist, and validates it.</div> -->
                         </div>
-                        <button class="vc-btn-pri vc-btn-sm" onclick={handleAddFiles}>＋ Add files</button>
+                        <button class="vc-btn-pri vc-btn-sm" onclick={handleAddFiles} disabled={isPostHandoffLocked}
+                                title="Add one or more documents for this supplier.">＋ Add files</button>
                         <input type="file" multiple class="vc-file-input" onchange={handleFilesPicked}>
+                        <input type="file" class="vc-row-file-input" onchange={handleRowFilePicked}>
+                        <input type="file" class="vc-add-file-input" onchange={handleAddFilePicked}>
                     </div>
 
                     <!-- ── Compliance documents (merged checklist + documents) ───────
@@ -357,77 +343,263 @@
                         <div class="vc-card vc-checklist-card">
                             <div class="vc-panel-header">
                                 <div class="vc-card-title vc-card-title-nomargin">Compliance documents</div>
-                                <span class="vc-ai-badge">✦ {checklistProgressLabel} · AI matched &amp; validated</span>
                             </div>
-                            <!-- column headers: required document | uploaded file -->
+                            <template if:true={isPostHandoffLocked}>
+                                <div class="vc-locked-note">{postHandoffLockNote}</div>
+                            </template>
+                            <template if:false={isPostHandoffLocked}>
+                                <template if:true={procurementApproveLocked}>
+                                    <div class="vc-locked-note">{procurementApproveLockedNote}</div>
+                                </template>
+                            </template>
+
+                            <!-- Add an extra required document TYPE to this supplier's PERSISTED
+                                 checklist (no file — just adds a new requirement row; wording is
+                                 explicit so it isn't mistaken for a file-upload control, which is
+                                 the "+ Add files" dropzone above). Locked post-handoff — see
+                                 isPostHandoffLocked. -->
+                            <template if:false={isPostHandoffLocked}>
+                                <div class="vc-cl-add-row">
+                                    <input class="vc-finput vc-cl-add-input" type="text" value={newRequirementName}
+                                           placeholder="Name a new required document to add to this checklist…" oninput={handleNewRequirementChange}>
+                                    <button class="vc-btn-sec vc-btn-sm" onclick={handleAddRequirement} disabled={isAddRequirementDisabled}>＋ Add to checklist</button>
+                                </div>
+                            </template>
+
+                            <!-- column headers: required document | uploaded file | status (+ confidence inline) | actions -->
                             <div class="vc-cdoc-cols vc-cdoc-head">
-                                <span></span>
                                 <span class="vc-cdoc-h-req">Required document</span>
                                 <span class="vc-cdoc-h-file">Uploaded file</span>
-                                <span class="vc-cdoc-h-verdict"></span>
+                                <span class="vc-cdoc-h-status">Status</span>
+                                <span class="vc-cdoc-h-actions">Actions</span>
                             </div>
                             <template for:each={complianceRows} for:item="c">
                                 <div key={c.id} class={c.rowClass}>
-                                    <!-- top line: checkbox · requirement | uploaded file | verdict · actions -->
+                                    <!-- top line: (checkbox · requirement) | uploaded file | status+confidence | actions -->
                                     <div class="vc-cdoc-cols vc-cdoc-top">
-                                        <span class={c.boxClass}>
-                                            <template if:true={c.ticked}>✓</template>
+                                        <div class="vc-cdoc-req">
+                                            <span class={c.boxClass}>
+                                                <template if:true={c.ticked}>✓</template>
+                                            </span>
+                                            <span class="vc-cdoc-label">{c.label}</span>
+                                            <template if:true={c.pendingReReview}>
+                                                <span class="vc-badge warn vc-pending-rereview-badge"
+                                                      title="The supplier responded to your rejection — re-upload or comment. Take another look.">Pending re-review</span>
+                                            </template>
+                                        </div>
+                                        <span class="vc-cdoc-file" title={c.fileName}>
+                                            <!-- Latest-decision dot — blue=Approved, red=Rejected,
+                                                 yellow=Deferred, none rendered when no decision yet.
+                                                 procurementDecision already reflects the LATEST state
+                                                 (DocumentProcessingController clears it back to null on
+                                                 every re-upload, see its own comment), so this always
+                                                 shows the current stage with no extra logic needed. -->
+                                            <template if:true={c.hasProcurementDecision}>
+                                                <span class={c.decisionDotClass} title={c.decisionDotTitle}></span>
+                                            </template>
+                                            <template if:true={c.hasFileName}>
+                                                <span class="vc-cdoc-file-icon">📄</span><span class="vc-cdoc-file-text">{c.fileName}</span>
+                                            </template>
+                                            <template if:false={c.hasFileName}><span class="vc-cdoc-nofile">Not uploaded</span></template>
                                         </span>
-                                        <span class="vc-cdoc-label">{c.label}</span>
-                                        <span class="vc-cdoc-file">
-                                            <template if:true={c.hasFileName}>{c.fileName}</template>
-                                            <template if:false={c.hasFileName}><span class="vc-cdoc-nofile">— not uploaded —</span></template>
-                                        </span>
-                                        <div class="vc-cdoc-right">
+                                        <span class="vc-cdoc-status-cell">
                                             <template if:true={c.hasVerdict}>
                                                 <span class={c.verdictBadgeClass}>{c.verdict}</span>
-                                                <template if:true={c.hasConfidence}>
-                                                    <span class="vc-cdoc-conf" title="AI engine confidence in this assessment">{c.confidenceLabel}</span>
-                                                </template>
                                             </template>
                                             <template if:false={c.hasVerdict}>
                                                 <span class="vc-cdoc-status">{c.statusText}</span>
                                             </template>
+                                        </span>
+                                        <div class="vc-cdoc-actions">
+                                            <template if:false={c.hasFile}>
+                                                <template if:false={isPostHandoffLocked}>
+                                                    <button class="vc-doc-btn icon" data-assessment-id={c.assessmentId}
+                                                            onclick={handleRowUpload}
+                                                            title="Upload a file directly for this requirement.">⤒</button>
+                                                </template>
+                                            </template>
+                                            <button class="vc-doc-btn icon vc-reassess-btn" data-assessment-id={c.assessmentId}
+                                                    onclick={handleReassessDoc} disabled={c.reassessing}
+                                                    title="Re-run the AI check on this document with its current file.">
+                                                <template if:true={c.reassessing}><span class="vc-spinner"></span></template>
+                                                <template if:false={c.reassessing}>⟳</template>
+                                            </button>
                                             <template if:true={c.hasFile}>
-                                                <div class="vc-cdoc-actions">
-                                                    <button class="vc-doc-btn" data-id={c.fileId} onclick={handlePreviewDoc}>Preview</button>
-                                                    <button class="vc-doc-btn danger" data-id={c.fileId} onclick={handleRemoveDoc}>Remove</button>
-                                                </div>
+                                                <button class="vc-doc-btn icon" data-id={c.fileId} onclick={handlePreviewDoc}
+                                                        title="Open this file in a preview panel.">👁</button>
+                                            </template>
+                                            <template if:true={c.hasFile}>
+                                                <template if:false={isPostHandoffLocked}>
+                                                    <button class="vc-doc-btn icon" data-assessment-id={c.assessmentId}
+                                                            onclick={handleAddAnotherFile}
+                                                            title="Add a second document for this requirement (e.g. this needs both a credential and a roster).">＋📄</button>
+                                                </template>
+                                            </template>
+                                            <template if:false={isPostHandoffLocked}>
+                                                <button class="vc-doc-btn danger" data-assessment-id={c.assessmentId}
+                                                        onclick={handleRemoveRequirement}
+                                                        title="Delete this requirement from the checklist. The supplier will no longer be asked for it.">Remove item</button>
                                             </template>
                                         </div>
                                     </div>
 
-                                    <!-- AI reasoning — collapsed by default, expand on demand -->
+                                    <!-- "Show/Hide detail" is its own line below the row — expands the
+                                         WHOLE activity panel (AI summary + Approve/Reject + Decision &
+                                         notes together), not just the AI summary. -->
                                     <template if:true={c.hasDetail}>
-                                        <button class="vc-cdoc-toggle" data-key={c.key} onclick={handleToggleDetail}>{c.toggleLabel}</button>
+                                        <div class="vc-cdoc-toggle-row">
+                                            <button class="vc-cdoc-toggle" data-key={c.key} onclick={handleToggleDetail}
+                                                    title="Show or hide this document's AI summary and decision history.">{c.toggleLabel}</button>
+                                        </div>
+                                    </template>
+
+                                    <!-- Unified activity panel: AI summary → Approve/Reject → Decision & notes.
+                                         One container, one background, consistent zones — replaces the old
+                                         stacked secondary-row / comment-list / floating decision-box. -->
+                                    <template if:true={c.hasDetail}>
                                         <template if:true={c.expanded}>
-                                            <div class="vc-cdoc-detail">
-                                                <template if:true={c.hasHeadline}>
-                                                    <div class="vc-assess-headline">{c.headline}</div>
-                                                </template>
-                                                <template if:true={c.hasChecks}>
-                                                    <div class="vc-assess-checks">
-                                                        <template for:each={c.checks} for:item="k">
-                                                            <div key={k.id} class={k.chkClass}>
-                                                                <template if:true={k.pass}>✓ </template>
-                                                                <template if:false={k.pass}>✕ </template>{k.text}
+                                            <div class="vc-activity-panel">
+                                                <!-- Multi-document-per-requirement: only rendered once this
+                                                     requirement has more than its single default file — each
+                                                     linked document gets its OWN status/summary sub-row,
+                                                     distinct from the requirement-level rollup verdict shown
+                                                     on the row above. -->
+                                                <template if:true={c.hasDocumentLinks}>
+                                                    <div class="vc-activity-zone">
+                                                        <div class="vc-zone-label">Linked documents</div>
+                                                        <template for:each={c.documentLinks} for:item="dl">
+                                                            <div key={dl.id} class="vc-linked-doc">
+                                                                <div class="vc-linked-doc-head">
+                                                                    <span class="vc-linked-doc-title">📄 {dl.documentTitle}</span>
+                                                                    <span class={dl.badgeClass}>{dl.status}</span>
+                                                                    <template if:true={dl.hasFile}>
+                                                                        <button class="vc-doc-btn icon" data-id={dl.contentDocumentId} onclick={handlePreviewDoc}
+                                                                                title="Open this file in a preview panel.">👁</button>
+                                                                    </template>
+                                                                </div>
+                                                                <template if:true={dl.hasConfidence}>
+                                                                    <div class="vc-assess-confidence">{dl.confidenceLabel}</div>
+                                                                </template>
+                                                                <template if:true={dl.hasHeadline}>
+                                                                    <div class="vc-assess-headline">{dl.headline}</div>
+                                                                </template>
+                                                                <template if:true={dl.hasChecksPassed}>
+                                                                    <ul class="vc-assess-list pass">
+                                                                        <template for:each={dl.checksPassed} for:item="p">
+                                                                            <li key={p.id}>{p.text}</li>
+                                                                        </template>
+                                                                    </ul>
+                                                                </template>
+                                                                <template if:true={dl.hasConcerns}>
+                                                                    <ul class="vc-assess-list wrong">
+                                                                        <template for:each={dl.concerns} for:item="cc">
+                                                                            <li key={cc.id}>{cc.text}</li>
+                                                                        </template>
+                                                                    </ul>
+                                                                </template>
                                                             </div>
                                                         </template>
                                                     </div>
                                                 </template>
-                                                <template if:true={c.hasFacts}>
-                                                    <ul class="vc-assess-facts">
-                                                        <template for:each={c.facts} for:item="f">
-                                                            <li key={f.id}>{f.text}</li>
-                                                        </template>
-                                                    </ul>
+                                                <template if:true={c.hasAiSummary}>
+                                                    <div class="vc-activity-zone">
+                                                        <div class="vc-zone-label">AI summary</div>
+                                                        <div class="vc-ai-summary-box">
+                                                            <template if:true={c.hasHeadline}>
+                                                                <div class="vc-assess-headline">{c.headline}</div>
+                                                            </template>
+                                                            <template if:true={c.hasEvaluatedLabel}>
+                                                                <div class="vc-assess-evaluated">Evaluated by AI · {c.evaluatedLabel}</div>
+                                                            </template>
+                                                            <template if:true={c.hasConfidence}>
+                                                                <div class="vc-assess-confidence" title="How confident the AI is in this specific verdict.">{c.confidenceLabel}</div>
+                                                            </template>
+                                                            <template if:true={c.hasChecksPassed}>
+                                                                <div class="vc-assess-section">
+                                                                    <div class="vc-assess-section-label pass">What checks out</div>
+                                                                    <ul class="vc-assess-list pass">
+                                                                        <template for:each={c.checksPassed} for:item="p">
+                                                                            <li key={p.id}>{p.text}</li>
+                                                                        </template>
+                                                                    </ul>
+                                                                </div>
+                                                            </template>
+                                                            <template if:true={c.hasConcerns}>
+                                                                <div class="vc-assess-section">
+                                                                    <div class="vc-assess-section-label wrong">What's wrong</div>
+                                                                    <ul class="vc-assess-list wrong">
+                                                                        <template for:each={c.concerns} for:item="cc">
+                                                                            <li key={cc.id}>{cc.text}</li>
+                                                                        </template>
+                                                                    </ul>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </div>
                                                 </template>
-                                                <template if:true={c.hasConcerns}>
-                                                    <ul class="vc-assess-concerns">
-                                                        <template for:each={c.concerns} for:item="cc">
-                                                            <li key={cc.id}>⚠ {cc.text}</li>
+
+                                                <!-- Approve/Reject/Defer — stays visible until the row is
+                                                     Approved, including after a Reject or a Defer, so
+                                                     re-deciding on a supplier's follow-up is just clicking
+                                                     one of the three again. -->
+                                                <template if:true={c.hasFile}>
+                                                    <template if:true={c.showApproveReject}>
+                                                        <div class="vc-activity-zone">
+                                                            <div class="vc-decision-buttons-row">
+                                                                <button class="vc-doc-btn approve" data-key={c.key} onclick={handleOpenApproveDecision}
+                                                                        title="Accept this document as satisfying the requirement.">Approve</button>
+                                                                <button class="vc-doc-btn danger" data-key={c.key} onclick={handleOpenRejectDecision}
+                                                                        title="Reject this document and explain why, so the supplier can respond.">Reject</button>
+                                                                <button class="vc-doc-btn defer" data-key={c.key} onclick={handleOpenDeferDecision}
+                                                                        title="Send this to a specialist — your note is visible to the Analyst only.">Defer</button>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </template>
+
+                                                <!-- Decision & notes — full history, newest first. Its own
+                                                     zone, independent of the composer below it. -->
+                                                <template if:true={c.hasComments}>
+                                                    <div class="vc-activity-zone">
+                                                        <div class="vc-zone-label">Decision &amp; notes</div>
+                                                        <template for:each={c.comments} for:item="pc">
+                                                            <div key={pc.id} class="vc-activity-entry">
+                                                                <template if:true={pc.isSupplierComment}>
+                                                                    <span class="vc-badge neutral">Supplier</span>
+                                                                    <span class="vc-activity-note">{pc.reason}</span>
+                                                                </template>
+                                                                <template if:false={pc.isSupplierComment}>
+                                                                    <span class={pc.badgeClass}>{pc.decision}</span>
+                                                                    <span class="vc-activity-note">by {pc.actorName} - {pc.reason}</span>
+                                                                </template>
+                                                                <span class="vc-activity-when">{pc.dateLabel}</span>
+                                                            </div>
                                                         </template>
-                                                    </ul>
+                                                    </div>
+                                                </template>
+
+                                                <!-- Inline reason composer — appears the moment Approve/Reject
+                                                     is clicked, independent of whether history exists yet
+                                                     (a row's very first decision has none). -->
+                                                <template if:true={c.decisionOpen}>
+                                                    <div class="vc-activity-zone">
+                                                        <div class="vc-decision-composer">
+                                                            <div class="vc-decision-composer-label">{c.decisionPromptLabel}</div>
+                                                            <textarea class="vc-finput vc-decision-composer-input" data-key={c.key}
+                                                                      value={c.decisionReasonDraft} oninput={handleDecisionReasonInput}
+                                                                      placeholder="Explain your decision…"></textarea>
+                                                            <div class="vc-decision-composer-actions">
+                                                                <button class="vc-btn-sec vc-btn-sm" data-key={c.key} onclick={handleCancelDecision}
+                                                                        disabled={c.decisionSaving} title="Discard this decision without saving it.">Cancel</button>
+                                                                <button class="vc-btn-pri vc-btn-sm" data-key={c.key} onclick={handleSubmitDecision}
+                                                                        disabled={c.isDecisionSubmitDisabled}
+                                                                        title="Save this decision and notify the supplier.">
+                                                                    <template if:true={c.decisionSaving}><span class="vc-spinner"></span></template>
+                                                                    Submit
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </template>
                                             </div>
                                         </template>
@@ -479,7 +651,7 @@
                         <div class="vc-card">
                             <div class="vc-empty-inline">
                                 No required documents yet.
-                                <span class="vc-sm-muted">Generate the checklist at intake, then use “Add files” above — AI matches each file to the checklist and validates it.</span>
+                                <span class="vc-sm-muted">Generate the checklist at intake, then use “Add files” above - AI matches each file to the checklist and validates it.</span>
                             </div>
                         </div>
                     </template>
@@ -494,13 +666,30 @@
                                 <div key={r.id} class="vc-rej-row">
                                     <div class="vc-rej-top">
                                         <span class="vc-rej-name">{r.title}</span>
-                                        <button class="vc-btn-sec vc-btn-sm" data-id={r.id}
-                                                onclick={handlePromoteRejected} disabled={r.promoting}>
-                                            <template if:true={r.promoting}>Adding…</template>
-                                            <template if:false={r.promoting}>＋ Add to checklist</template>
+                                        <button class="vc-doc-btn danger" data-id={r.id}
+                                                onclick={handleRemoveRejectedDoc} disabled={r.removing}
+                                                title="Delete this rejected file. You'll need to upload it again if it was relevant.">
+                                            <template if:true={r.removing}>Removing…</template>
+                                            <template if:false={r.removing}>Remove</template>
                                         </button>
                                     </div>
                                     <div class="vc-rej-reason">{r.reason}</div>
+                                    <template if:true={r.hasRequirementOptions}>
+                                        <div class="vc-rej-connect">
+                                            <select class="vc-finput vc-fselect vc-rej-select" data-id={r.id} onchange={handleRejectedRequirementChange}>
+                                                <option value="">Connect to existing checklist item…</option>
+                                                <template for:each={r.requirementOptions} for:item="opt">
+                                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                </template>
+                                            </select>
+                                            <button class="vc-btn-sec vc-btn-sm" data-id={r.id}
+                                                    onclick={handleConnectRejected} disabled={r.connecting}
+                                                    title="Link this file to the selected checklist item.">
+                                                <template if:true={r.connecting}>Connecting…</template>
+                                                <template if:false={r.connecting}>Connect</template>
+                                            </button>
+                                        </div>
+                                    </template>
                                 </div>
                             </template>
                         </div>
@@ -512,14 +701,13 @@
                     <div class="vc-card">
                         <div class="vc-panel-header">
                             <div class="vc-card-title vc-card-title-nomargin">Registry &amp; watchlist screening</div>
-                            <span class="vc-ai-badge">✦ /verify</span>
                         </div>
                         <div class="vc-sm-muted vc-p3-screen-sub">
                             Runs identity (GLEIF), sanctions / denied-party, conflict-minerals and adverse-media checks
                             against authoritative sources. Results are saved to this supplier and folded into the AI summary.
                         </div>
-                        <template if:true={hasScreeningResults}>
-                            <div class="vc-stored-note">✓ Stored screening results shown below — re-run only if the supplier's details changed.</div>
+                        <template if:true={showStoredNote}>
+                            <div class="vc-stored-note">✓ Stored screening results shown below - re-run only if the supplier's details changed.</div>
                         </template>
                         <button class="vc-btn-pri" disabled={screeningBusy} onclick={handleRunScreening}>
                             <template if:true={screeningBusy}><span class="vc-spinner"></span>Running screening…</template>
@@ -573,19 +761,18 @@
                 <button class="vc-back-link" onclick={handleBackToDocuments}>‹ Back to documents &amp; screening</button>
                 <div class="vc-page-hdr">
                     <div>
-                        <div class="vc-page-title">Submission summary</div>
-                        <div class="vc-page-sub">{selectedSupplierName} · checklist compliance overview ready for analyst handoff.</div>
+                        <div class="vc-page-title">{selectedSupplierName}</div>
                     </div>
-                    <span class="vc-pill-owns">You own: Review &amp; handoff</span>
+                    <span class="vc-pill-owns">Review &amp; handoff</span>
                 </div>
 
-                <!-- Shared dashboard header: risk score · onboarding progress · score trend -->
-                <c-sc-compliance-dashboard tier={snapTier} docs={dashboardDocs}></c-sc-compliance-dashboard>
+                <!-- Shared dashboard header: risk score · onboarding progress · compliance status · score trend
+                     (trend shown here only — Analyst/Portal didn't find it useful) -->
+                <c-sc-compliance-dashboard tier={snapTier} docs={dashboardDocs} risk-score={snapRiskScore} show-trend="true"></c-sc-compliance-dashboard>
 
                 <div class="vc-card">
                     <div class="vc-panel-header">
                         <div class="vc-card-title vc-card-title-nomargin">Document checklist status</div>
-                        <span class="vc-ai-badge">✦ AI assessed</span>
                     </div>
                     <template if:true={hasSubmissionRows}>
                         <div class="vc-sub-table-wrap">
@@ -610,36 +797,32 @@
                                             <td class="vc-sub-td vc-sub-doc">{row.label}</td>
                                             <td class="vc-sub-td"><span class={row.badgeClass}>{row.status}</span></td>
                                             <td class="vc-sub-td vc-sub-reason">
-                                                <!-- Structured AI summary: headline + facts + checks + concerns -->
+                                                <!-- Structured AI summary: headline + what checks out / what's wrong -->
                                                 <template if:true={row.hasHeadline}>
                                                     <div class="vc-assess-headline">{row.headline}</div>
                                                 </template>
                                                 <template if:false={row.hasHeadline}>
                                                     <div>{row.reason}</div>
                                                 </template>
-                                                <template if:true={row.hasFacts}>
-                                                    <ul class="vc-assess-facts">
-                                                        <template for:each={row.facts} for:item="f">
-                                                            <li key={f.id}>{f.text}</li>
-                                                        </template>
-                                                    </ul>
-                                                </template>
-                                                <template if:true={row.hasChecks}>
-                                                    <div class="vc-assess-checks">
-                                                        <template for:each={row.checks} for:item="k">
-                                                            <div key={k.id} class={k.chkClass}>
-                                                                <template if:true={k.pass}>✓ </template>
-                                                                <template if:false={k.pass}>✕ </template>{k.text}
-                                                            </div>
-                                                        </template>
+                                                <template if:true={row.hasChecksPassed}>
+                                                    <div class="vc-assess-section">
+                                                        <div class="vc-assess-section-label pass">What checks out</div>
+                                                        <ul class="vc-assess-list pass">
+                                                            <template for:each={row.checksPassed} for:item="f">
+                                                                <li key={f.id}>{f.text}</li>
+                                                            </template>
+                                                        </ul>
                                                     </div>
                                                 </template>
                                                 <template if:true={row.hasConcerns}>
-                                                    <ul class="vc-assess-concerns">
-                                                        <template for:each={row.concerns} for:item="c">
-                                                            <li key={c.id}>⚠ {c.text}</li>
-                                                        </template>
-                                                    </ul>
+                                                    <div class="vc-assess-section">
+                                                        <div class="vc-assess-section-label wrong">What's wrong</div>
+                                                        <ul class="vc-assess-list wrong">
+                                                            <template for:each={row.concerns} for:item="c">
+                                                                <li key={c.id}>{c.text}</li>
+                                                            </template>
+                                                        </ul>
+                                                    </div>
                                                 </template>
                                             </td>
                                             <td class="vc-sub-td vc-sub-conf">{row.confidence}</td>
@@ -652,26 +835,59 @@
                     <template if:false={hasSubmissionRows}>
                         <div class="vc-empty-inline">
                             No document assessments recorded yet.
-                            <span class="vc-sm-muted">Upload documents first — AI assessments will appear here.</span>
+                            <span class="vc-sm-muted">Upload documents first - AI assessments will appear here.</span>
                         </div>
                     </template>
                 </div>
 
-                <div class="vc-card vc-p3-screen">
-                    <div class="vc-panel-header">
-                        <div class="vc-card-title vc-card-title-nomargin">Note &amp; handoff</div>
-                        <span class="vc-ai-badge">✦ to analyst</span>
+                <!-- Only relevant BEFORE handoff — once Analyst_Assigned_DateTime__c
+                     is set, this note has already been sent (assignToAnalyst
+                     copies it into Assignment_Reason__c at that moment); showing
+                     an empty, editable note box after the fact reads as if
+                     Procurement can still act, which they can't. Reappears the
+                     same way every other post-handoff-locked control does — the
+                     instant sendCaseBackToProcurement clears Analyst_Assigned_
+                     DateTime__c and this screen reloads. -->
+                <template if:false={isPostHandoffLocked}>
+                    <div class="vc-card vc-p3-screen">
+                        <div class="vc-panel-header">
+                            <div class="vc-card-title vc-card-title-nomargin">Note &amp; handoff</div>
+                        </div>
+                        <div class="vc-flabel">Note for the analyst (optional)</div>
+                        <textarea class="vc-note-input" placeholder="Add context, flags, or anything the analyst should know…"
+                                  onchange={handleNoteChange}>{procNote}</textarea>
+                        <div class="vc-sm-muted vc-p3-screen-sub">
+                            Assigning attaches your note and routes the supplier to the chosen analyst, then returns you to the queue.
+                        </div>
                     </div>
-                    <div class="vc-flabel">Note for the analyst (optional)</div>
-                    <textarea class="vc-note-input" placeholder="Add context, flags, or anything the analyst should know…"
-                              onchange={handleNoteChange}>{procNote}</textarea>
-                    <div class="vc-sm-muted vc-p3-screen-sub">
-                        Assigning attaches your note and routes the supplier to the chosen analyst, then returns you to the queue.
-                    </div>
-                </div>
+                </template>
+                <template if:true={isHandoffBlocked}>
+                    <div class="vc-handoff-blocked-note">{handoffBlockedReason}</div>
+                </template>
+                <!-- Already handed off to an Analyst — Procurement's judgment
+                     authority on this case has ended (same rule the P3
+                     Approve/Reject/Defer buttons already follow via
+                     isPostHandoffLocked); neither onboard-directly nor
+                     assign-to-analyst should be re-triggerable from here. -->
+                <template if:true={isPostHandoffLocked}>
+                    <div class="vc-handoff-blocked-note">Already handed off to an Analyst — awaiting their decision.</div>
+                </template>
                 <div class="vc-footer-actions">
                     <button class="vc-btn-sec" onclick={handleBackToDocuments}>‹ Back</button>
-                    <button class="vc-btn-pri" onclick={handleOpenAssign}>Assign to analyst ›</button>
+                    <template if:false={isPostHandoffLocked}>
+                        <!-- Every requirement Approved (none Deferred) — Procurement
+                             can onboard directly, no Analyst needed. -->
+                        <template if:true={isReadyForDirectOnboard}>
+                            <button class="vc-btn-pri vc-btn-onboard" onclick={handleOnboardDirectly} disabled={onboarding}
+                                    title="Every document is Approved — onboard this supplier now, no Analyst review needed.">Onboard supplier ✓</button>
+                        </template>
+                        <!-- At least one Deferred (or still undecided) — must go to
+                             the Analyst, same as today. -->
+                        <template if:false={isReadyForDirectOnboard}>
+                            <button class="vc-btn-pri" onclick={handleOpenAssign} disabled={isHandoffBlocked}
+                                    title="Hand this supplier off to an analyst for final review.">Assign to analyst ›</button>
+                        </template>
+                    </template>
                 </div>
             </template>
 
@@ -683,8 +899,8 @@
         <template if:true={copilotOpen}>
             <div class="vc-cp-panel">
                 <div class="vc-cp-panel-head">
-                    <div class="vc-cp-panel-title">✦ Co-pilot <span class="vc-cp-panel-sub">· {selectedSupplierName}</span></div>
-                    <button class="vc-cp-close" onclick={closeCopilot}>×</button>
+                    <div class="vc-cp-panel-title">✦ GRACE <span class="vc-cp-panel-sub">· {selectedSupplierName}</span></div>
+                    <button class="vc-cp-close" onclick={closeCopilot} title="Close the GRACE panel.">×</button>
                 </div>
                 <div class="vc-cp-thread">
                     <template if:true={hasCopilotMessages}>
@@ -705,7 +921,7 @@
                         </template>
                     </template>
                     <template if:false={hasCopilotMessages}>
-                        <div class="vc-cp-empty">Ask about this supplier's documents, findings, or screening — e.g. “Is the insurance certificate still valid?” or “What’s blocking approval?”</div>
+                        <div class="vc-cp-empty">Ask about this supplier's documents, findings, or screening - e.g. “Is the insurance certificate still valid?” or “What’s blocking approval?”</div>
                     </template>
                     <template if:true={copilotBusy}>
                         <div class="vc-cp-msg ai vc-cp-typing">Thinking…</div>
@@ -723,13 +939,13 @@
                     </div>
                 </template>
                 <div class="vc-cp-inputrow">
-                    <input type="text" class="vc-cp-input" placeholder="Ask the co-pilot…"
+                    <input type="text" class="vc-cp-input" placeholder="Ask GRACE…"
                            value={copilotInput} oninput={handleCopilotInput} onkeydown={handleCopilotKey}>
                     <button class="vc-btn-pri vc-btn-sm" disabled={copilotSendDisabled} onclick={handleCopilotSend}>Send</button>
                 </div>
             </div>
         </template>
-        <button class={copilotFabClass} onclick={toggleCopilot} title="Co-pilot">
+        <button class={copilotFabClass} onclick={toggleCopilot} title="Ask GRACE about this supplier.">
             <span class="vc-cp-fab-spark">✦</span>
         </button>
     </template>
@@ -748,10 +964,10 @@
             </template>
             <div class="vc-assign-list">
                 <template for:each={analystRows} for:item="a">
-                    <div key={a.id} class={a.rowClass} data-id={a.id} onclick={handlePickAnalyst}>
+                    <button type="button" key={a.id} class={a.rowClass} data-id={a.id} onclick={handlePickAnalyst}>
                         <div class="vc-assign-name">{a.name}</div>
                         <div class="vc-assign-role">{a.role}</div>
-                    </div>
+                    </button>
                 </template>
             </div>
             <div class="vc-modal-actions">
@@ -759,6 +975,96 @@
                 <button class="vc-btn-pri" disabled={assignDisabled} onclick={handleConfirmAssign}>
                     <template if:true={assigning}><span class="vc-spinner"></span></template>
                     Assign to analyst
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <!-- ── Supplier Queue row Actions menu (Edit / Resend Email) — a single
+         floating element, positioned via JS from the clicked ⋮ button's
+         coordinates, rather than nested inside the row/cell (the table
+         wrapper's overflow:hidden, needed for its rounded corners, would
+         otherwise clip it). ─────────────────────────────────────────────── -->
+    <template if:true={showRowMenu}>
+        <div class="vc-row-menu-floating" style={rowMenuStyle}>
+            <button type="button" class="vc-row-menu-item" onclick={handleOpenResend}>Resend Email</button>
+        </div>
+    </template>
+
+    <!-- ── Profile Details modal (Documents & Screening) — view + edit + send
+         email in one place. Legal entity name / Annual spend / Supplier email
+         are editable; everything else is shown read-only (greyed out). Send
+         email saves the edited fields then resends the document-request
+         email to the (possibly-updated) supplier email. ────────────────── -->
+    <template if:true={showProfileModal}>
+        <div class="vc-modal-backdrop" onclick={handleCloseProfile}></div>
+        <div class="vc-modal vc-modal-wide" role="dialog" aria-modal="true">
+            <div class="vc-modal-title">Profile details</div>
+            <template if:true={profileLoading}>
+                <div class="vc-snap-loading"><span class="vc-spinner"></span>Loading supplier…</div>
+            </template>
+            <template if:false={profileLoading}>
+                <div class="vc-two-col vc-edit-grid">
+                    <div class="vc-field">
+                        <label class="vc-flabel">Legal entity name</label>
+                        <input class="vc-finput" type="text" data-field="profileName" value={profileName} onchange={handleProfileField}>
+                    </div>
+                    <div class="vc-field">
+                        <label class="vc-flabel">Country / HQ</label>
+                        <div class="vc-view-value">{profileCountry}</div>
+                    </div>
+                    <div class="vc-field">
+                        <label class="vc-flabel">Industry</label>
+                        <div class="vc-view-value">{profileIndustry}</div>
+                    </div>
+                    <div class="vc-field">
+                        <label class="vc-flabel">Engagement type</label>
+                        <div class="vc-view-value">{profileEngagement}</div>
+                    </div>
+                    <div class="vc-field">
+                        <label class="vc-flabel">Annual spend (est.)</label>
+                        <input class="vc-finput" type="text" data-field="profileSpend" value={profileSpend} onchange={handleProfileField}>
+                    </div>
+                    <div class="vc-field">
+                        <label class="vc-flabel">Supplier email</label>
+                        <input class="vc-finput" type="email" data-field="profileEmail" value={profileEmail} onchange={handleProfileField}>
+                    </div>
+                    <div class="vc-field">
+                        <label class="vc-flabel">Raw material type</label>
+                        <div class="vc-view-value">{profileMaterialType}</div>
+                    </div>
+                    <div class="vc-field">
+                        <label class="vc-flabel">Service category</label>
+                        <div class="vc-view-value">{profileServiceCategory}</div>
+                    </div>
+                </div>
+            </template>
+            <div class="vc-modal-actions vc-modal-actions-sep">
+                <button class="vc-btn-sec" onclick={handleCloseProfile} disabled={isProfileBusy}>Cancel</button>
+                <button class="vc-btn-sec" disabled={isSaveProfileDisabled} onclick={handleSaveProfile}>
+                    <template if:true={profileSavingOnly}><span class="vc-spinner"></span></template>
+                    Save
+                </button>
+                <button class="vc-btn-pri" disabled={isSendProfileEmailDisabled} onclick={handleSendProfileEmail}>
+                    <template if:true={profileSaving}><span class="vc-spinner"></span></template>
+                    Send email
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <!-- ── Resend document-request email confirm (Supplier Queue row menu) ──── -->
+    <template if:true={showResendConfirm}>
+        <div class="vc-modal-backdrop" onclick={handleCancelResend}></div>
+        <div class="vc-modal" role="dialog" aria-modal="true">
+            <div class="vc-modal-title">Resend document request?</div>
+            <!-- <div class="vc-modal-sub">Resends the checklist email - with {resendName}'s portal link - to their contact email on file.</div> -->
+            <div class="vc-modal-sub">Resends the checklist email to {resendName} with the portal link.</div>
+            <div class="vc-modal-actions">
+                <button class="vc-btn-sec" onclick={handleCancelResend} disabled={resendSending}>Cancel</button>
+                <button class="vc-btn-pri" onclick={handleConfirmResend} disabled={resendSending}>
+                    <template if:true={resendSending}><span class="vc-spinner"></span></template>
+                    Resend email
                 </button>
             </div>
         </div>

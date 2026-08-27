@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Analyst_Comment__c</fullName>
-    <description>The analyst's own manual validation comment on this document/finding (distinct from the AI Reason Detail).</description>
+    <description>The analyst&apos;s own manual validation comment on this document/finding (distinct from the AI Reason Detail).</description>
     <label>Analyst Comment</label>
     <length>4000</length>
     <trackTrending>false</trackTrending>

@@ -122,6 +122,147 @@ public with sharing class ComplianceEmailController {
         }
     }
 
+    // ── sendRenewalAlert ──────────────────────────────────────────────────────
+    // Distinct from sendComplianceEmail (the generic "these documents are
+    // required" onboarding-style list): this names the ONE specific item that
+    // broke or expired — the "trigger the alert" action from the Intelligence
+    // Dashboard's supplier-alerts widget and the Account page's compliance
+    // component. Reuses the SAME durable portal link every other supplier
+    // email in this org uses (VendorPortalController.generateSupplierPortalUrl)
+    // — no new identity mechanism, existing suppliers and new suppliers are
+    // not actually distinguished anywhere in this system; the link always
+    // resolves to live, current data on every open (never a stale snapshot).
+    @AuraEnabled(cacheable=false)
+    public static void sendRenewalAlert(Id accountId, Id assessmentId) {
+        if (accountId == null)    throw new AuraHandledException('accountId is required.');
+        if (assessmentId == null) throw new AuraHandledException('assessmentId is required.');
+
+        Account acc = [SELECT Id, Name, Onboarding_Status__c FROM Account WHERE Id = :accountId LIMIT 1];
+        // This is a RENEWAL alert — it only makes sense for a supplier that's
+        // already onboarded. The dashboard widget that surfaces this button
+        // already filters to Approved/Reviewed suppliers only (a still-
+        // onboarding supplier's flags belong to the normal onboarding review
+        // flow, not a renewal), but that's a UI-layer filter — guard it here
+        // too so a direct call can't fire this on a supplier who was never
+        // approved in the first place.
+        if (acc.Onboarding_Status__c != 'Approved' && acc.Onboarding_Status__c != 'Reviewed') {
+            throw new AuraHandledException('Renewal alerts are only for already-onboarded suppliers.');
+        }
+        Compliance_Assessment__c a = [
+            SELECT Requirement_Label__c, Status__c, Reason_Code__c, Reason_Detail__c, Valid_Until__c
+            FROM   Compliance_Assessment__c
+            WHERE  Id = :assessmentId
+            LIMIT  1
+        ];
+
+        String toEmail = findContactEmail(accountId);
+        if (String.isBlank(toEmail)) {
+            throw new AuraHandledException('No contact email found for this supplier.');
+        }
+
+        String portalUrl = null;
+        try { portalUrl = VendorPortalController.generateSupplierPortalUrl(accountId); } catch (Exception e) { /* non-fatal */ }
+
+        Boolean isExpiry = (a.Reason_Code__c == 'Expired');
+        String reasonLine = isExpiry
+            ? (a.Valid_Until__c != null && a.Valid_Until__c < Date.today()
+                ? 'expired on ' + a.Valid_Until__c.format()
+                : 'is expiring soon' + (a.Valid_Until__c != null ? ' (' + a.Valid_Until__c.format() + ')' : ''))
+            : 'was flagged ' + (a.Status__c == 'Non-Compliant' ? 'Non-Compliant' : 'At Risk')
+                + (String.isNotBlank(a.Reason_Detail__c) ? ': ' + a.Reason_Detail__c.abbreviate(200) : '.');
+
+        String htmlBody = buildRenewalEmailHtml(acc.Name, a.Requirement_Label__c, reasonLine, isExpiry, portalUrl);
+
+        Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
+        email.setToAddresses(new List<String>{ toEmail });
+        email.setSubject((isExpiry ? 'Renewal Required' : 'Action Required') + ': ' + a.Requirement_Label__c + ' — ' + acc.Name);
+        email.setHtmlBody(htmlBody);
+        email.setSaveAsActivity(true);
+        email.setTargetObjectId(findContactId(accountId));
+
+        List<OrgWideEmailAddress> orgEmails = [SELECT Id FROM OrgWideEmailAddress LIMIT 1];
+        if (!orgEmails.isEmpty()) {
+            email.setOrgWideEmailAddressId(orgEmails[0].Id);
+        }
+
+        List<Messaging.SendEmailResult> results =
+            Messaging.sendEmail(new List<Messaging.SingleEmailMessage>{ email }, false);
+
+        if (!results[0].isSuccess()) {
+            List<String> msgs = new List<String>();
+            for (Messaging.SendEmailError err : results[0].getErrors()) {
+                msgs.add(err.getMessage());
+            }
+            throw new AuraHandledException('Email could not be sent: ' + String.join(msgs, '; '));
+        }
+    }
+
+    private static String buildRenewalEmailHtml(
+        String accountName,
+        String requirementLabel,
+        String reasonLine,
+        Boolean isExpiry,
+        String portalUrl
+    ) {
+        String senderName = UserInfo.getName();
+        String senderOrg  = UserInfo.getOrganizationName();
+
+        List<String> parts = new List<String>{
+            '<!DOCTYPE html><html><head>',
+            '<meta charset="UTF-8">',
+            '<style>',
+            'body{font-family:Arial,Helvetica,sans-serif;color:#1d1d1d;margin:0;padding:0;background:#f4f6fb;}',
+            '.wrapper{max-width:640px;margin:32px auto;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #ddd;}',
+            '.header{background:#9a3412;padding:28px 36px;}',
+            '.header h1{color:#fff;margin:0;font-size:20px;font-weight:700;letter-spacing:.02em;}',
+            '.header p{color:#fed7aa;margin:6px 0 0;font-size:13px;}',
+            '.body{padding:28px 36px;}',
+            'p{font-size:14px;line-height:1.7;margin:0 0 14px;}',
+            '.item-box{background:#fff7ed;border:1px solid #fdba8c;border-radius:6px;padding:16px 18px;margin:16px 0;}',
+            '.item-box .label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#9a3412;margin-bottom:6px;}',
+            '.item-box .name{font-size:15px;font-weight:700;margin-bottom:6px;}',
+            '.item-box .reason{font-size:13px;color:#514f4d;}',
+            '.portal-cta{background:#f0f7ff;border:1px solid #b3d4f5;border-radius:6px;padding:20px 24px;margin:20px 0;text-align:center;}',
+            '.portal-cta p{font-size:14px;color:#005fb2;margin:0 0 14px;}',
+            '.portal-btn{display:inline-block;padding:11px 28px;background:#0176d3;color:#ffffff !important;text-decoration:none;border-radius:4px;font-size:14px;font-weight:700;letter-spacing:.01em;}',
+            '.footer{background:#f4f6fb;padding:16px 36px;font-size:12px;color:#706e6b;text-align:center;}',
+            '</style></head><body>',
+            '<div class="wrapper">',
+            '<div class="header">',
+            '<h1>' + (isExpiry ? 'Document Renewal Required' : 'Compliance Attention Required') + '</h1>',
+            '<p>Sent by ' + escHtml(senderName) + ' &middot; ' + escHtml(senderOrg) + '</p>',
+            '</div>',
+            '<div class="body">',
+            '<p>Dear <strong>' + escHtml(accountName) + '</strong> Team,</p>',
+            '<p>' + (isExpiry
+                ? 'One of your on-file compliance documents needs to be renewed:'
+                : 'A compliance review has flagged an item on your account that needs your attention:') + '</p>',
+            '<div class="item-box">',
+            '<div class="label">' + (isExpiry ? 'Expiring Document' : 'Flagged Item') + '</div>',
+            '<div class="name">' + escHtml(requirementLabel) + '</div>',
+            '<div class="reason">' + escHtml(reasonLine) + '</div>',
+            '</div>'
+        };
+
+        if (String.isNotBlank(portalUrl)) {
+            parts.add('<div class="portal-cta">');
+            parts.add('<p><strong>Upload a renewed document via your Supplier Portal</strong><br/>');
+            parts.add('The item above is marked for renewal in your checklist — open the portal and use the Renew action next to it.</p>');
+            parts.add('<a class="portal-btn" href="' + escHtml(portalUrl) + '">Open Supplier Portal &rarr;</a>');
+            parts.add('</div>');
+        }
+
+        parts.add('<p style="margin-top:20px;">If you have questions, please reply to this email or contact your assigned account manager.</p>');
+        parts.add('<p>Thank you for your cooperation.</p>');
+        parts.add('<p><strong>' + escHtml(senderName) + '</strong><br/>');
+        parts.add(escHtml(senderOrg) + '</p>');
+        parts.add('</div>');
+        parts.add('<div class="footer">This email was generated from the Supplier Compliance Management system. Please do not reply directly to an automated sender.</div>');
+        parts.add('</div></body></html>');
+
+        return String.join(parts, '\n');
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private static String findContactEmail(Id accountId) {

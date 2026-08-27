@@ -29,6 +29,11 @@
                 <default>false</default>
                 <label>Other</label>
             </value>
+            <value>
+                <fullName>Expiring</fullName>
+                <default>false</default>
+                <label>Expiring</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

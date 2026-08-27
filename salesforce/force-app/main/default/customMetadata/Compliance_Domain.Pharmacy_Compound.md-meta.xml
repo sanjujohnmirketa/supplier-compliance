@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Compounding &amp; Controlled Substances</label>
+    <protected>false</protected>
+    <values>
+        <field>Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Default_Selected__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">USP &lt;795&gt;/&lt;797&gt;/&lt;800&gt; compounding standards (non-sterile, sterile, hazardous drugs) plus DEA controlled-substance registration, for compounding pharmacy and IV therapy/infusion supply vendors.</value>
+    </values>
+    <values>
+        <field>Display_Order__c</field>
+        <value xsi:type="xsd:double">150.0</value>
+    </values>
+    <values>
+        <field>Domain_Key__c</field>
+        <value xsi:type="xsd:string">pharmacy_compound</value>
+    </values>
+    <values>
+        <field>Label__c</field>
+        <value xsi:type="xsd:string">Compounding &amp; Controlled Substances</value>
+    </values>
+    <values>
+        <field>Verifier_Authority__c</field>
+        <value xsi:type="xsd:string">State Board of Pharmacy / DEA</value>
+    </values>
+</CustomMetadata>

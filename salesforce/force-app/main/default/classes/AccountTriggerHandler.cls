@@ -63,6 +63,9 @@ public class AccountTriggerHandler implements ITriggerHandler {
             if (acc.Onboarding_Started_Date__c == null) {
                 acc.Onboarding_Started_Date__c = Date.today();
             }
+            // Entering its first stage counts as "entering a stage" — see
+            // Stage_Entered_DateTime__c and the matching beforeUpdate logic.
+            acc.Stage_Entered_DateTime__c = System.now();
         }
     }
 
@@ -71,9 +74,17 @@ public class AccountTriggerHandler implements ITriggerHandler {
     // Use for: enforcing field immutability, cross-field validation.
     // ═════════════════════════════════════════════════════════════════════════
     public void beforeUpdate(List<SObject> newList, Map<Id, SObject> oldMap) {
-        // No before-update logic required for Phase 1.
-        // Placeholder for Phase 2: e.g. prevent changing Industry__c
-        // after supplier is Approved.
+        // Refresh Stage_Entered_DateTime__c whenever Onboarding_Status__c
+        // actually changes, so "days in this stage" (P2/A1 queues) reflects
+        // time in the CURRENT stage, not total time since the record was
+        // created (that's CreatedDate/Onboarding_Started_Date__c already).
+        for (Account acc : (List<Account>) newList) {
+            if (!isSupplier(acc)) continue;
+            Account old = (Account) oldMap.get(acc.Id);
+            if (acc.Onboarding_Status__c != old.Onboarding_Status__c) {
+                acc.Stage_Entered_DateTime__c = System.now();
+            }
+        }
     }
 
     // ═════════════════════════════════════════════════════════════════════════

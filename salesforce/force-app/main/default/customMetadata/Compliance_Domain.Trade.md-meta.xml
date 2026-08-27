@@ -3,6 +3,22 @@
     <label>Trade &amp; Sanctions</label>
     <protected>false</protected>
     <values>
+        <field>Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Default_Selected__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">Restricted-party, sanctions and watchlist screening (OFAC SDN, BIS Entity List, EU Consolidated) against the supplier and its beneficial owners.</value>
+    </values>
+    <values>
+        <field>Display_Order__c</field>
+        <value xsi:type="xsd:double">10.0</value>
+    </values>
+    <values>
         <field>Domain_Key__c</field>
         <value xsi:type="xsd:string">trade</value>
     </values>
@@ -11,23 +27,7 @@
         <value xsi:type="xsd:string">Trade &amp; Sanctions</value>
     </values>
     <values>
-        <field>Description__c</field>
-        <value xsi:type="xsd:string">Restricted-party, sanctions and watchlist screening (OFAC SDN, BIS Entity List, EU Consolidated) against the supplier and its beneficial owners.</value>
-    </values>
-    <values>
         <field>Verifier_Authority__c</field>
         <value xsi:type="xsd:string">OpenSanctions</value>
-    </values>
-    <values>
-        <field>Default_Selected__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>Display_Order__c</field>
-        <value xsi:type="xsd:double">10.0</value>
-    </values>
-    <values>
-        <field>Active__c</field>
-        <value xsi:type="xsd:boolean">true</value>
     </values>
 </CustomMetadata>

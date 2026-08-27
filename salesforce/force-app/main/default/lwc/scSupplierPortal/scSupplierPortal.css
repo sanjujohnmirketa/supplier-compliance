@@ -9,7 +9,9 @@
   --color-background-tertiary:  #eeeeeb;
   --color-text-primary:   #1a1a1a;
   --color-text-secondary: #666666;
-  --color-text-tertiary:  #aaaaaa;
+  /* Was #aaaaaa — ~2.3:1 against white, fails WCAG AA (4.5:1) for normal text.
+     #767671 clears 5:1+ while keeping the same "muted" role in the hierarchy. */
+  --color-text-tertiary:  #767671;
   --color-border-primary:   #cccccc;
   --color-border-secondary: #d8d8d2;
   --color-border-tertiary:  #e0e0da;
@@ -17,9 +19,9 @@
   --border-radius-md: 6px;
   --border-radius-lg: 8px;
   --color-accent:     #2563eb;
-  --color-text-muted: #aaaaaa;
+  --color-text-muted: #767671;
   display: flex; flex-direction: column; height: 100%; overflow: hidden;
-  font-family: var(--font-sans); font-size: 13px; color: var(--color-text-primary);
+  font-family: var(--font-sans); font-size: 14px; font-weight: 450; color: var(--color-text-primary);
   background: var(--color-background-secondary);
 }
 
@@ -32,10 +34,15 @@
   background: var(--color-background-primary);
   border-bottom: 0.5px solid var(--color-border-tertiary); flex-shrink: 0;
 }
-.vc-tb-left  { display: flex; align-items: center; gap: 8px; }
+.vc-tb-left  { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .vc-logo-box { width: 24px; height: 24px; border-radius: 5px; flex-shrink: 0; object-fit: contain; display: block; }
-.vc-brand    { font-size: 13px; font-weight: 500; }
-.vc-bread    { font-size: 12px; color: var(--color-text-tertiary); }
+.vc-brand    { font-size: 13px; font-weight: 500; flex-shrink: 0; }
+.vc-tb-divider { font-size: 12px; color: var(--color-text-tertiary); flex-shrink: 0; }
+.vc-tb-supplier-name {
+  font-size: 13px; font-weight: 700; color: var(--color-text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px;
+}
+.vc-bread    { font-size: 12px; color: var(--color-text-tertiary); flex-shrink: 0; }
 .vc-tb-right { display: flex; align-items: center; gap: 10px; }
 .vc-persona-chip {
   font-size: 11px; font-weight: 500; color: #166534;
@@ -46,9 +53,11 @@
   background: #374151; color: #fff;
   font-size: 11px; font-weight: 500;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  border: none; padding: 0; font-family: var(--font-sans);
 }
 .vc-user-area { position: relative; display: flex; align-items: center; }
 .vc-av-btn { cursor: pointer; }
+.vc-av-btn:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .vc-av-btn:hover { opacity: 0.8; }
 .vc-user-menu {
   position: absolute; top: calc(100% + 8px); right: 0;
@@ -76,11 +85,13 @@
 }
 .vc-sb-note { font-size: 11px; color: var(--color-text-secondary); padding: 2px 16px; line-height: 1.4; }
 .vc-sb-item {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 8px; width: 100%;
   padding: 6px 16px; font-size: 12px; color: var(--color-text-secondary);
   cursor: pointer; user-select: none; transition: background .1s;
+  border: none; background: none; text-align: left; font-family: var(--font-sans);
 }
 .vc-sb-item:hover { background: var(--color-background-secondary); }
+.vc-sb-item:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
 .vc-sb-item.active {
   background: var(--color-background-secondary);
   color: var(--color-text-primary); font-weight: 500;
@@ -118,6 +129,9 @@
 .vc-card-title { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #374151; margin-bottom: 12px; }
 .vc-card-title-nomargin { margin-bottom: 0; }
 .vc-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.vc-cascade-card .vc-panel-header { margin-bottom: 0; }
+.vc-cascade-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.vc-cascade-note { font-size: 12px; color: var(--color-text-tertiary); }
 
 /* ─── SP1 status card strip (5 cells) ────────────────────────────────────── */
 .vc-sp1-card .vc-snap-strip {
@@ -126,7 +140,8 @@
 }
 
 /* ─── Snapshot strip (base: 4 cols, overridable) ─────────────────────────── */
-.vc-snap-loading { font-size: 12px; color: var(--color-text-tertiary); padding: 2px 0 8px; }
+.vc-snap-loading { font-size: 12px; color: var(--color-text-tertiary); padding: 2px 0 8px; display: flex; align-items: center; }
+.vc-snap-loading .vc-spinner { border: 2px solid rgba(0,0,0,0.15); border-top-color: #888; }
 .vc-snap-strip {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
   background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary);
@@ -135,6 +150,7 @@
 .vc-snap-cell  { display: flex; flex-direction: column; gap: 2px; }
 .vc-snap-k { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-tertiary); }
 .vc-snap-v { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+
 
 /* ─── Buttons ─────────────────────────────────────────────────────────────── */
 .vc-btn-pri {
@@ -164,6 +180,7 @@
   background: var(--color-background-primary); cursor: pointer; font-family: var(--font-sans);
 }
 .vc-tab.active { background: var(--color-text-primary); color: #fff; border-color: var(--color-text-primary); }
+.vc-tab:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 
 /* ─── Badges ─────────────────────────────────────────────────────────────── */
 .vc-ai-badge {
@@ -192,12 +209,47 @@
 
 /* ─── File upload zone ────────────────────────────────────────────────────── */
 .vc-file-input { display: none; }
+.vc-renew-file-input { display: none; }
+.vc-cdoc-renew-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 12px; margin-top: 8px;
+  background: var(--color-background-warning, #fffaeb);
+  border: 0.5px solid var(--color-border-warning, #f5d68a);
+  border-radius: var(--border-radius-sm, 6px);
+}
+.vc-cdoc-renew-note { font-size: 12.5px; color: var(--color-text-warning, #8a5a1f); }
+/* Audit History comment list — boxed container aligned directly under the
+   toggle button (same 40px indent as .vc-cdoc-toggle.vc-audit-toggle), with
+   a divider line between entries. Mirrors the Procurement console's
+   "Decision & notes" panel (.vc-activity-panel/.vc-activity-entry). */
+.vc-proc-comments {
+  margin: 6px 0 2px 40px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--color-background-secondary, #f7f7f5);
+  border: 0.5px solid var(--color-border-tertiary, #eee);
+}
+.vc-proc-decision-note {
+  display: flex; align-items: center; gap: 8px; font-size: 11.5px; flex-wrap: wrap;
+  padding: 5px 0;
+  border-bottom: 0.5px solid var(--color-border-tertiary, #eee);
+}
+.vc-proc-decision-note:last-child { border-bottom: none; }
+.vc-proc-comment-date { margin-left: auto; color: var(--color-text-tertiary, #999); font-size: 10.5px; white-space: nowrap; }
+.vc-analyst-comment {
+  display: flex; align-items: flex-start; gap: 8px; font-size: 11.5px;
+  margin: 6px 0 2px 40px; padding: 8px 10px; border-radius: 6px;
+  background: #FEF2F2; border: 0.5px solid #FECACA;
+}
+.vc-chk.expired { background: var(--color-background-warning, #fffaeb); border-color: var(--color-border-warning, #f5d68a); }
+.vc-cdoc-row.expired { border-left: 2px solid #b45309; }
 .vc-policy-zone {
   border: 0.5px dashed var(--color-border-secondary); border-radius: var(--border-radius-lg);
   padding: 14px 16px; background: var(--color-background-secondary);
   display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
 }
 .vc-pz-icon  { font-size: 18px; flex-shrink: 0; }
+.vc-refresh-icon { font-size: 16px; vertical-align: -2px; display: inline-block; }
 .vc-pz-text  { flex: 1; }
 .vc-pz-label { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); }
 .vc-pz-hint  { font-size: 10px; color: var(--color-text-tertiary); font-family: var(--font-mono); margin-top: 2px; }
@@ -213,24 +265,32 @@
 .vc-chk.ticked { background: #1e9e6a; border-color: #1e9e6a; }
 
 /* ─── Compliance document rows ────────────────────────────────────────────── */
-.vc-cdoc-cols { display: grid; grid-template-columns: 26px minmax(0,1.3fr) minmax(0,1.1fr) 300px; gap: 10px; align-items: center; }
+.vc-cdoc-cols { display: grid; grid-template-columns: 26px minmax(0,1.3fr) minmax(0,1.1fr) minmax(140px,max-content); gap: 10px; align-items: center; }
 .vc-cdoc-head { padding: 0 0 6px; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 4px; }
 .vc-cdoc-head > span { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--color-text-tertiary); }
 .vc-cdoc-h-req  { grid-column: 2; }
 .vc-cdoc-h-file { grid-column: 3; }
 .vc-cdoc-row { padding: 10px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
 .vc-cdoc-row:last-child { border-bottom: none; }
-.vc-cdoc-top   { display: grid; grid-template-columns: 26px minmax(0,1.3fr) minmax(0,1.1fr) 300px; gap: 10px; align-items: center; }
+.vc-cdoc-top   { display: grid; grid-template-columns: 26px minmax(0,1.3fr) minmax(0,1.1fr) minmax(140px,max-content); gap: 10px; align-items: center; }
 .vc-cdoc-label { font-size: 13.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc-cdoc-label-col { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vc-cdoc-label-col .vc-cdoc-label { display: block; }
+.vc-cdoc-filename { font-size: 11.5px; color: var(--color-text-tertiary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vc-cdoc-file  { font-size: 12.5px; color: var(--color-text-secondary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vc-cdoc-nofile { color: var(--color-text-tertiary); font-style: italic; }
-.vc-cdoc-right  { display: flex; align-items: center; gap: 8px; justify-content: flex-end; min-width: 0; }
+.vc-cdoc-right  { display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; min-width: 0; }
 .vc-cdoc-status { font-size: 11px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
 .vc-cdoc-conf   { font-size: 11px; color: var(--color-text-secondary); background: var(--color-background-secondary); border-radius: 10px; padding: 2px 8px; white-space: nowrap; flex-shrink: 0; }
 .vc-cdoc-actions { display: flex; gap: 6px; flex-shrink: 0; }
 .vc-cdoc-toggle { margin: 6px 0 0 30px; background: none; border: none; padding: 0; font-size: 11.5px; color: #2563eb; cursor: pointer; font-family: var(--font-sans); }
 .vc-cdoc-toggle:hover { text-decoration: underline; }
+/* Audit history toggle sits just under the requirement's own name/checkbox
+   column (26px checkbox + 10px grid gap = 36px), nudged slightly further
+   right than that so it doesn't align flush under the checkbox. */
+.vc-cdoc-toggle.vc-audit-toggle { margin-left: 40px; }
 .vc-cdoc-detail { margin: 6px 0 2px 30px; padding: 10px 12px; border-radius: 6px; background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); }
+.vc-cdoc-pending { margin: 6px 0 2px 30px; font-size: 11.5px; color: var(--color-text-tertiary); font-style: italic; }
 
 /* ─── Doc action buttons ─────────────────────────────────────────────────── */
 .vc-doc-btn {
@@ -272,6 +332,9 @@
 .vc-rej-top  { display: flex; gap: 8px; align-items: baseline; }
 .vc-rej-name { font-weight: 600; font-size: 13.5px; color: #1a1a1a; }
 .vc-rej-reason { font-size: 12.5px; color: #b3261e; margin-top: 2px; }
+.vc-rej-connect { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.vc-rej-select { flex: 1; max-width: 320px; }
+.vc-rej-response-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
 
 /* ─── Screening ──────────────────────────────────────────────────────────── */
 .vc-p3-screen-sub { margin-bottom: 12px; line-height: 1.5; }
@@ -284,15 +347,38 @@
 .vc-assess-reason { font-size: 11.5px; color: var(--color-text-secondary); line-height: 1.45; margin-top: 3px; }
 
 /* ─── Structured AI summary (headline + facts + checks + concerns) ───────── */
-.vc-assess-headline { font-size: 13px; font-weight: 600; color: var(--color-text-primary); line-height: 1.45; margin: 0 0 5px; }
-.vc-assess-facts    { margin: 0 0 5px; padding-left: 16px; }
-.vc-assess-facts li { font-size: 12px; color: var(--color-text-secondary); margin: 1px 0; }
-.vc-assess-checks   { margin: 4px 0; display: flex; flex-direction: column; gap: 2px; }
-.vc-chkline         { font-size: 12px; }
-.vc-chkline.pass    { color: #1e7a4f; }
-.vc-chkline.fail    { color: #b3261e; font-weight: 600; }
-.vc-assess-concerns { margin: 4px 0 0; padding-left: 16px; }
-.vc-assess-concerns li { font-size: 12px; color: #9a6213; margin: 1px 0; }
+.vc-assess-headline { font-size: 13px; font-weight: 600; color: var(--color-text-primary); line-height: 1.45; margin: 0 0 10px; }
+.vc-assess-evaluated { font-size: 11px; font-style: italic; color: #8a8378; margin: -6px 0 10px; }
+
+/* Multi-document-per-requirement: each linked file's own status/summary,
+   shown as a distinct sub-card above the requirement-level summary. */
+.vc-linked-docs-zone { margin-bottom: 12px; }
+.vc-linked-doc { background: var(--color-background-secondary, #f7f7f5); border: 0.5px solid var(--color-border-tertiary, #eee);
+    border-radius: 4px; padding: 9px 11px; margin-bottom: 8px; }
+.vc-linked-doc:last-child { margin-bottom: 0; }
+.vc-linked-doc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.vc-linked-doc-title { font-size: 12.5px; font-weight: 600; flex: 1; min-width: 0; overflow-wrap: break-word; }
+
+/* Two-section summary: what checks out (green) / what's wrong (red) —
+   mirrors scProcurementConsole's P3 detail styling. */
+.vc-assess-section { margin: 0 0 12px; }
+.vc-assess-section:last-child { margin-bottom: 0; }
+.vc-assess-section-label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em;
+    text-transform: uppercase; margin: 0 0 6px;
+}
+.vc-assess-section-label.pass { color: #1e7a4f; }
+.vc-assess-section-label.wrong { color: #b3261e; }
+.vc-assess-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.vc-assess-list li { font-size: 12.5px; line-height: 1.5; padding-left: 16px; position: relative; }
+.vc-assess-list.pass li { color: #1e7a4f; }
+.vc-assess-list.wrong li { color: #a83e1e; }
+.vc-assess-list li::before {
+    content: ''; position: absolute; left: 2px; top: 6px;
+    width: 6px; height: 6px; border-radius: 50%;
+}
+.vc-assess-list.pass li::before { background: #2e9e63; }
+.vc-assess-list.wrong li::before { background: #d1453b; }
 
 /* ─── Inline notice (toast substitute) ──────────────────────────────────── */
 .vc-notice {

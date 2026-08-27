@@ -58,6 +58,47 @@ public without sharing class DocumentProcessingController {
         String assessmentId,
         String fileName
     ) {
+        return linkDocumentToComplianceInternal(accountId, contentDocumentId, documentType, assessmentId, fileName, 'replace');
+    }
+
+    // Multi-document-per-requirement: adds this file as ADDITIONAL evidence
+    // for a requirement that may already have one or more other files linked
+    // (via a new Compliance_Document_Link__c junction row), instead of
+    // replacing the requirement's single file — see linkDocumentToComplianceInternal's
+    // 'add' mode. Apex doesn't allow overloading an @AuraEnabled method, so
+    // this is a distinctly-named entry point rather than a 6th parameter on
+    // linkDocumentToCompliance.
+    @AuraEnabled(cacheable=false)
+    public static String addDocumentToCompliance(
+        String accountId,
+        String contentDocumentId,
+        String documentType,
+        String assessmentId,
+        String fileName
+    ) {
+        return linkDocumentToComplianceInternal(accountId, contentDocumentId, documentType, assessmentId, fileName, 'add');
+    }
+
+    // mode:
+    //   'replace' — repoints the requirement's single Compliance_Document__c
+    //   pointer, same as always (renewal, re-upload after rejection — these
+    //   genuinely mean "this IS the new version of the one file", not "here's
+    //   an additional file").
+    //   'add' — multi-document-per-requirement: this file is ADDITIONAL
+    //   evidence for a requirement that may already have one or more other
+    //   files linked, via a new Compliance_Document_Link__c junction row.
+    //   The requirement's own Compliance_Document__c pointer is left as
+    //   whatever it already was (or set to this file if it had none), purely
+    //   for backward-compat with any code still reading that single field —
+    //   the real per-file data now lives on the junction rows.
+    private static String linkDocumentToComplianceInternal(
+        String accountId,
+        String contentDocumentId,
+        String documentType,
+        String assessmentId,
+        String fileName,
+        String mode
+    ) {
         try {
             // ── Validate ───────────────────────────────────────────────────
             if (String.isBlank(accountId) || String.isBlank(contentDocumentId)) {
@@ -65,40 +106,83 @@ public without sharing class DocumentProcessingController {
                     'accountId and contentDocumentId are required.'
                 );
             }
+            Boolean isAdd = (mode == 'add');
 
             // ── Find or create Compliance_Document__c ──────────────────────
-            List<Compliance_Document__c> existing = [
-                SELECT Id, Status__c
-                FROM   Compliance_Document__c
-                WHERE  Account__c       = :accountId
-                AND    Document_Type__c = :documentType
-                AND    Status__c        IN ('Pending', 'Rejected')
-                ORDER  BY CreatedDate DESC
-                LIMIT  1
-            ];
-
+            // 'add' mode ALWAYS creates a fresh shell — this file is
+            // additional evidence, never a replacement, so there is no
+            // "reuse the existing Pending shell" case to consider (that
+            // reuse logic exists specifically for the single-file-replace
+            // flows: renewal, re-upload after rejection).
+            //
+            // 'replace' mode (default): when the caller passes an
+            // assessmentId, check what document is CURRENTLY linked to that
+            // exact assessment first — this is how a renewal (handleRenewClick)
+            // targets an expired-but-Compliant document: its status is
+            // neither Pending nor Rejected, so the status-filtered lookup
+            // below would never find it and would silently create a
+            // duplicate Compliance_Document__c shell every renewal cycle
+            // instead of reusing the one slot for this requirement. Any
+            // status is reusable here — the document is being explicitly
+            // replaced by the assessment that already owns it, not matched
+            // by guesswork.
             Compliance_Document__c compDoc;
+            if (!isAdd && String.isNotBlank(assessmentId)) {
+                List<Compliance_Assessment__c> linked = [
+                    SELECT Compliance_Document__c
+                    FROM   Compliance_Assessment__c
+                    WHERE  Id = :assessmentId
+                    AND    Compliance_Document__c != null
+                    LIMIT  1
+                ];
+                if (!linked.isEmpty()) {
+                    compDoc = new Compliance_Document__c(Id = linked[0].Compliance_Document__c);
+                }
+            }
 
-            if (!existing.isEmpty() && existing[0].Status__c == 'Pending') {
-                // Reuse the existing Pending shell created by the rule engine
-                compDoc = existing[0];
-                compDoc.Upload_Channel__c      = 'Portal';
-                compDoc.Uploaded_By_Contact__c = getPortalContactId();
+            if (compDoc == null) {
+                List<Compliance_Document__c> existing = isAdd ? new List<Compliance_Document__c>() : [
+                    SELECT Id, Status__c
+                    FROM   Compliance_Document__c
+                    WHERE  Account__c       = :accountId
+                    AND    Document_Type__c = :documentType
+                    AND    Status__c        IN ('Pending', 'Rejected')
+                    ORDER  BY CreatedDate DESC
+                    LIMIT  1
+                ];
+
+                if (!existing.isEmpty() && existing[0].Status__c == 'Pending') {
+                    // Reuse the existing Pending shell created by the rule engine
+                    compDoc = existing[0];
+                    compDoc.Upload_Channel__c      = 'Portal';
+                    compDoc.Uploaded_By_Contact__c = getPortalContactId();
+                    update compDoc;
+                } else {
+                    String docName = documentType.contains(';')
+                        ? documentType.substringBefore(';').trim()
+                        : documentType;
+                    if (docName.length() > 80) docName = docName.left(80);
+                    compDoc = new Compliance_Document__c(
+                        Name                   = docName,
+                        Account__c             = accountId,
+                        Document_Type__c       = documentType,
+                        Status__c              = 'Pending',
+                        Upload_Channel__c      = 'Portal',
+                        Uploaded_By_Contact__c = getPortalContactId()
+                    );
+                    insert compDoc;
+                }
+            }
+
+            // ── Reset a reused document shell back to Pending ──────────────
+            // Only applies to the assessment-linked reuse path above (a
+            // renewal reusing an expired/Compliant/Non-Compliant shell) — the
+            // Pending-status branch already resets nothing further because it
+            // was already Pending, and the newly-inserted branch already
+            // starts at Pending.
+            if (compDoc.Status__c != 'Pending') {
+                compDoc.Status__c = 'Pending';
                 update compDoc;
-            } else {
-                String docName = documentType.contains(';')
-                    ? documentType.substringBefore(';').trim()
-                    : documentType;
-                if (docName.length() > 80) docName = docName.left(80);
-                compDoc = new Compliance_Document__c(
-                    Name                   = docName,
-                    Account__c             = accountId,
-                    Document_Type__c       = documentType,
-                    Status__c              = 'Pending',
-                    Upload_Channel__c      = 'Portal',
-                    Uploaded_By_Contact__c = getPortalContactId()
-                );
-                insert compDoc;
             }
 
             // ── Add ContentDocumentLink to Compliance_Document__c ──────────
@@ -120,13 +204,118 @@ public without sharing class DocumentProcessingController {
                 );
             }
 
-            // ── Update Compliance_Assessment__c ────────────────────────────
-            if (String.isNotBlank(assessmentId)) {
+            // ── Update Compliance_Assessment__c / create the junction row ──
+            Id docLinkId;
+            if (isAdd) {
+                // Multi-doc: this file joins whatever's already linked to the
+                // requirement via a NEW Compliance_Document_Link__c row —
+                // the requirement's own Status__c/Reason_Detail__c are NOT
+                // touched here; they stay whatever the worst-wins rollup last
+                // computed until THIS file's own assessment completes and
+                // triggers a fresh rollup (see RiskScoreService-adjacent
+                // rollup in Compliance_Assessment__c... rollup logic lives in
+                // DocAssessQueueable once this file's own verdict lands).
+                // The single Compliance_Document__c pointer is backfilled
+                // only if the requirement had none at all yet, purely so any
+                // remaining single-file-model reader isn't left with a null.
+                if (String.isNotBlank(assessmentId)) {
+                    Compliance_Assessment__c ca = [
+                        SELECT Compliance_Document__c FROM Compliance_Assessment__c WHERE Id = :assessmentId LIMIT 1
+                    ];
+                    if (ca.Compliance_Document__c == null) {
+                        update new Compliance_Assessment__c(Id = assessmentId, Compliance_Document__c = compDoc.Id);
+                    }
+                    Compliance_Document_Link__c link = new Compliance_Document_Link__c(
+                        Compliance_Assessment__c = assessmentId,
+                        Compliance_Document__c   = compDoc.Id,
+                        Status__c                = 'Pending',
+                        Reason_Detail__c         = 'Document received — pending AI extraction'
+                    );
+                    insert link;
+                    docLinkId = link.Id;
+                }
+            } else if (String.isNotBlank(assessmentId)) {
+                // Mark any Compliance_Document_Link__c rows already tied to
+                // this requirement (from an earlier "Add another file") as
+                // Superseded — they used to be left completely untouched by a
+                // replace, so a stale Rejected/Non-Compliant sub-row from a
+                // PRIOR file kept showing under the requirement forever, even
+                // after the requirement's own top-level status reset to
+                // Pending for the new file. Superseded rows are excluded from
+                // both the consoles' linked-document display
+                // (getDocumentLinksByAssessment) and the worst-wins rollup
+                // (DocAssessQueueable.rollupRequirementStatus), so history is
+                // kept (not deleted) but stops influencing anything live.
+                List<Compliance_Document_Link__c> priorLinks = [
+                    SELECT Id FROM Compliance_Document_Link__c
+                    WHERE  Compliance_Assessment__c = :assessmentId
+                    AND    Status__c != 'Superseded'
+                ];
+                if (!priorLinks.isEmpty()) {
+                    for (Compliance_Document_Link__c l : priorLinks) l.Status__c = 'Superseded';
+                    update priorLinks;
+                }
+
+                // Clear any prior Procurement Approve/Reject/Deferred decision
+                // — it was made against the file being replaced, not this new
+                // one, so the UI must offer the decision buttons again instead
+                // of showing a decision that no longer applies. The full
+                // comment history (Audit_Log__c, see recordProcurementDecision)
+                // is untouched — only this "current decision" pointer resets.
+                //
+                // Status__c is ALSO reset to Pending here — previously this
+                // was left untouched, so the status pill kept showing the OLD
+                // document's verdict (e.g. a stale "Non-Compliant") for the
+                // several seconds between re-upload and DocAssessQueueable
+                // actually writing the new one, reading as "the re-upload
+                // didn't do anything." Pending is honest about the real state
+                // (no fresh verdict yet) instead of showing a wrong one.
+                // Analyst_Validated__c/_Comment__c reset for the same reason
+                // as the Procurement fields above: they were recorded against
+                // the file being replaced, not this new one. Previously left
+                // untouched, so a re-uploaded (unreviewed) file still showed
+                // as "validated" by the Analyst — and since the Supplier
+                // Portal's own re-upload button visibility depends on
+                // Status__c (now correctly reset to Pending above), a
+                // lingering Analyst_Validated__c=true here didn't block that,
+                // but WOULD have misrepresented the new file's real review
+                // state everywhere else that reads it (getCaseForAnalyst,
+                // the Analyst's own list "validated" count).
                 update new Compliance_Assessment__c(
-                    Id                     = assessmentId,
-                    Compliance_Document__c = compDoc.Id,
-                    Reason_Detail__c       = 'Document received — pending AI extraction'
+                    Id                                = assessmentId,
+                    Compliance_Document__c            = compDoc.Id,
+                    Status__c                         = 'Pending',
+                    Reason_Detail__c                  = 'Document received — pending AI extraction',
+                    Procurement_Decision__c            = null,
+                    Procurement_Decision_Reason__c      = null,
+                    Procurement_Decision_By__c          = null,
+                    Procurement_Decision_DateTime__c    = null,
+                    Analyst_Validated__c               = false,
+                    Analyst_Comment__c                 = null
                 );
+            }
+
+            // Log every upload as its own dated entry in the SAME thread as
+            // Procurement's decisions and the supplier's replies (see
+            // getSupplierSnapshot's bulk Audit_Log__c query) — Reason__c holds
+            // the requirement's document name (documentType), not the raw
+            // uploaded filename, so the history reads "Uploaded <document
+            // name>" regardless of what the file itself was called. Logged for
+            // BOTH branches above (multi-doc add and single-doc replace).
+            if (String.isNotBlank(assessmentId)) {
+                Database.insert(new Audit_Log__c(
+                    Event_Type__c        = 'Document_Uploaded',
+                    Related_Object__c    = 'Compliance_Assessment',
+                    Related_Record_Id__c = assessmentId,
+                    Event_DateTime__c    = DateTime.now(),
+                    Actor_Type__c        = 'User',
+                    Actor_User__c        = VendorPortalController.isSupplierRunningUser() ? null : UserInfo.getUserId(),
+                    Source_System__c     = 'Other',
+                    // The actual uploaded file's name (e.g. "SelfAssessment_..._Nordwind.txt"),
+                    // not the requirement/document-type label — history reads
+                    // "Uploaded <file name>".
+                    Reason__c             = fileName
+                ), false);
             }
 
             // ── Set Source_File__c on the Compliance_Document__c ──────────
@@ -153,9 +342,26 @@ public without sharing class DocumentProcessingController {
             // up and enqueue DocAssessQueueable — but that platform-event hop was
             // misfiring (assessments stuck on Pending). Enqueue the queueable
             // straight away: reliable, no flow dependency. DocAssessQueueable does
-            // the /assess callout and writes the verdict back onto the assessment.
-            System.enqueueJob(new DocAssessQueueable(
-                compDoc.Id, cvId, accountId, documentType, assessmentId));
+            // the /assess callout and writes the verdict back onto the assessment
+            // (or, in 'add' mode, onto this specific Compliance_Document_Link__c
+            // row, then rolls the requirement's own Status__c up from all its
+            // linked documents).
+            //
+            // Only when assessmentId is known — a truly unmatched upload (no
+            // fuzzy match, not yet manually Connected) has no requirement to
+            // assess against. DocAssessQueueable's own blank-assessmentId
+            // fallback used to paper over that by inventing a BRAND NEW
+            // Compliance_Assessment__c named after the raw filename, which
+            // silently inflated the checklist count (e.g. 3 required
+            // documents becoming 4) and could never be reconciled with the
+            // real requirement the supplier later connected the same file to
+            // via the "Connect" flow. Leaving the file unassessed here keeps
+            // it sitting in "Unmatched documents" until a human (or a
+            // successful fuzzy match) supplies a real assessmentId.
+            if (String.isNotBlank(assessmentId)) {
+                System.enqueueJob(new DocAssessQueueable(
+                    compDoc.Id, cvId, accountId, documentType, assessmentId, docLinkId));
+            }
 
             // ── Audit log ──────────────────────────────────────────────────
             if (AUDIT_ENABLED) {
@@ -171,6 +377,44 @@ public without sharing class DocumentProcessingController {
         } catch (Exception e) {
             throw new AuraHandledException('Failed to link document: ' + e.getMessage());
         }
+    }
+
+    // ─── Guest-portal token-verified wrappers (security fix) ──────────────────
+    // saveFile/linkDocumentToCompliance take a plain recordId/accountId with no
+    // check that the caller is actually authorized for that record — fine for
+    // the authenticated Procurement console, but the guest supplier portal
+    // used to call these directly with a client-held accountId that was never
+    // re-verified against the caller's actual token. Same fix pattern as
+    // VendorPortalController's *ByToken wrappers: re-resolve accountId from
+    // the token on every call instead of trusting what the client sends.
+    @AuraEnabled
+    public static String saveFileByToken(String token, String fileName, String base64Data) {
+        Id accountId = VendorPortalController.verifyPortalTokenId(token);
+        return saveFile(accountId, fileName, base64Data);
+    }
+
+    @AuraEnabled(cacheable=false)
+    public static String linkDocumentToComplianceByToken(
+        String token,
+        String contentDocumentId,
+        String documentType,
+        String assessmentId,
+        String fileName
+    ) {
+        Id accountId = VendorPortalController.verifyPortalTokenId(token);
+        return linkDocumentToCompliance(accountId, contentDocumentId, documentType, assessmentId, fileName);
+    }
+
+    @AuraEnabled(cacheable=false)
+    public static String addDocumentToComplianceByToken(
+        String token,
+        String contentDocumentId,
+        String documentType,
+        String assessmentId,
+        String fileName
+    ) {
+        Id accountId = VendorPortalController.verifyPortalTokenId(token);
+        return addDocumentToCompliance(accountId, contentDocumentId, documentType, assessmentId, fileName);
     }
 
     // ─── Private helpers ──────────────────────────────────────────────────────

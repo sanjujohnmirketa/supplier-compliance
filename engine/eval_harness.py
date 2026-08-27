@@ -60,7 +60,7 @@ def run():
                 ok = _assert(c["id"], "coverage_amount", _num(got) == want, f"{got}")
             elif key == "gates_pass":
                 checks = d.get("clauseChecks") or []
-                det = [x for x in checks if x.get("requirement", "").startswith(("Document not expired", "Coverage"))]
+                det = [x for x in checks if x.get("requirement", "").startswith(("Document expiration", "Coverage"))]
                 ok = _assert(c["id"], "deterministic gates pass", all(x.get("pass") for x in det), f"{len(det)} gates")
             elif key == "registry_status":
                 ok = _assert(c["id"], "registry status", rv.get("status") == want, f"{rv.get('status')}")

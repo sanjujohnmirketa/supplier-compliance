@@ -1,4 +1,4 @@
-/* scComplianceDashboard — shared 3-card dashboard header.
+/* scComplianceDashboard — shared 4-card dashboard header.
    Self-contained; mirrors the vc- design language of the parent consoles. */
 
 :host {
@@ -6,20 +6,27 @@
   --cd-border: #e0e0da;
   --cd-text: #1a1a1a;
   --cd-text-2: #666666;
-  --cd-text-3: #aaaaaa;
+  /* Was #aaaaaa — ~2.3:1 against white, fails WCAG AA (4.5:1). #767671 clears
+     5:1+ while keeping the same "muted" role. */
+  --cd-text-3: #767671;
   --cd-ok: #16a34a;
   --cd-warn: #b45309;
   --cd-bad: #b91c1c;
   --cd-blue: #2563eb;
+  --cd-neutral: #888888;
   display: block;
   font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
 }
 
 .cd-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-bottom: 12px;
+}
+.cd-row-3 { grid-template-columns: repeat(3, 1fr); }
+.cd-row-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 900px) {
+  .cd-row-3, .cd-row-4 { grid-template-columns: repeat(2, 1fr); }
 }
 
 .cd-card {
@@ -45,9 +52,10 @@
 .cd-ring-svg { width: 80px; height: 80px; transform: rotate(-90deg); }
 .cd-ring-track { fill: none; stroke: #eeeeeb; stroke-width: 6; }
 .cd-ring-fill  { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dasharray .4s ease; }
-.cd-ring.ok   .cd-ring-fill { stroke: var(--cd-ok); }
-.cd-ring.warn .cd-ring-fill { stroke: var(--cd-warn); }
-.cd-ring.bad  .cd-ring-fill { stroke: var(--cd-bad); }
+.cd-ring.ok      .cd-ring-fill { stroke: var(--cd-ok); }
+.cd-ring.warn    .cd-ring-fill { stroke: var(--cd-warn); }
+.cd-ring.bad     .cd-ring-fill { stroke: var(--cd-bad); }
+.cd-ring.neutral .cd-ring-fill { stroke: var(--cd-neutral); }
 .cd-ring-num {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -62,8 +70,14 @@
 .cd-progress-fill { height: 100%; border-radius: 5px; background: var(--cd-blue); transition: width .4s ease; }
 .cd-progress-meta { font-size: 13px; color: var(--cd-text); margin-bottom: 6px; }
 .cd-status { font-size: 12px; font-weight: 600; }
-.cd-status.ok   { color: var(--cd-ok); }
-.cd-status.warn { color: var(--cd-warn); }
+.cd-status.ok      { color: var(--cd-ok); }
+.cd-status.warn    { color: var(--cd-warn); }
+.cd-status.bad     { color: var(--cd-bad); }
+.cd-status.neutral { color: var(--cd-neutral); }
+
+/* 3 · Compliance status */
+.cd-status-inner { display: flex; align-items: center; min-height: 28px; margin-bottom: 6px; }
+.cd-status-inner .cd-status { font-size: 18px; }
 
 /* 3 · Trend */
 .cd-trend {

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Industry__c</fullName>
-    <description>Manufacturing sub-vertical; Drives applicable rules</description>
+    <description>Manufacturing sub-vertical; drives applicable compliance domains via app.py&apos;s INDUSTRY_DOMAINS/INDUSTRY_CORPUS_TAG. This is the single source of truth for the Procurement intake form&apos;s Industry dropdown (scProcurementConsole reads this picklist&apos;s metadata directly via getObjectInfo/getPicklistValues rather than a hardcoded JS array — see Design Review Part II §04). Union of the original org values plus the corpus-groundable values added for the /scope engine, with the redundant legacy duplicates removed once their finer-grained replacement was added: &quot;Pharma &amp; Medical Devices&quot; (superseded by separate Pharmaceutical / Medical Devices), &quot;Electronics&quot; (superseded by Electronics / Semiconductors), &quot;Logistics&quot; (superseded by Logistics &amp; Distribution), &quot;Other Manufacturing&quot; (superseded by Other).</description>
     <label>Industry</label>
     <required>false</required>
     <trackFeedHistory>false</trackFeedHistory>
@@ -20,11 +20,6 @@
                 <label>Automotive</label>
             </value>
             <value>
-                <fullName>Electronics</fullName>
-                <default>false</default>
-                <label>Electronics</label>
-            </value>
-            <value>
                 <fullName>Chemicals</fullName>
                 <default>false</default>
                 <label>Chemicals</label>
@@ -33,16 +28,6 @@
                 <fullName>Food &amp; Beverage</fullName>
                 <default>false</default>
                 <label>Food &amp; Beverage</label>
-            </value>
-            <value>
-                <fullName>Pharma &amp; Medical Devices</fullName>
-                <default>false</default>
-                <label>Pharma &amp; Medical Devices</label>
-            </value>
-            <value>
-                <fullName>Logistics</fullName>
-                <default>false</default>
-                <label>Logistics</label>
             </value>
             <value>
                 <fullName>IT / Software</fullName>
@@ -55,9 +40,54 @@
                 <label>Staffing / Labor</label>
             </value>
             <value>
-                <fullName>Other Manufacturing</fullName>
+                <fullName>Pharmaceutical</fullName>
                 <default>false</default>
-                <label>Other Manufacturing</label>
+                <label>Pharmaceutical</label>
+            </value>
+            <value>
+                <fullName>Medical Devices</fullName>
+                <default>false</default>
+                <label>Medical Devices</label>
+            </value>
+            <value>
+                <fullName>Clinical / Diagnostic Lab</fullName>
+                <default>false</default>
+                <label>Clinical / Diagnostic Lab</label>
+            </value>
+            <value>
+                <fullName>Compounding Pharmacy &amp; Infusion Supply</fullName>
+                <default>false</default>
+                <label>Compounding Pharmacy &amp; Infusion Supply</label>
+            </value>
+            <value>
+                <fullName>Behavioral Health Facility</fullName>
+                <default>false</default>
+                <label>Behavioral Health Facility</label>
+            </value>
+            <value>
+                <fullName>Electronics / Semiconductors</fullName>
+                <default>false</default>
+                <label>Electronics / Semiconductors</label>
+            </value>
+            <value>
+                <fullName>Industrial Equipment</fullName>
+                <default>false</default>
+                <label>Industrial Equipment</label>
+            </value>
+            <value>
+                <fullName>Energy / Utilities</fullName>
+                <default>false</default>
+                <label>Energy / Utilities</label>
+            </value>
+            <value>
+                <fullName>Logistics &amp; Distribution</fullName>
+                <default>false</default>
+                <label>Logistics &amp; Distribution</label>
+            </value>
+            <value>
+                <fullName>Other</fullName>
+                <default>false</default>
+                <label>Other</label>
             </value>
         </valueSetDefinition>
     </valueSet>

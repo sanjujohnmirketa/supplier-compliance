@@ -2,6 +2,19 @@
 
 .dashboard { padding: 16px 4px; }
 
+/* ── Closed case (VendorPortalController.closeComplianceCase) ─────────────
+   Reuses the same success palette as .badge-success below, so a closed case
+   reads consistently with every other "good" state already on this page. */
+.closed-banner {
+    padding: 14px 18px; margin-bottom: 16px;
+    background: #e2f6ec; border: 1px solid #b8e5cc; border-radius: 8px;
+}
+.closed-banner-top { display: flex; align-items: center; gap: 8px; }
+.closed-icon { color: #027e46; font-weight: 700; font-size: 14px; }
+.closed-title { color: #027e46; font-weight: 600; font-size: 14px; }
+.closed-meta { color: #027e46; font-size: 12px; opacity: .85; margin-top: 4px; margin-left: 22px; }
+.closed-remarks { color: #027e46; font-size: 12px; font-style: italic; margin-top: 6px; margin-left: 22px; }
+
 /* ── Hero ───────────────────────────────────────────────────────────────── */
 .hero {
     display: flex; gap: 24px; align-items: center;

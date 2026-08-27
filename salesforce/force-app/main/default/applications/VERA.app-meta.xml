@@ -12,9 +12,10 @@
     <isNavPersonalizationDisabled>false</isNavPersonalizationDisabled>
     <isNavTabPersistenceDisabled>false</isNavTabPersistenceDisabled>
     <isOmniPinnedViewEnabled>false</isOmniPinnedViewEnabled>
-    <label>VERA</label>
+    <label>Vendor GRACE</label>
     <navType>Console</navType>
-    <tabs>Compliance_Console</tabs>
+    <tabs>Compliance_Console1</tabs>
+    <tabs>Analyst_Console</tabs>
     <tabs>standard-Account</tabs>
     <tabs>standard-Contact</tabs>
     <tabs>Audit_Log__c</tabs>
@@ -25,7 +26,10 @@
             <tab>Audit_Log__c</tab>
         </mappings>
         <mappings>
-            <tab>Compliance_Console</tab>
+            <tab>Compliance_Console1</tab>
+        </mappings>
+        <mappings>
+            <tab>Analyst_Console</tab>
         </mappings>
         <mappings>
             <tab>standard-Account</tab>

@@ -33,6 +33,12 @@ public with sharing class ScopeService {
         // Blank behaves exactly as before these fields existed.
         public String       materialType;
         public String       serviceCategory;
+        // Domains resolved from Material_Type__mdt (MaterialTypeController) for
+        // whichever of materialType/serviceCategory the caller selected — the
+        // engine unions these directly instead of maintaining its own
+        // material/service-to-domain mapping, so a new Custom Metadata record
+        // (any industry) takes effect with no engine code change.
+        public List<String> materialDomains = new List<String>();
     }
 
     // ── Response (mirrors app.py /scope output) ───────────────────────────────

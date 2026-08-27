@@ -18,13 +18,22 @@ public with sharing class CopilotService {
     }
 
     public static CopilotResponse ask(String question, String supplierName, String context) {
-        return ask(question, supplierName, context, null, null);
+        return ask(question, supplierName, context, null, null, null);
     }
 
     /** Role-aware, case-grounded ask. role drives the next-step recommendation;
      *  caseId grounds the answer in the live agent CaseState. */
     public static CopilotResponse ask(String question, String supplierName, String context,
                                       String role, String caseId) {
+        return ask(question, supplierName, context, role, caseId, null);
+    }
+
+    /** Same as above, plus industry — the same strict corpus filter /assess
+     *  and /scope already apply to their own retrieval, so the co-pilot's
+     *  policy-clause grounding stays within this supplier's own industry
+     *  instead of searching the entire shared policy_chunk corpus. */
+    public static CopilotResponse ask(String question, String supplierName, String context,
+                                      String role, String caseId, String industry) {
         HttpRequest req = new HttpRequest();
         req.setEndpoint(NAMED_CRED + '/copilot');
         req.setMethod('POST');
@@ -36,8 +45,9 @@ public with sharing class CopilotService {
             'supplierName' => supplierName,
             'context'      => context
         };
-        if (String.isNotBlank(role))   body.put('role', role);
-        if (String.isNotBlank(caseId)) body.put('caseId', caseId);
+        if (String.isNotBlank(role))     body.put('role', role);
+        if (String.isNotBlank(caseId))   body.put('caseId', caseId);
+        if (String.isNotBlank(industry)) body.put('industry', industry);
         req.setBody(JSON.serialize(body));
         HttpResponse res = new Http().send(req);
         if (res.getStatusCode() != 200) {

@@ -195,6 +195,14 @@ public without sharing class SubSupplierController {
         // are: Draft, Screening, In Review, Approved, Reviewed, Rejected).
         // The sub-supplier becomes 'Screening' once they log in and upload.
         subAcc.Onboarding_Status__c     = 'Draft';
+        // When the Tier 1 supplier selected specific requirements below, that
+        // curated subset (copied at 1b) IS this account's checklist — the
+        // trigger-fired ScopeCalloutQueueable must not also seed a full
+        // /scope-derived checklist on top of it (that's what let the
+        // sub-supplier see every document instead of just the 3 selected).
+        // If nothing was selected, leave it unset so a full default checklist
+        // still gets seeded rather than leaving the sub-supplier with none.
+        subAcc.Checklist_Seeded_By_Caller__c = String.isNotBlank(selectedRequirementIds);
 
         if (existing.isEmpty()) {
             insert subAcc;
@@ -241,6 +249,17 @@ public without sharing class SubSupplierController {
                 if (!toUpsert.isEmpty()) {
                     try {
                         upsert toUpsert Requirement_Key__c;
+                        // Checklist_Seeded_By_Caller__c=true (set above) stops
+                        // the trigger-fired ScopeCalloutQueueable from also
+                        // seeding a checklist — which means it never sets
+                        // Checklist_Item_Count__c for THIS account either
+                        // (that write is itself gated on being the one doing
+                        // the seeding). Left null, RiskScoreService.computeScore
+                        // falls back to counting only resolved outcomes instead
+                        // of the true checklist size, so an early Approve can
+                        // inflate the score the same way the P1 checklist-freeze
+                        // bug did. Set it here, once, to the curated count.
+                        update new Account(Id = subAcc.Id, Checklist_Item_Count__c = toUpsert.size());
                     } catch (Exception e) {
                         System.debug('[SubSupplier] Requirement copy failed: ' + e.getMessage());
                     }

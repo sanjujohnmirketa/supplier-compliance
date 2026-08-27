@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>CAP Laboratory Accreditation</label>
+    <protected>false</protected>
+    <values>
+        <field>Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Default_Selected__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">College of American Pathologists Laboratory Accreditation Program certificate, satisfying CLIA-deemed status requirements under CAP's CMS agreement.</value>
+    </values>
+    <values>
+        <field>Display_Order__c</field>
+        <value xsi:type="xsd:double">110.0</value>
+    </values>
+    <values>
+        <field>Domain_Key__c</field>
+        <value xsi:type="xsd:string">clinical_lab_accred</value>
+    </values>
+    <values>
+        <field>Label__c</field>
+        <value xsi:type="xsd:string">CAP Laboratory Accreditation</value>
+    </values>
+    <values>
+        <field>Verifier_Authority__c</field>
+        <value xsi:type="xsd:string">College of American Pathologists (CAP)</value>
+    </values>
+</CustomMetadata>

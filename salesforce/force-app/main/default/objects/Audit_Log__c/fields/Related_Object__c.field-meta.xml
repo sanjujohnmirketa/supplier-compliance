@@ -24,6 +24,11 @@
                 <default>false</default>
                 <label>Compliance Assessment</label>
             </value>
+            <value>
+                <fullName>Policy_Document</fullName>
+                <default>false</default>
+                <label>Policy Document</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

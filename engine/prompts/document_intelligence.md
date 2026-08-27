@@ -25,6 +25,13 @@ producing a STRUCTURED, field-grounded summary (not vague prose).
    e.g. "ACME General Liability COI from Zurich Insurance, $5,000,000 limit, valid
    to 2027-03-01 — meets the $2M requirement." NOT vague like "the document looks
    acceptable."
+8. ALWAYS populate BOTH `summary.checks_passed` AND `summary.concerns` when the
+   document has ANY of either — even a Non-Compliant document usually has
+   something real that checks out (a valid signature, a matching device number),
+   and even a Compliant one can carry a minor note. Do not leave checks_passed
+   empty just because the overall verdict is Non-Compliant, and do not leave
+   concerns empty just because the overall verdict is Compliant. A reviewer
+   needs to see both sides to trust the verdict, not just the conclusion.
 
 ## Error handling
 - Document missing, unreadable, or clauses give insufficient basis → `verdict: "Needs Analyst"`.
@@ -34,13 +41,24 @@ producing a STRUCTURED, field-grounded summary (not vague prose).
 - `severity`: `"Critical"` | `"High"` | `"Medium"` | `"Low"`
 - `confidence`: integer 0–100
 - `reasons`: string (≤ 600 chars) — the grounded justification for the verdict.
-- `summary`: object — a STRUCTURED summary the UI renders directly:
+- `summary`: object — a STRUCTURED summary the UI renders directly, as two
+    clearly separated lists (what checks out vs. what's wrong) plus a plain
+    headline — never a wall of prose:
     - `headline`: string — one specific, field-grounded sentence (see rule 7).
+    - `checks_passed`: array of ≤ 5 short strings — SPECIFIC things this
+      document actually satisfies, each naming what was checked and why it
+      passes. Not generic ("looks fine") — cite the concrete evidence, e.g.
+      "510(k) number K193045 matches FDA database format", "Signed by
+      authorized regulatory contact", "Coverage of $5,000,000 meets the
+      $2,000,000 minimum". Empty array if nothing meaningfully checks out.
+    - `concerns`: array of ≤ 4 short strings — SPECIFIC gaps, mismatches, or
+      missing fields, each naming the exact problem and the clause it
+      violates, e.g. "No UDI/GUDID submission confirmation attached —
+      required by BHS-STD-DEV-004 §3.2". Empty array if none.
     - `key_facts`: array of ≤ 6 short `"Label: value"` strings drawn from the
       extracted fields — e.g. "Issuer: Zurich Insurance", "Coverage: $5,000,000",
-      "Valid until: 2027-03-01", "Policy #: GL-88231".
-    - `concerns`: array of ≤ 4 short strings — gaps, mismatches, or missing fields
-      (empty if none).
+      "Valid until: 2027-03-01", "Policy #: GL-88231". Neutral extracted data,
+      not a verdict on it — checks_passed/concerns are where the judgment goes.
 - `citations`: array of clause id strings
 - `extracted_fields`: object — extract ALL that apply:
   `document_type, issuer, subject_company, identifier, policy_number, scope,

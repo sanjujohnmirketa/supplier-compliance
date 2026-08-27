@@ -10,7 +10,9 @@
   --color-background-tertiary:  #eeeeeb;
   --color-text-primary:   #1a1a1a;
   --color-text-secondary: #666666;
-  --color-text-tertiary:  #aaaaaa;
+  /* Was #aaaaaa — ~2.3:1 against white, fails WCAG AA (4.5:1) for normal text.
+     #767671 clears 5:1+ while keeping the same "muted" role in the hierarchy. */
+  --color-text-tertiary:  #767671;
   --color-border-primary:   #cccccc;
   --color-border-secondary: #d8d8d2;
   --color-border-tertiary:  #e0e0da;
@@ -22,7 +24,8 @@
   height: 100%;
   min-height: 0;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 450;
   color: var(--color-text-primary);
   background: var(--color-background-secondary);
 }
@@ -82,12 +85,14 @@
 }
 .vc-sb-note { font-size: 11px; color: var(--color-text-secondary); padding: 2px 16px; line-height: 1.4; }
 .vc-sb-item {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 8px; width: 100%;
   padding: 6px 16px; font-size: 12px;
   color: var(--color-text-secondary);
+  border: none; background: none; text-align: left; font-family: var(--font-sans);
   cursor: pointer; user-select: none; transition: background .1s;
 }
 .vc-sb-item:hover { background: var(--color-background-secondary); }
+.vc-sb-item:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
 .vc-sb-item.active {
   background: var(--color-background-secondary);
   color: var(--color-text-primary); font-weight: 500;
@@ -110,6 +115,7 @@
   border: 0.5px solid var(--color-border-tertiary);
   border-radius: 20px; padding: 4px 12px; white-space: nowrap; flex-shrink: 0;
 }
+.vc-aq-hdr-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .vc-footer-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 16px; }
 .vc-footer-spacer { flex: 1; }
 
@@ -152,13 +158,23 @@
 }
 
 /* ─── Buttons / pills ────────────────────────────────────────────────────────── */
+/* Purple, not blue — matches this console's own persona accent (already used
+   on the topbar avatar/chip/sub-nav dot below) and the Procurement & Analyst
+   Workspace Mockup's analyst theme. Was a leftover shared-blue default that
+   never got re-themed when the purple persona accent was introduced. */
 .vc-btn-pri {
   border: none; border-radius: var(--border-radius-md);
   padding: 7px 16px; font-size: 12px; font-weight: 500;
-  background: #2563eb; color: #fff;
+  background: #6d28d9; color: #fff;
   cursor: pointer; font-family: var(--font-sans); transition: background .12s, opacity .1s;
 }
-.vc-btn-pri:hover { background: #1d4ed8; }
+.vc-btn-pri:hover { background: #5b21b6; }
+/* Close case — reuses the same green "ready" success color already
+   established for the Final Verdict card's ready state (.vc-verdict-ready
+   below), so a closable case reads consistently across both. */
+.vc-btn-close { background: #16A34A; }
+.vc-btn-close:hover { background: #166534; }
+.vc-close-card { border-color: #86EFAC; background: #F0FDF4; }
 .vc-btn-sec {
   border: 0.5px solid var(--color-border-secondary);
   border-radius: var(--border-radius-md);
@@ -174,13 +190,13 @@
   background: transparent; color: var(--color-text-secondary);
   cursor: pointer; font-family: var(--font-sans);
 }
-.vc-pill.active { background: var(--color-text-primary); color: #fff; border-color: var(--color-text-primary); }
+.vc-pill.active { background: #6d28d9; color: #fff; border-color: #6d28d9; }
 .vc-pill:hover:not(.active) { border-color: var(--color-border-primary); }
 
 /* ─── Tabs ───────────────────────────────────────────────────────────────────── */
 .vc-tab-row { display: flex; gap: 6px; margin-bottom: 12px; }
 .vc-tab { border: 0.5px solid var(--color-border-tertiary); border-radius: 20px; padding: 4px 12px; font-size: 11px; color: var(--color-text-secondary); background: var(--color-background-primary); cursor: pointer; font-family: var(--font-sans); }
-.vc-tab.active { background: var(--color-text-primary); color: #fff; border-color: var(--color-text-primary); }
+.vc-tab.active { background: #6d28d9; color: #fff; border-color: #6d28d9; }
 
 /* ─── A1 — KPI cards + filters + risk register ───────────────────────────────── */
 .vc-stat-row  { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 16px; }
@@ -337,14 +353,17 @@
 .vc-badge.neutral { background: #E5E7EB; color: #374151; }
 
 /* A1 queue table rows (grid matches the head) */
-.vc-tbl-head.vc-aq-head { display: grid; grid-template-columns: 1.6fr 1fr .8fr .9fr 1.1fr 1fr .7fr; }
+.vc-tbl-head.vc-aq-head { display: grid; grid-template-columns: 1.6fr 1fr .8fr .9fr 1.1fr 1fr 1fr .7fr; }
 .vc-tbl-row.vc-aq-row {
-  display: grid; grid-template-columns: 1.6fr 1fr .8fr .9fr 1.1fr 1fr .7fr;
-  align-items: center; padding: 11px 16px;
-  border-bottom: 0.5px solid var(--color-border-tertiary, #e0e0da); cursor: pointer; transition: background .12s ease;
+  display: grid; grid-template-columns: 1.6fr 1fr .8fr .9fr 1.1fr 1fr 1fr .7fr;
+  align-items: center; width: 100%; padding: 11px 16px;
+  border: none; border-bottom: 0.5px solid var(--color-border-tertiary, #e0e0da);
+  border-radius: 0; background: none; font-family: var(--font-sans); text-align: left;
+  cursor: pointer; transition: background .12s ease;
 }
 .vc-tbl-row.vc-aq-row:last-child { border-bottom: none; }
 .vc-tbl-row.vc-aq-row:hover { background: var(--color-background-secondary, #f5f5f3); }
+.vc-tbl-row.vc-aq-row:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
 .vc-tbl-cell { font-size: 12px; font-weight: 500; color: #1a1a1a; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vc-tbl-cell.vc-sn { font-size: 13px; font-weight: 600; color: #1a1a1a; }
 .vc-row-open { font-size: 11px; font-weight: 600; color: #2563eb; }
@@ -353,7 +372,7 @@
 .vc-back-link { background: none; border: none; cursor: pointer; font-family: inherit; font-size: 12px; color: #2563eb; padding: 0 0 8px; }
 .vc-back-link:hover { text-decoration: underline; }
 .vc-sup-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.vc-snap-loading { font-size: 12px; color: var(--color-text-tertiary, #aaa); padding: 8px 0; }
+.vc-snap-loading { font-size: 12px; color: var(--color-text-tertiary, #767671); padding: 8px 0; }
 
 /* A2 document validation cards */
 .vc-doc-card {
@@ -366,16 +385,41 @@
 .vc-doc-ai { background: #F8FAFF; border: 0.5px solid #E0E7FF; border-radius: 6px; padding: 9px 11px; margin-bottom: 10px;margin-top: 10px; }
 .vc-doc-ai-tag { display: block; font-size: 10px; font-weight: 600; color: #4338CA; margin-bottom: 4px; }
 .vc-doc-ai-text { font-size: 11.5px; color: var(--color-text-secondary, #555); line-height: 1.5; }
-/* Structured AI summary (headline / facts / checks / concerns) */
-.vc-assess-headline { font-size: 12.5px; font-weight: 600; color: var(--color-text-primary, #1a1a1a); line-height: 1.45; margin: 0 0 5px; }
-.vc-assess-facts { margin: 0 0 4px; padding-left: 16px; }
-.vc-assess-facts li { font-size: 11.5px; color: var(--color-text-secondary, #444); margin: 1px 0; }
-.vc-assess-checks { margin: 4px 0; display: flex; flex-direction: column; gap: 2px; }
-.vc-chkline { font-size: 11.5px; }
-.vc-chkline.pass { color: #1e7a4f; }
-.vc-chkline.fail { color: #b3261e; font-weight: 600; }
-.vc-assess-concerns { margin: 4px 0 0; padding-left: 16px; }
-.vc-assess-concerns li { font-size: 11.5px; color: #9a6213; margin: 1px 0; }
+/* Structured AI summary: headline + two-section "what checks out" (green) /
+   "what's wrong" (red) — same token names as scProcurementConsole and
+   scSupplierPortal so all three consoles render this identically. */
+.vc-assess-headline { font-size: 12.5px; font-weight: 600; color: var(--color-text-primary, #1a1a1a); line-height: 1.45; margin: 0 0 8px; }
+.vc-assess-section { margin: 0 0 10px; }
+.vc-assess-section:last-child { margin-bottom: 0; }
+.vc-assess-section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  margin: 0 0 5px;
+}
+.vc-assess-section-label.pass { color: #1e7a4f; }
+.vc-assess-section-label.wrong { color: #b3261e; }
+.vc-assess-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.vc-assess-list li { font-size: 11.5px; line-height: 1.45; padding-left: 14px; position: relative; }
+.vc-assess-list.pass li { color: #1e7a4f; }
+.vc-assess-list.wrong li { color: #a83e1e; }
+.vc-assess-list li::before {
+  content: ''; position: absolute; left: 2px; top: 5px;
+  width: 5px; height: 5px; border-radius: 50%;
+}
+.vc-assess-list.pass li::before { background: #2e9e63; }
+.vc-assess-list.wrong li::before { background: #d1453b; }
+.vc-assess-confidence { font-size: 11px; color: var(--color-text-secondary, #555); margin: -4px 0 8px; }
+
+/* Multi-document-per-requirement: each linked file's own status/summary,
+   shown as a distinct sub-card above the requirement-level AI summary. */
+.vc-zone-label { font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--color-text-tertiary, #999); margin: 0 0 6px; display: flex; align-items: center; gap: 6px; }
+.vc-zone-label::after { content: ''; flex: 1; height: 1px; background: var(--color-border-tertiary, #eee); }
+.vc-linked-docs-zone { margin-bottom: 10px; }
+.vc-linked-doc { background: #fff; border: 0.5px solid var(--color-border-tertiary, #eee);
+    border-radius: 4px; padding: 9px 11px; margin-bottom: 8px; }
+.vc-linked-doc:last-child { margin-bottom: 0; }
+.vc-linked-doc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.vc-linked-doc-title { font-size: 12.5px; font-weight: 600; flex: 1; min-width: 0; overflow-wrap: break-word; }
 /* Inline spinner for Summarize button */
 .vc-spinner {
   display: inline-block; width: 11px; height: 11px; margin-right: 6px;
@@ -389,7 +433,41 @@
   border-radius: 6px; padding: 8px 10px; font-size: 12px; font-family: inherit; color: var(--color-text-primary, #1a1a1a);
 }
 .vc-doc-comment:focus { outline: none; border-color: var(--color-border-primary, #ccc); }
-.vc-doc-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.vc-doc-verdict-hint { font-size: 11px; color: var(--color-text-tertiary, #767671); margin-top: 10px; }
+.vc-defer-note {
+  background: #fffbeb; border: 0.5px solid #fde68a; border-radius: 6px;
+  padding: 8px 12px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 3px;
+}
+.vc-defer-note-label { font-size: 10.5px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: 0.03em; }
+.vc-defer-note-text { font-size: 12px; color: #78350f; line-height: 1.5; }
+.vc-new-since-handoff-note {
+  background: #eff6ff; border: 0.5px solid #bfdbfe; border-radius: 6px;
+  padding: 8px 12px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 3px;
+}
+.vc-new-since-handoff-label { font-size: 10.5px; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: 0.03em; }
+.vc-new-since-handoff-text { font-size: 12px; color: #1e3a8a; line-height: 1.5; }
+.vc-new-since-handoff-dot { color: #2563eb; font-size: 8px; margin-left: 5px; vertical-align: middle; }
+.vc-doc-provenance { font-size: 11px; color: var(--color-text-tertiary, #767671); margin-top: 4px; font-style: italic; }
+/* Full comment/upload history — same visual pattern as the Procurement and
+   Supplier consoles' own dated thread, so it reads consistently across all
+   three personas. */
+.vc-comment-history {
+  margin: 4px 0 10px; padding: 8px 10px; border-radius: 6px;
+  background: var(--color-background-secondary, #f7f7f5);
+  border: 0.5px solid var(--color-border-tertiary, #eee);
+}
+.vc-proc-decision-note {
+  display: flex; align-items: center; gap: 8px; font-size: 11.5px; flex-wrap: wrap;
+  padding: 5px 0;
+  border-bottom: 0.5px solid var(--color-border-tertiary, #eee);
+}
+.vc-proc-decision-note:last-child { border-bottom: none; }
+.vc-proc-comment-date { margin-left: auto; color: var(--color-text-tertiary, #999); font-size: 10.5px; white-space: nowrap; }
+.vc-doc-actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.vc-handoff-banner {
+  background: #ede9fe; border: 0.5px solid #c4b5fd; border-radius: 6px;
+  color: #5b21b6; font-size: 12px; padding: 8px 12px; margin: 10px 0; line-height: 1.4;
+}
 .vc-doc-spacer { flex: 1; }
 .vc-cp-draft { color: #4338CA; }
 .vc-validated { background: #DCFCE7 !important; color: #166534 !important; border-color: #86EFAC !important; }
@@ -397,7 +475,7 @@
 /* AI-summary mini list (overview) */
 .vc-ai-summary { display: flex; flex-direction: column; gap: 8px; }
 .vc-ais-line { display: flex; gap: 10px; align-items: baseline; }
-.vc-ais-k { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-tertiary, #aaa); width: 84px; flex-shrink: 0; }
+.vc-ais-k { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-tertiary, #767671); width: 84px; flex-shrink: 0; }
 .vc-ais-v { font-size: 12px; color: var(--color-text-primary, #1a1a1a); }
 
 /* A3 resolved route */
@@ -431,14 +509,14 @@
 .vc-cp-msg.ai strong { font-weight: 600; }
 .vc-cp-panel-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 0.5px solid #e0e0da; background: #f5f5f3; }
 .vc-cp-panel-title { font-size: 13px; font-weight: 600; color: #1a1a1a; }
-.vc-cp-panel-sub { font-weight: 400; color: #aaa; font-size: 11px; }
-.vc-cp-close { background: none; border: none; font-size: 20px; line-height: 1; color: #aaa; cursor: pointer; }
+.vc-cp-panel-sub { font-weight: 400; color: #767671; font-size: 11px; }
+.vc-cp-close { background: none; border: none; font-size: 20px; line-height: 1; color: #767671; cursor: pointer; }
 .vc-cp-thread { flex: 1; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
-.vc-cp-empty { font-size: 11.5px; color: #aaa; line-height: 1.5; }
+.vc-cp-empty { font-size: 11.5px; color: #767671; line-height: 1.5; }
 .vc-cp-msg { font-size: 12px; line-height: 1.45; padding: 8px 11px; border-radius: 10px; max-width: 86%; }
 .vc-cp-msg.you { align-self: flex-end; background: #2563eb; color: #fff; border-bottom-right-radius: 3px; }
 .vc-cp-msg.ai  { align-self: flex-start; background: #f5f5f3; color: #1a1a1a; border-bottom-left-radius: 3px; }
-.vc-cp-typing { font-style: italic; color: #aaa; }
+.vc-cp-typing { font-style: italic; color: #767671; }
 /* Co-pilot suggested-action chips */
 .vc-cp-suggest { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 14px 8px; }
 .vc-cp-suggest-lbl { width: 100%; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-tertiary); margin-bottom: 2px; }
@@ -455,11 +533,15 @@
 .vc-doc-view:hover { text-decoration: underline; }
 
 /* Decision & route as a nested sub-item under Risk analysis */
-.vc-sb-subitem-wrap { cursor: pointer; }
+.vc-sb-subitem-wrap {
+  display: block; width: 100%; border: none; background: none; padding: 0;
+  text-align: left; font-family: var(--font-sans); cursor: pointer;
+}
+.vc-sb-subitem-wrap:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
 .vc-sb-subitem {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 16px 6px 30px; font-size: 11.5px;
-  color: var(--color-text-tertiary, #aaa); transition: background .1s;
+  color: var(--color-text-tertiary, #767671); transition: background .1s;
 }
 .vc-sb-subitem:hover { background: var(--color-background-secondary, #f5f5f3); color: var(--color-text-secondary, #666); }
 .vc-sb-subitem.active { background: var(--color-background-secondary, #f5f5f3); color: var(--color-text-primary, #1a1a1a); font-weight: 500; }
@@ -495,27 +577,34 @@
   position: sticky;
   top: 0;
 }
-.vc-a2-list-head {
+/* Head and row share the SAME grid-template-columns (doc | status | stage) so
+   header labels and cell content can never drift out of alignment with each
+   other — both are defined together here rather than as two independently
+   maintained rule sets. A fixed px width on the status/stage columns (not
+   "auto") keeps every row's columns landing in the same place regardless of
+   how long that row's own status/stage text happens to be. */
+.vc-a2-list-head,
+.vc-a2-list-item {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr 92px 84px;
   gap: 8px;
+  align-items: center;
+}
+.vc-a2-list-head {
   padding: 8px 12px;
   background: var(--color-background-secondary);
   border-bottom: 0.5px solid var(--color-border-tertiary);
 }
 .vc-a2-list-col-doc,
 .vc-a2-list-col-stat,
-.vc-a2-list-col-conf {
+.vc-a2-list-col-stage {
   font-size: 10px; font-weight: 700; letter-spacing: .06em;
   text-transform: uppercase; color: #374151;
+  text-align: left;
 }
 .vc-a2-list-col-stat,
-.vc-a2-list-col-conf { white-space: nowrap; }
+.vc-a2-list-col-stage { white-space: nowrap; }
 .vc-a2-list-item {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 8px;
-  align-items: center;
   padding: 10px 12px;
   border-bottom: 0.5px solid var(--color-border-tertiary);
   cursor: pointer;
@@ -523,19 +612,34 @@
 }
 .vc-a2-list-item:last-child { border-bottom: none; }
 .vc-a2-list-item:hover { background: var(--color-background-secondary); }
+/* Selected state uses an inset box-shadow instead of border+padding-left —
+   a border-left that isn't accounted for in the shared padding was exactly
+   the kind of independent left-edge shift that could read as misaligned. */
 .vc-a2-list-item.selected {
-  background: #EFF6FF;
-  border-left: 2px solid #2563eb;
-  padding-left: 10px;
+  background: #ede9fe;
+  box-shadow: inset 2px 0 0 #6d28d9;
 }
 .vc-a2-list-doc-name {
   font-size: 12px; font-weight: 500; color: var(--color-text-primary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.vc-a2-list-conf {
-  font-size: 11px; color: var(--color-text-tertiary);
-  min-width: 24px; text-align: right;
+/* Status pill's own grid cell — left-anchored under its LEFT-anchored header
+   (vc-a2-list-col-stat), same rule the Stage column follows next to it. */
+.vc-a2-list-item .vc-badge { justify-self: start; }
+/* Stage — Procurement's Accepted/Rejected/Deferred/No action call, its own
+   column (replaces the old Conf. column). Left-aligned to match its own
+   header label directly above it — a badge pill and a plain text column
+   both read as "left-anchored under a left-anchored header," matching the
+   Document column's own alignment, rather than each column choosing its
+   own alignment independently. */
+.vc-a2-list-stage {
+  font-size: 11px; font-weight: 500; text-align: left; white-space: nowrap;
+  justify-self: start;
 }
+.vc-a2-list-stage.approved  { color: #166534; }
+.vc-a2-list-stage.rejected  { color: #991B1B; }
+.vc-a2-list-stage.deferred  { color: #92400E; }
+.vc-a2-list-stage.none      { color: var(--color-text-tertiary); }
 
 /* Right: document detail panel */
 .vc-a2-doc-detail { min-height: 300px; }
@@ -640,14 +744,24 @@
 }
 .vc-vd-issue-conf { font-size: 11px; color: var(--color-text-tertiary); white-space: nowrap; }
 
-/* Approve / Reject decision button states */
-.vc-doc-approved {
-  background: #DCFCE7 !important;
-  color: #166534 !important;
-  border-color: #86EFAC !important;
+/* Compliant / Non-Compliant decision buttons — STATIC identity per button,
+   not swapped based on the AI's own verdict (previously "Confirm"/"Override"
+   flipped label AND which button meant what depending on aiVerdict, which
+   read as confusing since the same physical button changed meaning between
+   documents). Left button always means Compliant (blue), right always means
+   Non-Compliant (red) — color and position never change, only whether the
+   analyst has actually picked that one for THIS document (active state). */
+.vc-doc-approved-active {
+  background: #2563EB !important;
+  color: #fff !important;
 }
 .vc-doc-rejected {
-  background: #FEE2E2 !important;
+  background: #FEF2F2 !important;
   color: #991B1B !important;
   border-color: #FECACA !important;
+}
+.vc-doc-rejected-active {
+  background: #DC2626 !important;
+  color: #fff !important;
+  border-color: #DC2626 !important;
 }

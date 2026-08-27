@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Grants visibility of the Procurement workspace (Procurement Console, Policy Documents) — accounts with status In Review / Awaiting Documents and Handed to Analyst. Assigned via the Procurement_Workspace_Access permission set.</description>
+    <isLicensed>false</isLicensed>
+    <label>Grant Procurement Workspace</label>
+</CustomPermission>

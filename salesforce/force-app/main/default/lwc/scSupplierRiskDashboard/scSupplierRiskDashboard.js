@@ -39,7 +39,7 @@ export default class ScSupplierRiskDashboard extends NavigationMixin(LightningEl
                 return {
                     ...d,
                     ...parsed,
-                    confidenceLabel: conf == null ? '—' : `${Math.round(conf * 100)}%`,
+                    confidenceLabel: conf == null ? 'Not scored yet' : `${Math.round(conf * 100)}%`,
                     statusVariantClass: sv === 'success' ? 'badge-success'
                                       : sv === 'error'   ? 'badge-error'
                                       : sv === 'warning' ? 'badge-warning'
@@ -117,15 +117,39 @@ export default class ScSupplierRiskDashboard extends NavigationMixin(LightningEl
     }
     get hasNoSnapshot()  { return !!this.snapshot && !this.hasSnapshot; }
     get hasError()       { return !!this.errorMessage; }
+    // Risk_Score__c now legitimately starts at (and can settle back to) 0, so
+    // a null/absent check alone can't tell "genuinely 0" apart from "never
+    // screened." Risk_Last_Computed__c is only ever set by RiskScoreService
+    // when a real recompute has run against at least one assessed document —
+    // its absence is what actually means "not scored yet."
+    get isScored() {
+        return !!this.snapshot && this.snapshot.riskLastComputed != null;
+    }
     get riskScoreLabel() {
-        if (!this.snapshot || this.snapshot.riskScore == null) return '—';
+        if (!this.isScored) return 'Not scored yet';
         return Math.round(this.snapshot.riskScore);
     }
     get riskScorePercent() {
-        if (!this.snapshot || this.snapshot.riskScore == null) return '—';
+        if (!this.isScored) return 'Not scored yet';
         return `${Math.round(this.snapshot.riskScore)}%`;
     }
     get riskTierLabel()  { return this.snapshot?.riskTier || 'Unknown'; }
+
+    // ── Closed case (VendorPortalController.closeComplianceCase) ───────────────
+    get isCaseClosed() { return !!this.snapshot?.isCaseClosed; }
+    get closedResultLabel() {
+        return this.snapshot?.caseStatus === 'Closed - Rejected' ? 'Rejected' : 'Compliant';
+    }
+    get closedByLabel() {
+        const who = this.snapshot?.caseClosedByName;
+        const when = this.snapshot?.caseClosedDateTime;
+        const whenStr = when ? new Date(when).toLocaleDateString(undefined,
+            { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+        if (who && whenStr) return `Closed by ${who} on ${whenStr}`;
+        if (whenStr) return `Closed on ${whenStr}`;
+        return 'Closed';
+    }
+    get hasClosingRemarks() { return !!this.snapshot?.closingRemarks; }
     get riskTierBadge() {
         const map = {
             Critical: 'tier-critical',
@@ -183,7 +207,7 @@ export default class ScSupplierRiskDashboard extends NavigationMixin(LightningEl
     get hasRemediation()       { return !!this.snapshot?.remediationSteps; }
     get avgConfidenceLabel() {
         const c = this.snapshot?.avgConfidence;
-        return c == null ? '—' : `${Math.round(c * 100)}%`;
+        return c == null ? 'Not scored yet' : `${Math.round(c * 100)}%`;
     }
     get lastComputedLabel() {
         const d = this.snapshot?.riskLastComputed;

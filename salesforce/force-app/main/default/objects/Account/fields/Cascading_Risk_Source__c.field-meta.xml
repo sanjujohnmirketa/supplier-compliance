@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Cascading_Risk_Source__c</fullName>
+    <description>Comma-separated names of the sub-suppliers whose risk scores are at or above the cascade threshold, making this supplier&apos;s propagated score elevated. Provides full traceability from parent to originating non-compliant sub-supplier.</description>
+    <label>Cascading Risk Source</label>
+    <length>1000</length>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>

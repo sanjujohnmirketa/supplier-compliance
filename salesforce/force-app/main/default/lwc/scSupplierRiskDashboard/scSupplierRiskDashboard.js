@@ -136,6 +136,32 @@ export default class ScSupplierRiskDashboard extends NavigationMixin(LightningEl
         return `risk-tier ${map[this.snapshot?.riskTier] || 'tier-unknown'}`;
     }
 
+    // ── Cascading risk (docs/multi-tier-risk-rollup.md) ────────────────────
+    // Distinct from riskTier above: worst-case tier across this supplier's
+    // whole sub-tree (self + all T2/T3 descendants), not just its own docs.
+    get hasSubTierSuppliers() { return (this.snapshot?.subTierSupplierCount || 0) > 0; }
+    get cascadingRiskLabel()  { return this.snapshot?.cascadingRiskTier || 'Unknown'; }
+    get cascadingRiskBadge() {
+        const map = {
+            Critical: 'tier-critical',
+            High:     'tier-high',
+            Medium:   'tier-medium',
+            Low:      'tier-low'
+        };
+        return `risk-tier cascading ${map[this.snapshot?.cascadingRiskTier] || 'tier-unknown'}`;
+    }
+    get isCascadingWorseThanOwn() {
+        const rank = { Low: 0, Medium: 1, High: 2, Critical: 3 };
+        const own = rank[this.snapshot?.riskTier] ?? -1;
+        const cascading = rank[this.snapshot?.cascadingRiskTier] ?? -1;
+        return cascading > own;
+    }
+    get cascadingRiskSourceLabel() { return this.snapshot?.cascadingRiskSource || null; }
+    get subTierSupplierCountLabel() {
+        const n = this.snapshot?.subTierSupplierCount || 0;
+        return `${n} sub-tier supplier${n === 1 ? '' : 's'}`;
+    }
+
     get riskRingDasharray() {
         const score = this.snapshot?.riskScore ?? 0;
         const filled = (score / 100) * 282.74;

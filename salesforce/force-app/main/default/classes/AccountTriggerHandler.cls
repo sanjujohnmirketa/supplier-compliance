@@ -101,6 +101,17 @@ public class AccountTriggerHandler implements ITriggerHandler {
         // Checklist now comes from the local /scope RAG service (async callout),
         // replacing the static CMT rule engine (SupplierOnboardingService).
         ScopeOnboardingService.initiateOnboarding(suppliers);
+
+        // A newly created sub-supplier changes its parent's descendant count —
+        // enqueue a rollup starting from the parent so Sub_Tier_Supplier_Count__c
+        // (and cascading tier, if the new child already has one) stays current.
+        Set<Id> newParentIds = new Set<Id>();
+        for (Account acc : suppliers) {
+            if (acc.ParentId != null) newParentIds.add(acc.ParentId);
+        }
+        if (!newParentIds.isEmpty()) {
+            MultiTierRollupService.enqueueRollup(newParentIds);
+        }
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -113,6 +124,30 @@ public class AccountTriggerHandler implements ITriggerHandler {
     // ═════════════════════════════════════════════════════════════════════════
     public void afterUpdate(List<SObject> newList, Map<Id, SObject> oldMap) {
         List<Account> changedSuppliers = new List<Account>();
+
+        // Multi-tier cascading-risk roll-up (docs/multi-tier-risk-rollup.md):
+        // Account.ParentId is a lookup hierarchy, not Master-Detail, so this
+        // can't be a native Roll-Up Summary field — it has to be walked in
+        // Apex.
+        //
+        // Two distinct triggers feed the same MultiTierRollupService, via two
+        // different paths:
+        //  - STRUCTURAL changes (re-parenting) — enqueued directly here. Not a
+        //    "compliance status change", so it doesn't need the platform event.
+        //  - Risk_Tier__c OR Risk_Score__c changing (a supplier's own compliance
+        //    status moved) — publishes Supplier_Risk_Change__e instead of
+        //    calling the rollup directly. SupplierRiskChangeTrigger picks it
+        //    up in a fresh transaction after this one commits — real-time,
+        //    not a batch job, and it sidesteps TriggerDispatcher's
+        //    same-transaction recursion guard (see the class doc there) more
+        //    cleanly than enqueuing here would.
+        //    Both fields are watched, not just Risk_Tier__c: the cascading
+        //    risk SCORE formula is sensitive to the continuous Risk_Score__c
+        //    value, so a score moving from e.g. 8 to 24 (both still bucketed
+        //    as 'Low', no Risk_Tier__c change) must still re-fire the rollup
+        //    or Cascading_Risk_Score__c silently goes stale.
+        Set<Id> structuralRollupIds = new Set<Id>();
+        List<Supplier_Risk_Change__e> riskChangeEvents = new List<Supplier_Risk_Change__e>();
 
         for (Account acc : (List<Account>) newList) {
             if (!isSupplier(acc)) continue;
@@ -130,10 +165,28 @@ public class AccountTriggerHandler implements ITriggerHandler {
             if (ruleInputChanged) {
                 changedSuppliers.add(acc);
             }
+
+            if (acc.Risk_Tier__c != old.Risk_Tier__c || acc.Risk_Score__c != old.Risk_Score__c) {
+                riskChangeEvents.add(new Supplier_Risk_Change__e(
+                    Supplier_Id__c   = acc.Id,
+                    Old_Risk_Tier__c = old.Risk_Tier__c,
+                    New_Risk_Tier__c = acc.Risk_Tier__c
+                ));
+            }
+            if (acc.ParentId != old.ParentId) {
+                if (old.ParentId != null) structuralRollupIds.add(old.ParentId);
+                if (acc.ParentId != null) structuralRollupIds.add(acc.ParentId);
+            }
         }
 
         if (!changedSuppliers.isEmpty()) {
             ScopeOnboardingService.reEvaluate(changedSuppliers);
+        }
+        if (!riskChangeEvents.isEmpty()) {
+            EventBus.publish(riskChangeEvents);
+        }
+        if (!structuralRollupIds.isEmpty()) {
+            MultiTierRollupService.enqueueRollup(structuralRollupIds);
         }
     }
 

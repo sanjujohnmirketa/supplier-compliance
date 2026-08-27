@@ -50,6 +50,21 @@ public without sharing class AuditLogService {
         );
     }
 
+    public static void logCascadingRiskChange(
+        Id accountId, String before, String after, String reason) {
+        insert new Audit_Log__c(
+            Event_Type__c         = 'Cascading_Risk_Updated',
+            Related_Object__c     = 'Supplier',
+            Related_Record_Id__c  = accountId,
+            Event_DateTime__c     = DateTime.now(),
+            Actor_Type__c         = 'System',
+            Original_Value__c     = before,
+            New_Value__c          = after,
+            Reason__c             = reason,
+            Source_System__c      = 'Salesforce'
+        );
+    }
+
     // CRITICAL: Never expose update or delete methods on Audit_Log__c.
     // The object CRUD on the permission set should be Create-only.
 }

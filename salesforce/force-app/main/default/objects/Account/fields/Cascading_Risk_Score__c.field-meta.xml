@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Cascading_Risk_Score__c</fullName>
+    <description>Blended &quot;New Score&quot; (0-100): (Own Score x Own_Score_Weight__c) + (avg of relationship-weighted sub-supplier contributions x Sub_Supplier_Weight__c), computed bottom-up (Tier 3 first) by MultiTierRollupService. Distinct from Risk_Score__c (own score only) and from Cascading_Risk_Tier__c (worst-case severity bucket, a separate signal).</description>
+    <externalId>false</externalId>
+    <label>Cascading Risk Score</label>
+    <precision>5</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackFeedHistory>false</trackFeedHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

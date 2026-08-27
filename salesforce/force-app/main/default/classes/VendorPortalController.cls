@@ -601,11 +601,17 @@ public without sharing class VendorPortalController {
         @AuraEnabled public List<AssessmentSummary> assessments; // past AI summaries
         @AuraEnabled public Integer  docCount;
         @AuraEnabled public Integer  assessedCount;
-        // Risk propagation fields
-        // @AuraEnabled public Decimal  riskScore;          // propagated risk score (0-100)
-        // @AuraEnabled public Decimal  ownComplianceScore; // own score before sub-supplier influence
-        // @AuraEnabled public Boolean  cascadingRiskFlag;  // true = elevated by sub-supplier non-compliance
-        // @AuraEnabled public String   cascadingRiskSource; // which sub-suppliers are driving the cascade
+        // Multi-tier cascading risk (docs/multi-tier-risk-rollup.md) — computed
+        // by MultiTierRollupService, distinct from this supplier's own riskTier.
+        @AuraEnabled public Decimal  riskScore;             // this supplier's own score (0-100)
+        @AuraEnabled public String   cascadingRiskTier;     // worst tier across self + all descendants
+        @AuraEnabled public String   cascadingRiskSource;   // which descendant is driving it
+        @AuraEnabled public Id       cascadingRiskDriverId; // drill-through target for cascadingRiskSource
+        @AuraEnabled public Integer  subTierSupplierCount;  // # of descendants (any depth)
+        // Weighted-average blend (New Score = own*0.7 + avg(weighted sub-supplier)*0.3) —
+        // a second, separate signal from cascadingRiskTier's worst-case propagation.
+        @AuraEnabled public Decimal  cascadingRiskScore;
+        @AuraEnabled public Boolean  cascadingRiskFlagged;
     }
 
     public class AssessmentSummary {
@@ -630,7 +636,9 @@ public without sharing class VendorPortalController {
         Account a = [
             SELECT Id, Name, Industry, BillingCountry, Country_of_Origin__c,
                    Risk_Tier__c, Risk_Score__c, Risk_Domains__c, Onboarding_Status__c,
-                   Own_Compliance_Score__c, Cascading_Risk_Flag__c, Cascading_Risk_Source__c
+                   Cascading_Risk_Tier__c, Cascading_Risk_Source__c,
+                   Cascading_Risk_Driver__c, Sub_Tier_Supplier_Count__c,
+                   Cascading_Risk_Score__c, Cascading_Risk_Flag__c
             FROM   Account WHERE Id = :accountId LIMIT 1
         ];
 
@@ -642,10 +650,13 @@ public without sharing class VendorPortalController {
         s.riskTier             = a.Risk_Tier__c;
         s.recommendedHitl      = recommendHitl(a.Risk_Tier__c);
         s.onboardingStatus     = a.Onboarding_Status__c;
-        // s.riskScore            = a.Risk_Score__c;
-        // s.ownComplianceScore   = a.Own_Compliance_Score__c;
-        // s.cascadingRiskFlag    = a.Cascading_Risk_Flag__c == true;
-        // s.cascadingRiskSource  = a.Cascading_Risk_Source__c;
+        s.riskScore            = a.Risk_Score__c;
+        s.cascadingRiskTier    = a.Cascading_Risk_Tier__c;
+        s.cascadingRiskSource  = a.Cascading_Risk_Source__c;
+        s.cascadingRiskDriverId = a.Cascading_Risk_Driver__c;
+        s.subTierSupplierCount = a.Sub_Tier_Supplier_Count__c == null ? 0 : a.Sub_Tier_Supplier_Count__c.intValue();
+        s.cascadingRiskScore   = a.Cascading_Risk_Score__c;
+        s.cascadingRiskFlagged = a.Cascading_Risk_Flag__c == true;
 
         s.domains = new List<String>();
         if (String.isNotBlank(a.Risk_Domains__c)) {

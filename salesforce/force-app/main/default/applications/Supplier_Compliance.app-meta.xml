@@ -3,10 +3,15 @@
     <description>Supplier compliance — Procurement and Analyst persona consoles.</description>
     <formFactors>Large</formFactors>
     <isNavAutoTempTabsDisabled>false</isNavAutoTempTabsDisabled>
+    <isNavPersonalizationDisabled>false</isNavPersonalizationDisabled>
+    <isNavTabPersistenceDisabled>false</isNavTabPersistenceDisabled>
+    <isOmniPinnedViewEnabled>false</isOmniPinnedViewEnabled>
     <label>Supplier Compliance</label>
     <navType>Standard</navType>
     <tabs>Procurement_Console</tabs>
     <tabs>Analyst_Console</tabs>
     <tabs>Policy_Documents</tabs>
+    <tabs>standard-Account</tabs>
+    <tabs>Audit_Log__c</tabs>
     <uiType>Lightning</uiType>
 </CustomApplication>

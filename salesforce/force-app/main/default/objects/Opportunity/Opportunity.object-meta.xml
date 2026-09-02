@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <!-- Minimal override — same reasoning as Case.object-meta.xml: this app
+         doesn't customize Opportunity, but package version validation's
+         isolated context falls back to Salesforce's factory-default
+         sharing model (ReadWrite), incompatible with Account=Private.
+         Declaring the already-live value (matches this org today) resolves
+         it without claiming ownership of Opportunity's other metadata. -->
+    <sharingModel>Private</sharingModel>
+</CustomObject>

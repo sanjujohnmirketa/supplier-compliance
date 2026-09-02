@@ -1,10 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
-    <description>Grants the running user access to the Local_Compliance_Auth external credential principal so Apex can call the local /scope RAG service via the Local_Compliance_Service named credential.</description>
-    <externalCredentialPrincipalAccesses>
-        <enabled>true</enabled>
-        <externalCredentialPrincipal>Local_Compliance_Auth-Admin</externalCredentialPrincipal>
-    </externalCredentialPrincipalAccesses>
+    <!-- externalCredentialPrincipalAccesses (Local_Compliance_Auth-Admin) is
+         intentionally NOT packaged here. Confirmed via isolated testing
+         (2026-09-01): a 2GP package version's single-pass validation cannot
+         resolve a PermissionSet's ExternalCredentialPrincipal reference even
+         when the owning ExternalCredential deploys successfully in the SAME
+         transaction — this is a known, unresolved Salesforce platform gap
+         (forcedotcom/cli #1781: "Unexpected error when pushing external
+         credentials linked to a permission set", labeled investigating /
+         owned by another team). It works fine as a normal incremental
+         deploy (confirmed live in this org today) — only package-version
+         creation's from-scratch single pass hits it. Per Salesforce's own
+         Named Credentials Packaging Guide, packaged credentials never
+         include live secrets anyway (populated post-install via Setup/
+         Connect API) — granting THIS access is one more post-install step
+         alongside that, not a new category of manual work. See the
+         post-install setup guide: after installing the package, grant
+         "Local_Compliance_Auth-Admin" ExternalCredentialPrincipalAccess to
+         this permission set (or re-add this block and deploy normally,
+         which is NOT subject to the single-pass packaging limitation). -->
+    <description>Grants access for Apex to call the local /scope RAG service via Local_Compliance_Service. NOTE: the External Credential Principal grant is a required post-install step — see comment above.</description>
     <fieldPermissions>
         <editable>true</editable>
         <field>Account.Sub_Tier_Supplier_Count__c</field>

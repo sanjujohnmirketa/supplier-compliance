@@ -30,6 +30,12 @@
 // Explicit without sharing (Apex's own default when undeclared — no behavior
 // change): must re-evaluate the linked Account/checklist regardless of which
 // user's edit fired the trigger.
+//
+// SYSTEM CONTEXT BY DESIGN (documented CRUD/FLS scanner exception): trigger
+// handlers run inside the platform's DML pipeline; the user whose edit fired
+// the trigger may hold no Read on Account or the checklist rows this handler
+// must re-evaluate, and the re-evaluation must happen regardless. No Schema/
+// stripInaccessible check is applied to the SOQL in this class.
 public without sharing class SupplierProfileTriggerHandler implements ITriggerHandler {
 
     // ── Fields that, when changed, require re-evaluation of compliance rules ──

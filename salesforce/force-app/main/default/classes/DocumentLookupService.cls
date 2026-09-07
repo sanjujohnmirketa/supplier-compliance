@@ -108,7 +108,7 @@ public with sharing class DocumentLookupService {
 
         List<Compliance_Document__c> docs;
         try {
-            docs = Database.query(baseQuery);
+            docs = Database.query(baseQuery, AccessLevel.USER_MODE);
         } catch (Exception e) {
             resp.statusMessage = 'Query failed: ' + e.getMessage();
             return resp;
@@ -158,7 +158,7 @@ public with sharing class DocumentLookupService {
                 Id candidate = Id.valueOf(nameOrId);
                 if (candidate.getSObjectType() == Account.SObjectType) {
                     List<Account> accts = [
-                        SELECT Id, Name FROM Account WHERE Id = :candidate LIMIT 1
+                        SELECT Id, Name FROM Account WHERE Id = :candidate WITH USER_MODE LIMIT 1
                     ];
                     if (!accts.isEmpty()) {
                         resp.supplierName = accts[0].Name;

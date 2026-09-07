@@ -378,7 +378,8 @@ public with sharing class DocumentValidatorService {
             docToUpdate.Issuer__c = resp.issuer.left(120);
         }
 
-        update docToUpdate;
+        update Security.stripInaccessible(AccessType.UPDATABLE,
+            new List<Compliance_Document__c>{ docToUpdate }).getRecords();
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -389,6 +390,7 @@ public with sharing class DocumentValidatorService {
             SELECT Id, Document_Type__c, Account__c, Status__c, Latest_Extraction__c
             FROM   Compliance_Document__c
             WHERE  Id = :docId
+            WITH   USER_MODE
             LIMIT  1
         ];
         return docs.isEmpty() ? null : docs[0];
@@ -400,6 +402,7 @@ public with sharing class DocumentValidatorService {
                    Below_Threshold__c, Model_Name__c
             FROM   Document_Extraction__c
             WHERE  Compliance_Document__c = :docId
+            WITH   USER_MODE
             ORDER  BY Extraction_DateTime__c DESC
             LIMIT  1
         ];
@@ -412,6 +415,7 @@ public with sharing class DocumentValidatorService {
             SELECT Id, Name, BillingCountry, Industry__c, Country_of_Origin__c
             FROM   Account
             WHERE  Id = :supplierId
+            WITH   USER_MODE
             LIMIT  1
         ];
         return accts.isEmpty() ? null : accts[0];
@@ -497,6 +501,7 @@ public with sharing class DocumentValidatorService {
                 SELECT Id, Name FROM Account
                 WHERE Name LIKE :('%' + supplierName.trim() + '%')
                 AND   RecordTypeId = :supplierRtId
+                WITH  USER_MODE
                 ORDER BY LastModifiedDate DESC
                 LIMIT 5
             ];
@@ -504,6 +509,7 @@ public with sharing class DocumentValidatorService {
             suppliers = [
                 SELECT Id, Name FROM Account
                 WHERE Name LIKE :('%' + supplierName.trim() + '%')
+                WITH  USER_MODE
                 ORDER BY LastModifiedDate DESC
                 LIMIT 5
             ];
@@ -534,6 +540,7 @@ public with sharing class DocumentValidatorService {
                 FROM   Compliance_Document__c
                 WHERE  Account__c = :supplierId
                 AND    Document_Type__c LIKE :typePattern
+                WITH   USER_MODE
                 ORDER BY CreatedDate DESC
                 LIMIT  5
             ];
@@ -542,6 +549,7 @@ public with sharing class DocumentValidatorService {
                 SELECT Id, Document_Type__c, Status__c, CreatedDate
                 FROM   Compliance_Document__c
                 WHERE  Account__c = :supplierId
+                WITH   USER_MODE
                 ORDER BY CreatedDate DESC
                 LIMIT  5
             ];

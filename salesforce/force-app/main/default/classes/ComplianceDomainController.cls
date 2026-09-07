@@ -29,6 +29,11 @@ public with sharing class ComplianceDomainController {
      */
     @AuraEnabled(cacheable=true)
     public static List<DomainOption> getDomainCatalog() {
+        // Custom metadata has no CRUD/sharing model (WITH USER_MODE is rejected
+        // at runtime for it); the describe check is the applicable guard.
+        if (!Schema.sObjectType.Compliance_Domain__mdt.isAccessible()) {
+            throw new AuraHandledException('You do not have permission to read the domain catalog.');
+        }
         List<DomainOption> out = new List<DomainOption>();
         for (Compliance_Domain__mdt d : [
             SELECT Domain_Key__c, Label__c, Description__c, Verifier_Authority__c,

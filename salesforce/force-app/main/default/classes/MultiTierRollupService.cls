@@ -22,6 +22,13 @@
  * sub-supplier) and SupplierRiskChangeTrigger (Supplier_Risk_Change__e, published when
  * Account.Risk_Tier__c itself changes — the real-time, non-batch path the cascading
  * SCORE feature is built around). MultiTierRollupBatch is the nightly safety net.
+ *
+ * SYSTEM CONTEXT BY DESIGN (documented CRUD/FLS scanner exception): every entry
+ * point above is asynchronous (queueable, platform-event trigger, batch) — the
+ * cascading rollup is maintained by the platform, not performed by a user, and
+ * a parent supplier's rollup must update even when the user whose change
+ * enqueued it holds no Edit on that parent Account. The writes are
+ * allOrNone=false and audited; no Schema/stripInaccessible check is applied.
  */
 public with sharing class MultiTierRollupService {
 

@@ -1,6 +1,24 @@
+/**
+ * DocumentProcessingController
+ * ═══════════════════════════════════════════════════════════════════════════
+ * CRUD/FLS model — same as VendorPortalController (see its header):
+ *  • Internal entry points check the running user's object permissions with
+ *    literal Schema.sObjectType.X.isX() guards and use stripInaccessible for
+ *    fire-and-forget writes.
+ *  • without sharing is retained (documents belong to Accounts whose OWD is
+ *    Private, yet Procurement/Analysts work every supplier's uploads).
+ *  • The guest upload path (*ByToken, token re-verified on every call) runs
+ *    the shared private *Impl/Internal methods in system context by design —
+ *    the guest user holds no object permissions. Those sites (saveFileImpl,
+ *    linkDocumentToComplianceInternal, getLatestContentVersionId) are the
+ *    documented exceptions in the review's false-positive list.
+ */
 public without sharing class DocumentProcessingController {
 
     @TestVisible private static final Boolean AUDIT_ENABLED = false;
+
+    private static final String NO_ACCESS =
+        'You do not have permission to perform this action.';
 
     // ─── saveFile ─────────────────────────────────────────────────────────────
     /**
@@ -11,6 +29,17 @@ public without sharing class DocumentProcessingController {
      */
     @AuraEnabled
     public static String saveFile(String recordId, String fileName, String base64Data) {
+        if (!Schema.sObjectType.ContentVersion.isCreateable()
+                || !Schema.sObjectType.ContentVersion.isAccessible()
+                || !Schema.sObjectType.ContentDocumentLink.isCreateable()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
+        return saveFileImpl(recordId, fileName, base64Data);
+    }
+
+    // Shared with saveFileByToken (guest, token-verified) — system context by
+    // design, see class header.
+    private static String saveFileImpl(String recordId, String fileName, String base64Data) {
         if (String.isBlank(recordId) || String.isBlank(base64Data)) {
             throw new AuraHandledException('recordId and file data are required.');
         }
@@ -58,6 +87,19 @@ public without sharing class DocumentProcessingController {
         String assessmentId,
         String fileName
     ) {
+        if (!Schema.sObjectType.Compliance_Assessment__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isUpdateable()
+                || !Schema.sObjectType.Compliance_Document__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Document__c.isCreateable()
+                || !Schema.sObjectType.Compliance_Document__c.isUpdateable()
+                || !Schema.sObjectType.Compliance_Document_Link__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Document_Link__c.isCreateable()
+                || !Schema.sObjectType.Compliance_Document_Link__c.isUpdateable()
+                || !Schema.sObjectType.ContentDocumentLink.isAccessible()
+                || !Schema.sObjectType.ContentDocumentLink.isCreateable()
+                || !Schema.sObjectType.ContentVersion.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
         return linkDocumentToComplianceInternal(accountId, contentDocumentId, documentType, assessmentId, fileName, 'replace');
     }
 
@@ -76,6 +118,19 @@ public without sharing class DocumentProcessingController {
         String assessmentId,
         String fileName
     ) {
+        if (!Schema.sObjectType.Compliance_Assessment__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isUpdateable()
+                || !Schema.sObjectType.Compliance_Document__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Document__c.isCreateable()
+                || !Schema.sObjectType.Compliance_Document__c.isUpdateable()
+                || !Schema.sObjectType.Compliance_Document_Link__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Document_Link__c.isCreateable()
+                || !Schema.sObjectType.Compliance_Document_Link__c.isUpdateable()
+                || !Schema.sObjectType.ContentDocumentLink.isAccessible()
+                || !Schema.sObjectType.ContentDocumentLink.isCreateable()
+                || !Schema.sObjectType.ContentVersion.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
         return linkDocumentToComplianceInternal(accountId, contentDocumentId, documentType, assessmentId, fileName, 'add');
     }
 
@@ -303,7 +358,7 @@ public without sharing class DocumentProcessingController {
             // name>" regardless of what the file itself was called. Logged for
             // BOTH branches above (multi-doc add and single-doc replace).
             if (String.isNotBlank(assessmentId)) {
-                Database.insert(new Audit_Log__c(
+                AuditLogService.write(new Audit_Log__c(
                     Event_Type__c        = 'Document_Uploaded',
                     Related_Object__c    = 'Compliance_Assessment',
                     Related_Record_Id__c = assessmentId,
@@ -315,7 +370,7 @@ public without sharing class DocumentProcessingController {
                     // not the requirement/document-type label — history reads
                     // "Uploaded <file name>".
                     Reason__c             = fileName
-                ), false);
+                ));
             }
 
             // ── Set Source_File__c on the Compliance_Document__c ──────────
@@ -390,7 +445,7 @@ public without sharing class DocumentProcessingController {
     @AuraEnabled
     public static String saveFileByToken(String token, String fileName, String base64Data) {
         Id accountId = VendorPortalController.verifyPortalTokenId(token);
-        return saveFile(accountId, fileName, base64Data);
+        return saveFileImpl(accountId, fileName, base64Data);
     }
 
     @AuraEnabled(cacheable=false)
@@ -402,7 +457,7 @@ public without sharing class DocumentProcessingController {
         String fileName
     ) {
         Id accountId = VendorPortalController.verifyPortalTokenId(token);
-        return linkDocumentToCompliance(accountId, contentDocumentId, documentType, assessmentId, fileName);
+        return linkDocumentToComplianceInternal(accountId, contentDocumentId, documentType, assessmentId, fileName, 'replace');
     }
 
     @AuraEnabled(cacheable=false)
@@ -414,7 +469,7 @@ public without sharing class DocumentProcessingController {
         String fileName
     ) {
         Id accountId = VendorPortalController.verifyPortalTokenId(token);
-        return addDocumentToCompliance(accountId, contentDocumentId, documentType, assessmentId, fileName);
+        return linkDocumentToComplianceInternal(accountId, contentDocumentId, documentType, assessmentId, fileName, 'add');
     }
 
     // ─── Private helpers ──────────────────────────────────────────────────────
@@ -428,6 +483,7 @@ public without sharing class DocumentProcessingController {
         if (userType == 'PowerCustomerSuccess'
                 || userType == 'PowerPartner'
                 || userType == 'CustomerSuccess') {
+            if (!Schema.sObjectType.User.isAccessible()) return null;
             List<User> u = [
                 SELECT ContactId FROM User
                 WHERE  Id        = :UserInfo.getUserId()
@@ -442,6 +498,8 @@ public without sharing class DocumentProcessingController {
     /**
      * Returns the most recent ContentVersion Id for the given ContentDocument.
      * Required by AIExtractionQueueable to access VersionData (the file bytes).
+     * Reached only through linkDocumentToComplianceInternal (guarded internal
+     * entry or token-verified guest path) — see class header.
      */
     private static Id getLatestContentVersionId(Id contentDocumentId) {
         List<ContentVersion> cv = [
@@ -481,6 +539,12 @@ public without sharing class DocumentProcessingController {
             if (String.isBlank(complianceDocId)) {
                 throw new AuraHandledException('complianceDocId is required.');
             }
+            if (!Schema.sObjectType.ContentDocumentLink.isAccessible()
+                    || !Schema.sObjectType.ContentDocumentLink.isDeletable()
+                    || !Schema.sObjectType.Compliance_Document__c.isUpdateable()
+                    || !Schema.sObjectType.Compliance_Assessment__c.isUpdateable()) {
+                throw new AuraHandledException(NO_ACCESS);
+            }
 
             // ── 1. Remove CDL from Compliance_Document__c ─────────────────
             // This unlinks the file from the compliance record.
@@ -495,23 +559,27 @@ public without sharing class DocumentProcessingController {
             }
 
             // ── 2. Reset Compliance_Document__c ───────────────────────────
-            update new Compliance_Document__c(
-                Id                  = complianceDocId,
-                Status__c           = 'Pending',
-                Source_File__c      = null,
-                Confidence_Score__c = null,
-                Notes__c            = 'Document removed by supplier — awaiting re-upload'
-            );
+            update Security.stripInaccessible(AccessType.UPDATABLE, new List<Compliance_Document__c>{
+                new Compliance_Document__c(
+                    Id                  = complianceDocId,
+                    Status__c           = 'Pending',
+                    Source_File__c      = null,
+                    Confidence_Score__c = null,
+                    Notes__c            = 'Document removed by supplier — awaiting re-upload'
+                )
+            }).getRecords();
 
             // ── 3. Reset Compliance_Assessment__c ─────────────────────────
             if (String.isNotBlank(assessmentId)) {
-                update new Compliance_Assessment__c(
-                    Id                     = assessmentId,
-                    Status__c              = 'Pending',
-                    Compliance_Document__c = null,
-                    Reason_Code__c         = 'Missing Document',
-                    Reason_Detail__c       = 'Document removed — awaiting re-upload'
-                );
+                update Security.stripInaccessible(AccessType.UPDATABLE, new List<Compliance_Assessment__c>{
+                    new Compliance_Assessment__c(
+                        Id                     = assessmentId,
+                        Status__c              = 'Pending',
+                        Compliance_Document__c = null,
+                        Reason_Code__c         = 'Missing Document',
+                        Reason_Detail__c       = 'Document removed — awaiting re-upload'
+                    )
+                }).getRecords();
             }
 
             return 'success';
@@ -551,6 +619,10 @@ public without sharing class DocumentProcessingController {
             'assessmentStatus' => null,
             'reasonDetail'     => null
         };
+        if (!Schema.sObjectType.Compliance_Document__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
 
         if (String.isNotBlank(complianceDocId)) {
             List<Compliance_Document__c> docs = [
@@ -598,6 +670,11 @@ public without sharing class DocumentProcessingController {
         if (accountId == null) {
             throw new AuraHandledException('accountId is required');
         }
+        if (!Schema.sObjectType.Compliance_Assessment__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Document__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Requirement__mdt.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
 
         // Load assessments + linked document in one pass via subquery
         Map<Id, Compliance_Document__c> docByAssessmentId =
@@ -626,13 +703,13 @@ public without sharing class DocumentProcessingController {
 
         Map<Id, Compliance_Document__c> docsById = new Map<Id, Compliance_Document__c>();
         if (!docIds.isEmpty()) {
-            for (Compliance_Document__c d : [
+            for (Compliance_Document__c d : (List<Compliance_Document__c>) Security.stripInaccessible(AccessType.READABLE, [
                 SELECT  Id, Name, Status__c, Document_Type__c,
                         Confidence_Score__c, CreatedDate,
                         Expiry_Date__c, Notes__c, Source_File__c
                 FROM    Compliance_Document__c
                 WHERE   Id IN :docIds
-            ]) {
+            ]).getRecords()) {
                 docsById.put(d.Id, d);
             }
         }

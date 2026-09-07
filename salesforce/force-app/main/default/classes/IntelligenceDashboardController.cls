@@ -28,6 +28,7 @@ public with sharing class IntelligenceDashboardController {
             SELECT Onboarding_Status__c st, COUNT(Id) c
             FROM   Account
             WHERE  RecordType.DeveloperName = 'Supplier'
+            WITH   USER_MODE
             GROUP BY Onboarding_Status__c
         ]) {
             String status = (String) ar.get('st');
@@ -68,6 +69,7 @@ public with sharing class IntelligenceDashboardController {
             FROM   Account
             WHERE  RecordType.DeveloperName = 'Supplier'
               AND  Risk_Score__c != null
+            WITH   USER_MODE
         ]) {
             Integer idx = Integer.valueOf(Math.min(9, Math.floor(a.Risk_Score__c / 10)));
             bucketCounts[idx] = bucketCounts[idx] + 1;
@@ -112,6 +114,7 @@ public with sharing class IntelligenceDashboardController {
             WHERE  Status__c IN ('Non-Compliant', 'At Risk')
               AND  (NOT Requirement_Key__c LIKE 'SCREEN_%')
               AND  Evaluation_DateTime__c != null
+            WITH   USER_MODE
             ORDER BY Evaluation_DateTime__c ASC
             LIMIT  25
         ]) {
@@ -150,6 +153,7 @@ public with sharing class IntelligenceDashboardController {
             FROM   Compliance_Assessment__c
             WHERE  Status__c = 'Non-Compliant'
               AND  (NOT Requirement_Key__c LIKE 'SCREEN_%')
+            WITH   USER_MODE
             LIMIT  500
         ]) {
             // DocAssessQueueable.buildDetail is the real, live producer of
@@ -216,6 +220,7 @@ public with sharing class IntelligenceDashboardController {
             FROM   Compliance_Assessment__c
             WHERE  Requirement_Key__c LIKE 'SCREEN_%'
               AND  Evaluation_DateTime__c != null
+            WITH   USER_MODE
             ORDER BY Evaluation_DateTime__c DESC
             LIMIT  15
         ]) {
@@ -258,6 +263,7 @@ public with sharing class IntelligenceDashboardController {
             FROM   Account
             WHERE  RecordType.DeveloperName = 'Supplier'
               AND  Onboarding_Status__c IN ('Approved', 'Reviewed')
+            WITH   USER_MODE
         ]) {
             approvedSupplierNames.put(a.Id, a.Name);
             approvedSupplierTiers.put(a.Id, a.Risk_Tier__c);
@@ -278,6 +284,7 @@ public with sharing class IntelligenceDashboardController {
               AND  Status__c IN ('Non-Compliant', 'At Risk')
               AND  Reason_Code__c != 'Expired'
               AND  (NOT Requirement_Key__c LIKE 'SCREEN_%')
+            WITH   USER_MODE
         ]) {
             if (alertsByAccount.containsKey(a.Supplier__c)) continue; // one alert row per supplier, first cause wins
             AlertRow r = new AlertRow();
@@ -300,6 +307,7 @@ public with sharing class IntelligenceDashboardController {
               AND  Valid_Until__c != null
               AND  Valid_Until__c <= :warnThreshold
               AND  (NOT Requirement_Key__c LIKE 'SCREEN_%')
+            WITH   USER_MODE
         ]) {
             if (alertsByAccount.containsKey(a.Supplier__c)) continue;
             Boolean expired = a.Valid_Until__c < Date.today();

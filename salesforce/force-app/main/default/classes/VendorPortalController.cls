@@ -1,4 +1,38 @@
+/**
+ * VendorPortalController
+ * ═══════════════════════════════════════════════════════════════════════════
+ * CRUD/FLS model (AppExchange security review):
+ *
+ *  • Internal entry points (@AuraEnabled methods called by the Procurement,
+ *    Analyst and Vendor consoles) check the running user's object permissions
+ *    with literal Schema.sObjectType.X.isAccessible/isCreateable/isUpdateable/
+ *    isDeletable guards before any SOQL/DML, and route fire-and-forget writes
+ *    through Security.stripInaccessible so field-level security is enforced
+ *    too. Audit rows are written only via AuditLogService (system context by
+ *    design — see that class).
+ *
+ *  • without sharing is deliberate and retained: Account OWD is Private and
+ *    every custom object is ControlledByParent, but the Procurement and
+ *    Analyst queues must show cases owned by other users. WITH USER_MODE
+ *    would also enforce record sharing and silently hide those cases, so it
+ *    is only used on custom-metadata queries (which have no sharing).
+ *
+ *  • Guest-portal paths (*ByToken methods) are the documented exception: the
+ *    Experience Cloud guest user holds NO object permissions by design — the
+ *    supplier's durable portal token IS the authorization, re-verified on
+ *    every call by verifyPortalTokenId(). Those wrappers delegate to private
+ *    *Impl methods that run in system context. The internal entry points
+ *    share the same *Impl after passing their guards, so a guest calling an
+ *    internal entry point directly now fails the guard (closing the
+ *    direct-call path) while the token path keeps working. The *Impl,
+ *    verifyPortalTokenId, documentBelongsToSupplier and
+ *    generateSupplierPortalUrl SOQL/DML sites are therefore intentionally
+ *    unchecked and are listed in the review's false-positive document.
+ */
 public without sharing class VendorPortalController {
+
+    private static final String NO_ACCESS =
+        'You do not have permission to perform this action.';
 
     // ═════════════════════════════════════════════════════════════════════════
     // DTOs returned to the intake LWC
@@ -152,6 +186,9 @@ public without sharing class VendorPortalController {
         if (documents == null || documents.isEmpty()) {
             throw new AuraHandledException('Generate the checklist before requesting documents.');
         }
+        if (!Schema.sObjectType.Account.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
 
         // DEDUP: reuse an existing supplier (by name + email) so re-requesting
         // documents doesn't spawn a duplicate account.
@@ -191,6 +228,12 @@ public without sharing class VendorPortalController {
     // rather than duplicating rows.
     private static void persistCuratedChecklist(Id accId, List<String> documents) {
         if (accId == null || documents == null || documents.isEmpty()) return;
+        if (!Schema.sObjectType.Compliance_Assessment__c.isCreateable()
+                || !Schema.sObjectType.Compliance_Assessment__c.isUpdateable()
+                || !Schema.sObjectType.Account.isAccessible()
+                || !Schema.sObjectType.Account.isUpdateable()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
         // TEMP DIAGNOSTIC (investigating a report of items silently dropped
         // between P1 preview and the persisted checklist) — captures the exact
         // list this method received and every per-record upsert outcome, since
@@ -243,7 +286,7 @@ public without sharing class VendorPortalController {
                     for (Database.Error e : r.getErrors()) errMsg += e.getStatusCode() + ': ' + e.getMessage() + '; ';
                     System.debug(LoggingLevel.ERROR, '[persistCuratedChecklist] FAILED for "'
                         + labelsInOrder[i] + '": ' + errMsg);
-                    Database.insert(new Audit_Log__c(
+                    AuditLogService.write(new Audit_Log__c(
                         Event_Type__c        = 'Integration_Error',
                         Related_Object__c    = 'Supplier',
                         Related_Record_Id__c = accId,
@@ -252,7 +295,7 @@ public without sharing class VendorPortalController {
                         Source_System__c     = 'Salesforce',
                         New_Value__c         = '[persistCuratedChecklist] Checklist item "' + labelsInOrder[i]
                             + '" failed to save: ' + errMsg
-                    ), false);
+                    ));
                 }
             }
         }
@@ -264,7 +307,9 @@ public without sharing class VendorPortalController {
         // already-scored document.
         List<Account> accForCount = [SELECT Id, Checklist_Item_Count__c FROM Account WHERE Id = :accId LIMIT 1];
         if (!accForCount.isEmpty() && accForCount[0].Checklist_Item_Count__c == null && !labelsInOrder.isEmpty()) {
-            update new Account(Id = accId, Checklist_Item_Count__c = labelsInOrder.size());
+            update Security.stripInaccessible(AccessType.UPDATABLE, new List<Account>{
+                new Account(Id = accId, Checklist_Item_Count__c = labelsInOrder.size())
+            }).getRecords();
         }
     }
 
@@ -295,6 +340,9 @@ public without sharing class VendorPortalController {
         // user — without this, Salesforce defaults the sender to whoever clicked
         // "Email supplier" (matches the pattern already used by the sub-supplier
         // invite email in SubSupplierController.cls).
+        if (!Schema.sObjectType.OrgWideEmailAddress.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
         List<OrgWideEmailAddress> orgEmails = [SELECT Id FROM OrgWideEmailAddress LIMIT 1];
         if (!orgEmails.isEmpty()) msg.setOrgWideEmailAddressId(orgEmails[0].Id);
 
@@ -307,7 +355,7 @@ public without sharing class VendorPortalController {
             throw new AuraHandledException('Email send failed: ' + err);
         }
 
-        Database.insert(new Audit_Log__c(
+        AuditLogService.write(new Audit_Log__c(
             Event_Type__c        = 'Status_Changed',
             Related_Object__c    = 'Supplier',
             Related_Record_Id__c = accId,
@@ -316,7 +364,7 @@ public without sharing class VendorPortalController {
             Source_System__c     = 'Other',
             New_Value__c         = 'Requested ' + documents.size()
                 + ' document(s) from ' + supplierEmail
-        ), false);
+        ));
     }
 
     // Resends the document-request email (with the supplier's portal link) for
@@ -329,6 +377,10 @@ public without sharing class VendorPortalController {
     @AuraEnabled
     public static void resendDocumentRequestEmail(Id accountId) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
+        if (!Schema.sObjectType.Account.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
         Account a = [SELECT Id, Name, Supplier_Contact_Email__c FROM Account WHERE Id = :accountId LIMIT 1];
         if (String.isBlank(a.Supplier_Contact_Email__c)) {
             throw new AuraHandledException('This supplier has no contact email on file — use Edit to add one first.');
@@ -407,6 +459,9 @@ public without sharing class VendorPortalController {
         if (String.isBlank(materialType) && String.isBlank(serviceCategory)) {
             return new List<String>();
         }
+        // Custom metadata has no CRUD/sharing model (WITH USER_MODE is rejected
+        // at runtime for it); the describe check is the applicable guard.
+        if (!Schema.sObjectType.Material_Type__mdt.isAccessible()) throw new AuraHandledException(NO_ACCESS);
         for (Material_Type__mdt m : [
             SELECT Domains__c
             FROM   Material_Type__mdt
@@ -446,6 +501,9 @@ public without sharing class VendorPortalController {
     // Plain helper (NO AuraHandledException) so other server-side methods can
     // reuse it without nesting Aura-only exceptions (which blow up off-Aura).
     private static ScreeningService.VerifyResponse doScreen(Id accountId) {
+        // Plain NoAccessException on purpose (no AuraHandledException here —
+        // see the note above); both callers wrap and re-throw it.
+        if (!Schema.sObjectType.Account.isAccessible()) throw new NoAccessException();
         Account a = [
             SELECT Name, Industry, BillingCountry, Country_of_Origin__c, Risk_Domains__c
             FROM   Account WHERE Id = :accountId LIMIT 1
@@ -503,6 +561,11 @@ public without sharing class VendorPortalController {
     @AuraEnabled
     public static ScreeningPersistResult runScreeningAndPersist(Id accountId) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
+        if (!Schema.sObjectType.Compliance_Assessment__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isCreateable()
+                || !Schema.sObjectType.Compliance_Assessment__c.isDeletable()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
 
         ScreeningService.VerifyResponse resp;
         try {
@@ -600,7 +663,7 @@ public without sharing class VendorPortalController {
                 }
             }
             if (!priorScreening.isEmpty()) delete priorScreening;
-            insert toUpsert;
+            insert Security.stripInaccessible(AccessType.CREATABLE, toUpsert).getRecords();
         }
         return out;
     }
@@ -612,6 +675,10 @@ public without sharing class VendorPortalController {
     public static CopilotService.CopilotResponse askCopilot(Id accountId, String question) {
         if (accountId == null || String.isBlank(question)) {
             throw new AuraHandledException('A supplier and a question are required.');
+        }
+        if (!Schema.sObjectType.Account.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
         }
         Account a = [SELECT Name, Industry, Industry__c FROM Account WHERE Id = :accountId LIMIT 1];
         // Ground the answer in the supplier's assessment state, but SEPARATE
@@ -663,6 +730,16 @@ public without sharing class VendorPortalController {
 
     @AuraEnabled(cacheable=false)
     public static List<CaseDocument> getCaseDocuments(Id accountId) {
+        if (!Schema.sObjectType.ContentDocumentLink.isAccessible()
+                || !Schema.sObjectType.ContentVersion.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
+        return getCaseDocumentsImpl(accountId);
+    }
+
+    // Shared with the token-verified guest path (getSupplierSnapshotImpl) —
+    // system context by design, guarded by the caller; see the class header.
+    private static List<CaseDocument> getCaseDocumentsImpl(Id accountId) {
         List<CaseDocument> out = new List<CaseDocument>();
         if (accountId == null) return out;
         Set<Id> cdIds = new Set<Id>();
@@ -696,6 +773,18 @@ public without sharing class VendorPortalController {
     // pointed at it, so the checklist item returns to "not uploaded".
     @AuraEnabled
     public static void removeSupplierDocument(Id accountId, Id contentDocumentId) {
+        if (!Schema.sObjectType.ContentDocumentLink.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isUpdateable()
+                || !Schema.sObjectType.ContentDocument.isDeletable()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
+        removeSupplierDocumentImpl(accountId, contentDocumentId);
+    }
+
+    // Shared with removeSupplierDocumentByToken (guest: token-verified and
+    // ownership-checked first) — system context by design, see class header.
+    private static void removeSupplierDocumentImpl(Id accountId, Id contentDocumentId) {
         if (contentDocumentId == null) throw new AuraHandledException('No document selected.');
         // Clear assessment rows that referenced this file (via its Compliance_Document__c).
         Set<Id> compDocIds = new Set<Id>();
@@ -729,6 +818,16 @@ public without sharing class VendorPortalController {
     // ═════════════════════════════════════════════════════════════════════════
     @AuraEnabled
     public static String addRequirementFromDocument(Id accountId, String documentTitle, String requirementKey) {
+        if (!Schema.sObjectType.Compliance_Assessment__c.isCreateable()
+                || !Schema.sObjectType.Compliance_Assessment__c.isUpdateable()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
+        return addRequirementFromDocumentImpl(accountId, documentTitle, requirementKey);
+    }
+
+    // Shared with addRequirementFromDocumentByToken (guest, token-verified) —
+    // system context by design, see class header.
+    private static String addRequirementFromDocumentImpl(Id accountId, String documentTitle, String requirementKey) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
         if (String.isBlank(documentTitle)) throw new AuraHandledException('No document specified.');
 
@@ -775,6 +874,10 @@ public without sharing class VendorPortalController {
     @AuraEnabled
     public static void removeChecklistRequirement(Id assessmentId) {
         if (assessmentId == null) throw new AuraHandledException('No checklist item selected.');
+        if (!Schema.sObjectType.Compliance_Assessment__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isDeletable()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
         Compliance_Assessment__c ca = [
             SELECT Id, Requirement_Label__c, Supplier__c
             FROM   Compliance_Assessment__c
@@ -968,6 +1071,20 @@ public without sharing class VendorPortalController {
 
     @AuraEnabled(cacheable=false)
     public static SupplierSnapshot getSupplierSnapshot(Id accountId) {
+        if (!Schema.sObjectType.Account.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Document_Link__c.isAccessible()
+                || !Schema.sObjectType.ContentDocumentLink.isAccessible()
+                || !Schema.sObjectType.ContentVersion.isAccessible()
+                || !Schema.sObjectType.Audit_Log__c.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
+        return getSupplierSnapshotImpl(accountId);
+    }
+
+    // Shared with getSupplierSnapshotByToken (guest, token-verified) — system
+    // context by design, see class header.
+    private static SupplierSnapshot getSupplierSnapshotImpl(Id accountId) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
 
         Account a = [
@@ -1014,7 +1131,7 @@ public without sharing class VendorPortalController {
         }
 
         // Documents stored in Salesforce (ContentDocumentLink → ContentVersion).
-        s.documents = getCaseDocuments(accountId);
+        s.documents = getCaseDocumentsImpl(accountId);
         s.docCount  = s.documents.size();
 
         // Past AI summaries — one row per assessed requirement.
@@ -1306,6 +1423,7 @@ public without sharing class VendorPortalController {
     @AuraEnabled(cacheable=true)
     public static List<AnalystUser> getAnalystUsers() {
         Id me = UserInfo.getUserId();
+        if (!Schema.sObjectType.User.isAccessible()) throw new AuraHandledException(NO_ACCESS);
         List<AnalystUser> out = new List<AnalystUser>();
         // Active internal users — current user first, so "assign to me" is one click.
         for (User u : [
@@ -1334,6 +1452,10 @@ public without sharing class VendorPortalController {
     public static String assignToAnalyst(Id accountId, Id analystUserId, String note) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
         if (analystUserId == null) throw new AuraHandledException('Choose an analyst to assign.');
+        if (!Schema.sObjectType.Compliance_Assessment__c.isAccessible()
+                || !Schema.sObjectType.Account.isUpdateable()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
 
         // WFL-05 — every checklist item is mandatory: block handoff while any
         // UPLOADED document still has no Procurement decision (Approved/
@@ -1374,9 +1496,9 @@ public without sharing class VendorPortalController {
             Assigned_By__c               = UserInfo.getUserId(),
             Assignment_Reason__c         = note
         );
-        update a;
+        update Security.stripInaccessible(AccessType.UPDATABLE, new List<Account>{ a }).getRecords();
 
-        Database.insert(new Audit_Log__c(
+        AuditLogService.write(new Audit_Log__c(
             Event_Type__c        = 'Status_Changed',
             Related_Object__c    = 'Supplier',
             Related_Record_Id__c = accountId,
@@ -1385,7 +1507,7 @@ public without sharing class VendorPortalController {
             Source_System__c     = 'Other',
             New_Value__c         = 'Assigned to analyst ' + analystUserId
                 + (String.isNotBlank(note) ? (' · note: ' + note) : '')
-        ), false);
+        ));
         return accountId;
     }
 
@@ -1402,19 +1524,25 @@ public without sharing class VendorPortalController {
     @AuraEnabled
     public static String sendCaseBackToProcurement(Id accountId, String note) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
+        if (!Schema.sObjectType.Account.isAccessible()
+                || !Schema.sObjectType.Account.isUpdateable()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
 
         Account existing = [SELECT Assigned_By__c FROM Account WHERE Id = :accountId LIMIT 1];
         Id returnTo = (existing.Assigned_By__c != null) ? existing.Assigned_By__c : UserInfo.getUserId();
 
-        update new Account(
-            Id                           = accountId,
-            OwnerId                      = returnTo,
-            Onboarding_Status__c         = 'Screening',
-            Analyst_Assigned_DateTime__c = null,
-            Assignment_Reason__c         = note
-        );
+        update Security.stripInaccessible(AccessType.UPDATABLE, new List<Account>{
+            new Account(
+                Id                           = accountId,
+                OwnerId                      = returnTo,
+                Onboarding_Status__c         = 'Screening',
+                Analyst_Assigned_DateTime__c = null,
+                Assignment_Reason__c         = note
+            )
+        }).getRecords();
 
-        Database.insert(new Audit_Log__c(
+        AuditLogService.write(new Audit_Log__c(
             Event_Type__c        = 'Status_Changed',
             Related_Object__c    = 'Supplier',
             Related_Record_Id__c = accountId,
@@ -1423,7 +1551,7 @@ public without sharing class VendorPortalController {
             Source_System__c     = 'Other',
             New_Value__c         = 'Sent back to Procurement'
                 + (String.isNotBlank(note) ? (' · note: ' + note) : '')
-        ), false);
+        ));
         return accountId;
     }
 
@@ -1467,6 +1595,10 @@ public without sharing class VendorPortalController {
         // analyst's own route). Pre-routing states (Draft, and the procurement
         // 'Screening' bucket) belong to the Procurement queue, not here.
         Id me = UserInfo.getUserId();
+        if (!Schema.sObjectType.Account.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
         List<Account> accs;
         if (showTeamQueue == true) {
             accs = [
@@ -1624,6 +1756,15 @@ public without sharing class VendorPortalController {
     @AuraEnabled(cacheable=false)
     public static AnalystCase getCaseForAnalyst(Id accountId) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
+        if (!Schema.sObjectType.Account.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Document_Link__c.isAccessible()
+                || !Schema.sObjectType.ContentDocumentLink.isAccessible()
+                || !Schema.sObjectType.ContentVersion.isAccessible()
+                || !Schema.sObjectType.Audit_Log__c.isAccessible()
+                || !Schema.sObjectType.Organization.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
         Account a = [
             SELECT Id, Name, Industry, BillingCountry, Country_of_Origin__c, Risk_Tier__c, Risk_Score__c,
                    Assigned_By__r.Name, Analyst_Assigned_DateTime__c, Assignment_Reason__c,
@@ -1783,6 +1924,10 @@ public without sharing class VendorPortalController {
     @AuraEnabled
     public static void saveDocValidation(Id assessmentId, String comment, Boolean validated, String finalStatus) {
         if (assessmentId == null) throw new AuraHandledException('No document selected.');
+        if (!Schema.sObjectType.Compliance_Assessment__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isUpdateable()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
         Compliance_Assessment__c ca = new Compliance_Assessment__c(
             Id                     = assessmentId,
             Analyst_Comment__c    = comment,
@@ -1793,7 +1938,7 @@ public without sharing class VendorPortalController {
         if (String.isNotBlank(finalStatus)) {
             ca.Status__c = finalStatus;
         }
-        update ca;
+        update Security.stripInaccessible(AccessType.UPDATABLE, new List<Compliance_Assessment__c>{ ca }).getRecords();
 
         // Every other decision-recording action in this class (Procurement's
         // Approve/Reject/Defer, closeComplianceCase) writes an Audit_Log__c
@@ -1805,7 +1950,7 @@ public without sharing class VendorPortalController {
         // handleMarkValidated toggle with no status change stays unlogged,
         // same as before, since there's no decision to record yet.
         if (String.isNotBlank(finalStatus)) {
-            Database.insert(new Audit_Log__c(
+            AuditLogService.write(new Audit_Log__c(
                 Event_Type__c        = 'Analyst_Decision_Recorded',
                 Related_Object__c    = 'Compliance_Assessment',
                 Related_Record_Id__c = assessmentId,
@@ -1815,7 +1960,7 @@ public without sharing class VendorPortalController {
                 Source_System__c     = 'Other',
                 New_Value__c          = finalStatus,
                 Reason__c             = comment
-            ), false);
+            ));
         }
 
         // The Analyst's Confirm/Override is a real change to Status__c — the
@@ -1842,6 +1987,7 @@ public without sharing class VendorPortalController {
     // approveDocumentAsProcurement already established below.
     private static void assertNotHandedOff(Id accountId) {
         if (accountId == null) return;
+        if (!Schema.sObjectType.Account.isAccessible()) throw new AuraHandledException(NO_ACCESS);
         Account a = [SELECT Analyst_Assigned_DateTime__c FROM Account WHERE Id = :accountId LIMIT 1];
         if (a.Analyst_Assigned_DateTime__c != null) {
             throw new AuraHandledException(
@@ -1851,6 +1997,7 @@ public without sharing class VendorPortalController {
     }
     private static void assertAssessmentNotHandedOff(Id assessmentId) {
         if (assessmentId == null) return;
+        if (!Schema.sObjectType.Compliance_Assessment__c.isAccessible()) throw new AuraHandledException(NO_ACCESS);
         Compliance_Assessment__c ca = [
             SELECT Supplier__r.Analyst_Assigned_DateTime__c
             FROM   Compliance_Assessment__c
@@ -1883,6 +2030,10 @@ public without sharing class VendorPortalController {
     @AuraEnabled
     public static void approveDocumentAsProcurement(Id assessmentId, String comment, Boolean approved) {
         if (assessmentId == null) throw new AuraHandledException('No document selected.');
+        if (!Schema.sObjectType.Compliance_Assessment__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isUpdateable()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
 
         Compliance_Assessment__c ca = [
             SELECT Id, Supplier__r.Analyst_Assigned_DateTime__c
@@ -1896,13 +2047,15 @@ public without sharing class VendorPortalController {
                 + 'the Analyst\'s responsibility.');
         }
 
-        update new Compliance_Assessment__c(
-            Id                     = assessmentId,
-            Analyst_Comment__c     = comment,
-            Analyst_Validated__c   = (approved == true),
-            Evaluator_User__c      = UserInfo.getUserId(),
-            Evaluation_DateTime__c = System.now()
-        );
+        update Security.stripInaccessible(AccessType.UPDATABLE, new List<Compliance_Assessment__c>{
+            new Compliance_Assessment__c(
+                Id                     = assessmentId,
+                Analyst_Comment__c     = comment,
+                Analyst_Validated__c   = (approved == true),
+                Evaluator_User__c      = UserInfo.getUserId(),
+                Evaluation_DateTime__c = System.now()
+            )
+        }).getRecords();
     }
 
     // Re-runs AI assessment for ONE already-uploaded document — the per-
@@ -1916,6 +2069,11 @@ public without sharing class VendorPortalController {
     @AuraEnabled
     public static void reassessDocument(Id assessmentId) {
         if (assessmentId == null) throw new AuraHandledException('No document selected.');
+        if (!Schema.sObjectType.Compliance_Assessment__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isUpdateable()
+                || !Schema.sObjectType.ContentVersion.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
 
         Compliance_Assessment__c ca = [
             SELECT Id, Supplier__c, Requirement_Label__c, Compliance_Document__c,
@@ -1945,10 +2103,12 @@ public without sharing class VendorPortalController {
         // Same "in progress" placeholder the original upload path sets, so
         // the row shows it's re-checking instead of leaving the OLD (possibly
         // now-wrong) summary visible while the queueable runs.
-        update new Compliance_Assessment__c(
-            Id               = assessmentId,
-            Reason_Detail__c = 'Re-assessment requested — pending AI extraction'
-        );
+        update Security.stripInaccessible(AccessType.UPDATABLE, new List<Compliance_Assessment__c>{
+            new Compliance_Assessment__c(
+                Id               = assessmentId,
+                Reason_Detail__c = 'Re-assessment requested — pending AI extraction'
+            )
+        }).getRecords();
 
         System.enqueueJob(new DocAssessQueueable(
             ca.Compliance_Document__c, cv[0].Id, ca.Supplier__c, docType, assessmentId));
@@ -2000,6 +2160,10 @@ public without sharing class VendorPortalController {
             throw new AuraHandledException('A reason is required to record this decision.');
         }
         assertAssessmentNotHandedOff(assessmentId);
+        if (!Schema.sObjectType.Compliance_Assessment__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isUpdateable()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
 
         Compliance_Assessment__c upd = new Compliance_Assessment__c(
             Id                               = assessmentId,
@@ -2013,12 +2177,12 @@ public without sharing class VendorPortalController {
         } else if (decision == 'Rejected') {
             upd.Status__c = 'Non-Compliant';
         }
-        update upd;
+        update Security.stripInaccessible(AccessType.UPDATABLE, new List<Compliance_Assessment__c>{ upd }).getRecords();
 
         // One row per decision (never updated/deleted — Audit_Log__c is
         // create-only) so getSupplierSnapshot can surface the FULL comment
         // history, not just the latest — see AssessmentSummary.procurementComments.
-        Database.insert(new Audit_Log__c(
+        AuditLogService.write(new Audit_Log__c(
             Event_Type__c        = 'Procurement_Decision_Recorded',
             Related_Object__c    = 'Compliance_Assessment',
             Related_Record_Id__c = assessmentId,
@@ -2028,7 +2192,7 @@ public without sharing class VendorPortalController {
             Source_System__c     = 'Other',
             New_Value__c          = decision,
             Reason__c             = reason
-        ), false);
+        ));
 
         // Procurement's Approve/Reject is real human judgment, and for any
         // supplier whose risk tier auto-routes below the HITL threshold (see
@@ -2057,11 +2221,22 @@ public without sharing class VendorPortalController {
     // two separate comment lists.
     @AuraEnabled
     public static void addSupplierComment(Id assessmentId, String note) {
+        // The comment is an audit row (system-context sink), but the caller must
+        // at least be allowed to see the assessment they are commenting on.
+        if (!Schema.sObjectType.Compliance_Assessment__c.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
+        addSupplierCommentImpl(assessmentId, note);
+    }
+
+    // Shared with addSupplierCommentByToken (guest: token-verified and the
+    // assessment matched to the token's account first) — see class header.
+    private static void addSupplierCommentImpl(Id assessmentId, String note) {
         if (assessmentId == null) throw new AuraHandledException('No document selected.');
         if (String.isBlank(note)) {
             throw new AuraHandledException('Enter a comment before sending.');
         }
-        Database.insert(new Audit_Log__c(
+        AuditLogService.write(new Audit_Log__c(
             Event_Type__c        = 'Supplier_Comment_Added',
             Related_Object__c    = 'Compliance_Assessment',
             Related_Record_Id__c = assessmentId,
@@ -2071,7 +2246,7 @@ public without sharing class VendorPortalController {
             Source_System__c     = 'Other',
             New_Value__c         = 'Comment',
             Reason__c             = note
-        ), false);
+        ));
     }
 
     // Guest/token counterpart — same verify-then-act pattern as every other
@@ -2086,7 +2261,7 @@ public without sharing class VendorPortalController {
             SELECT Id FROM Compliance_Assessment__c
             WHERE  Id = :assessmentId AND Supplier__c = :accountId LIMIT 1
         ];
-        addSupplierComment(ca.Id, note);
+        addSupplierCommentImpl(ca.Id, note);
     }
 
     // Generative co-pilot: the analyst types a rough observation; the co-pilot
@@ -2096,6 +2271,7 @@ public without sharing class VendorPortalController {
     public static String copilotDraftComment(Id accountId, String requirementLabel,
                                              String aiSummary, String observation) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
+        if (!Schema.sObjectType.Account.isAccessible()) throw new AuraHandledException(NO_ACCESS);
         Account a = [SELECT Name, Industry, Industry__c FROM Account WHERE Id = :accountId LIMIT 1];
         String industry = String.isNotBlank(a.Industry) ? a.Industry : a.Industry__c;
         String context =
@@ -2184,6 +2360,7 @@ public without sharing class VendorPortalController {
         if (String.isBlank(supplierName)) {
             throw new AuraHandledException('Supplier legal entity name is required.');
         }
+        if (!Schema.sObjectType.Account.isAccessible()) throw new AuraHandledException(NO_ACCESS);
         // DEDUP: re-submitting the same supplier (or a double-click) must UPDATE
         // the existing record, not create a duplicate. Match on legal name (+ email
         // when present) among supplier accounts.
@@ -2270,6 +2447,11 @@ public without sharing class VendorPortalController {
         if (String.isBlank(supplierName)) {
             throw new AuraHandledException('Supplier name is required.');
         }
+        if (!Schema.sObjectType.Account.isCreateable()
+                || !Schema.sObjectType.Account.isUpdateable()
+                || !Schema.sObjectType.Supplier_Profile__c.isCreateable()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
 
         Boolean isUpdate = String.isNotBlank(accountId);
 
@@ -2308,14 +2490,14 @@ public without sharing class VendorPortalController {
         }
 
         if (isUpdate) {
-            update acc;
+            update Security.stripInaccessible(AccessType.UPDATABLE, new List<Account>{ acc }).getRecords();
             return accountId;
         } else {
             insert acc;
             // Create linked Supplier Profile only on first save
             Supplier_Profile__c sp = new Supplier_Profile__c();
             sp.Account__c = acc.Id;
-            insert sp;
+            insert Security.stripInaccessible(AccessType.CREATABLE, new List<Supplier_Profile__c>{ sp }).getRecords();
             return acc.Id;
         }
     }
@@ -2342,6 +2524,7 @@ public without sharing class VendorPortalController {
     @AuraEnabled(cacheable=false)
     public static SupplierEditDetails getSupplierEditDetails(Id accountId) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
+        if (!Schema.sObjectType.Account.isAccessible()) throw new AuraHandledException(NO_ACCESS);
         Account a = [
             SELECT Id, Name, BillingCountry, Industry, Engagement_Type__c,
                    Annual_Spend_Est__c, Supplier_Contact_Email__c,
@@ -2372,6 +2555,7 @@ public without sharing class VendorPortalController {
         String materialType, String serviceCategory
     ) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
+        if (!Schema.sObjectType.Account.isAccessible()) throw new AuraHandledException(NO_ACCESS);
         Account existing = [
             SELECT Requested_By__c, Risk_Domains__c, Onboarding_Status__c,
                    HITL_Threshold__c, Checklist_Seeded_By_Caller__c
@@ -2425,6 +2609,10 @@ public without sharing class VendorPortalController {
 
     @AuraEnabled(cacheable=true)
     public static ScreeningQueue getScreeningQueue() {
+        if (!Schema.sObjectType.Account.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
         // Flag counts per supplier (non-compliant / at-risk assessments)
         Map<Id, Integer> flagsByAcc = new Map<Id, Integer>();
         for (AggregateResult ar : [
@@ -2643,6 +2831,7 @@ public without sharing class VendorPortalController {
     public static List<ActivityRow> getCaseActivity(Id accountId) {
         List<ActivityRow> rows = new List<ActivityRow>();
         if (accountId == null) return rows;
+        if (!Schema.sObjectType.Audit_Log__c.isAccessible()) throw new AuraHandledException(NO_ACCESS);
         for (Audit_Log__c a : [
             SELECT Event_Type__c, New_Value__c, Actor_Type__c, Event_DateTime__c
             FROM   Audit_Log__c
@@ -2678,6 +2867,7 @@ public without sharing class VendorPortalController {
     @AuraEnabled
     public static String saveDecision(Id accountId, String tier, String route, String rationale) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
+        if (!Schema.sObjectType.Account.isUpdateable()) throw new AuraHandledException(NO_ACCESS);
         String riskTier = mapUiTier(tier);
         String status   = (tier == 'LOW') ? 'Approved' : 'In Review';
 
@@ -2698,9 +2888,9 @@ public without sharing class VendorPortalController {
         if (status == 'Approved') {
             upd.Analyst_Assigned_DateTime__c = null;
         }
-        update upd;
+        update Security.stripInaccessible(AccessType.UPDATABLE, new List<Account>{ upd }).getRecords();
 
-        Database.insert(new Audit_Log__c(
+        AuditLogService.write(new Audit_Log__c(
             Event_Type__c        = 'Manual_Override',
             Related_Object__c    = 'Supplier',
             Related_Record_Id__c = accountId,
@@ -2709,7 +2899,7 @@ public without sharing class VendorPortalController {
             Source_System__c     = 'Other',
             New_Value__c         = 'Tier=' + riskTier + ' · route=' + route
                 + (String.isNotBlank(rationale) ? (' · ' + rationale) : '')
-        ), false);
+        ));
 
         return accountId;
     }
@@ -2738,6 +2928,9 @@ public without sharing class VendorPortalController {
     @AuraEnabled
     public static void onboardSupplierDirectly(Id accountId, String closingRemarks) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
+        if (!Schema.sObjectType.Compliance_Assessment__c.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
 
         List<Compliance_Assessment__c> checklist = [
             SELECT Id, Procurement_Decision__c
@@ -2766,16 +2959,19 @@ public without sharing class VendorPortalController {
     // WHAT they gate on (Status__c=Compliant vs. Procurement_Decision__c=
     // Approved) — the actual state change is identical.
     private static void closeCaseInternal(Id accountId, String closingRemarks, String auditPrefix) {
-        update new Account(
-            Id                        = accountId,
-            Compliance_Case_Status__c = 'Closed - Compliant',
-            Onboarding_Status__c      = 'Approved',
-            Closing_Remarks__c        = closingRemarks,
-            Case_Closed_DateTime__c   = DateTime.now(),
-            Case_Closed_By__c         = UserInfo.getUserId()
-        );
+        if (!Schema.sObjectType.Account.isUpdateable()) throw new AuraHandledException(NO_ACCESS);
+        update Security.stripInaccessible(AccessType.UPDATABLE, new List<Account>{
+            new Account(
+                Id                        = accountId,
+                Compliance_Case_Status__c = 'Closed - Compliant',
+                Onboarding_Status__c      = 'Approved',
+                Closing_Remarks__c        = closingRemarks,
+                Case_Closed_DateTime__c   = DateTime.now(),
+                Case_Closed_By__c         = UserInfo.getUserId()
+            )
+        }).getRecords();
 
-        Database.insert(new Audit_Log__c(
+        AuditLogService.write(new Audit_Log__c(
             Event_Type__c        = 'Case_Closed',
             Related_Object__c    = 'Supplier',
             Related_Record_Id__c = accountId,
@@ -2784,7 +2980,7 @@ public without sharing class VendorPortalController {
             Source_System__c     = 'Other',
             New_Value__c         = auditPrefix
                 + (String.isNotBlank(closingRemarks) ? (' · ' + closingRemarks) : '')
-        ), false);
+        ));
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -2796,8 +2992,11 @@ public without sharing class VendorPortalController {
     public static String setReviewOutcome(Id accountId, String outcome, String comments) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
         String status = (outcome == 'ready') ? 'Reviewed' : 'Rejected';
-        update new Account(Id = accountId, Onboarding_Status__c = status);
-        Database.insert(new Audit_Log__c(
+        if (!Schema.sObjectType.Account.isUpdateable()) throw new AuraHandledException(NO_ACCESS);
+        update Security.stripInaccessible(AccessType.UPDATABLE, new List<Account>{
+            new Account(Id = accountId, Onboarding_Status__c = status)
+        }).getRecords();
+        AuditLogService.write(new Audit_Log__c(
             Event_Type__c        = 'Status_Changed',
             Related_Object__c    = 'Supplier',
             Related_Record_Id__c = accountId,
@@ -2807,7 +3006,7 @@ public without sharing class VendorPortalController {
             New_Value__c         = 'Approver outcome: '
                 + (outcome == 'ready' ? 'Reviewed · Ready for Purchase' : 'Failed · Rejected')
                 + (String.isNotBlank(comments) ? (' · ' + comments) : '')
-        ), false);
+        ));
         return accountId;
     }
 
@@ -2818,7 +3017,7 @@ public without sharing class VendorPortalController {
     @AuraEnabled
     public static void saveCopilotFeedback(Id accountId, String decision, String note) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
-        Database.insert(new Audit_Log__c(
+        AuditLogService.write(new Audit_Log__c(
             Event_Type__c        = 'Manual_Override',
             Related_Object__c    = 'Supplier',
             Related_Record_Id__c = accountId,
@@ -2827,7 +3026,7 @@ public without sharing class VendorPortalController {
             Source_System__c     = 'Other',
             New_Value__c         = 'Co-pilot feedback [' + decision + ']'
                 + (String.isNotBlank(note) ? (' — ' + note) : '')
-        ), false);
+        ));
     }
 
     private static String mapUiTier(String uiTier) {
@@ -2841,6 +3040,13 @@ public without sharing class VendorPortalController {
     @TestVisible
     static String SUPPLIER_PORTAL_SITE_BASE = 'https://aivendoronboarding-dev-ed.develop.my.site.com/supplierPortal';
 
+    // SYSTEM CONTEXT BY DESIGN (documented CRUD/FLS scanner exception): mints or
+    // reads the supplier's durable portal token. Called from the internal
+    // document-request emails AND from SubSupplierController's invite flow,
+    // which itself runs on behalf of a token-verified guest (Tier-1 supplier
+    // inviting a sub-supplier) who holds no Account permissions — so this
+    // cannot carry a user-permission guard without breaking that path. Not
+    // imported by any LWC; only reachable through those Apex callers.
     @AuraEnabled
     public static String generateSupplierPortalUrl(Id accountId) {
         if (accountId == null) throw new AuraHandledException('Account ID required.');
@@ -2881,6 +3087,11 @@ public without sharing class VendorPortalController {
     // onboarding can take) — this isn't a short session, it's re-verifying
     // the same durable credential on every request instead of trusting a
     // value the client already had.
+    //
+    // SYSTEM CONTEXT BY DESIGN (documented CRUD/FLS scanner exception): this
+    // Account lookup IS the guest's authorization step — the guest user holds
+    // no Account permission, so a CRUD guard here would make every token
+    // unusable. Selects only Id, filtered by the exact token.
     public static Id verifyPortalTokenId(String token) {
         if (String.isBlank(token)) throw new AuraHandledException('Token is required.');
         List<Account> matches = [
@@ -2903,7 +3114,7 @@ public without sharing class VendorPortalController {
 
     @AuraEnabled(cacheable=false)
     public static SupplierSnapshot getSupplierSnapshotByToken(String token) {
-        return getSupplierSnapshot(verifyPortalTokenId(token));
+        return getSupplierSnapshotImpl(verifyPortalTokenId(token));
     }
 
     @AuraEnabled
@@ -2916,17 +3127,20 @@ public without sharing class VendorPortalController {
         if (!documentBelongsToSupplier(contentDocumentId, accountId)) {
             throw new AuraHandledException('Document not found for this supplier.');
         }
-        removeSupplierDocument(accountId, contentDocumentId);
+        removeSupplierDocumentImpl(accountId, contentDocumentId);
     }
 
     @AuraEnabled
     public static String addRequirementFromDocumentByToken(String token, String documentTitle, String requirementKey) {
         Id accountId = verifyPortalTokenId(token);
-        return addRequirementFromDocument(accountId, documentTitle, requirementKey);
+        return addRequirementFromDocumentImpl(accountId, documentTitle, requirementKey);
     }
 
     // True if contentDocumentId is linked to the supplier's Account directly,
     // or to one of the supplier's own Compliance_Document__c records.
+    // SYSTEM CONTEXT BY DESIGN (documented scanner exception): this is the
+    // guest path's ownership check — it must run for a user with no object
+    // permissions, and it only ever narrows what a guest may touch.
     private static Boolean documentBelongsToSupplier(Id contentDocumentId, Id accountId) {
         if (contentDocumentId == null || accountId == null) return false;
         Set<Id> ownedEntityIds = new Set<Id>{ accountId };
@@ -2964,6 +3178,19 @@ public without sharing class VendorPortalController {
     // ═════════════════════════════════════════════════════════════════════════
     @AuraEnabled
     public static String generatePublicDocumentUrl(Id contentDocumentId) {
+        // ContentDistribution is deliberately not describe-checked: its access
+        // is governed by the "Distribute uploaded files" user permission, not
+        // object CRUD, and the platform enforces that on the insert itself
+        // (PMD AvoidInvalidCrudContentDistribution).
+        if (!Schema.sObjectType.ContentVersion.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
+        return generatePublicDocumentUrlImpl(contentDocumentId);
+    }
+
+    // Shared with generatePublicDocumentUrlByToken (guest: token-verified and
+    // ownership-checked first) — system context by design, see class header.
+    private static String generatePublicDocumentUrlImpl(Id contentDocumentId) {
         if (contentDocumentId == null) throw new AuraHandledException('Content Document ID required.');
 
         // Get the latest ContentVersion for this ContentDocument
@@ -3021,7 +3248,7 @@ public without sharing class VendorPortalController {
         if (!documentBelongsToSupplier(contentDocumentId, accountId)) {
             throw new AuraHandledException('Document not found for this supplier.');
         }
-        return generatePublicDocumentUrl(contentDocumentId);
+        return generatePublicDocumentUrlImpl(contentDocumentId);
     }
 
     private static String generateUUID() {

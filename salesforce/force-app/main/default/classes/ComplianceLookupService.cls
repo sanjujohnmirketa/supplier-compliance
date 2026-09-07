@@ -88,6 +88,7 @@ public with sharing class ComplianceLookupService {
                 FROM   Account
                 WHERE  Name LIKE :('%' + name.trim() + '%')
                 AND    RecordTypeId = :supplierRtId
+                WITH   USER_MODE
                 ORDER BY LastModifiedDate DESC
                 LIMIT  10
             ];
@@ -97,6 +98,7 @@ public with sharing class ComplianceLookupService {
                        Industry__c, Vendor_Type__c
                 FROM   Account
                 WHERE  Name LIKE :('%' + name.trim() + '%')
+                WITH   USER_MODE
                 ORDER BY LastModifiedDate DESC
                 LIMIT  10
             ];

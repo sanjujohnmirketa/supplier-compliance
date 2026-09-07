@@ -3,8 +3,13 @@
  */
 public with sharing class SiteRegisterController {
     // PORTAL_ACCOUNT_ID is the account on which the contact will be created on and then enabled as a portal user.
-    // you need to add the account owner into the role hierarchy before this will work - please see Customer Portal Setup help for more information.       
-    private static Id PORTAL_ACCOUNT_ID = '001x000xxx35tPN';
+    // you need to add the account owner into the role hierarchy before this will work - please see Customer Portal Setup help for more information.
+    // Was a hardcoded dev-org Account Id (invalid/meaningless in any other
+    // org — flagged by static analysis). This legacy Customer Portal flow is
+    // unused by the app (no live caller besides its own page/test) — rather
+    // than invent a fake "correct" value, this now fails loudly instead of
+    // silently registering users against a nonexistent Account.
+    private static Id PORTAL_ACCOUNT_ID = null;
     
     public SiteRegisterController () {
     }

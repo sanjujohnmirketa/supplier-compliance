@@ -1,0 +1,110 @@
+/* scComplianceConsole — persona shell.
+   Left rail (Procurement / Analyst) + full-height stage holding the active
+   child console. Shares the vc- design tokens used by the persona consoles. */
+
+:host {
+  --font-sans: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+
+  /* Design palette — left rail */
+  --rail-bg:      #0B1D33;                 /* Ink — deepest navy                */
+  --rail-bg-hover:#173C66;                 /* Navy — hover/active layer         */
+  --rail-fg:      #F5F6F8;                 /* Paper — primary text              */
+  --rail-muted:   #6B7686;                 /* Muted — secondary labels          */
+  --rail-line:    rgba(255, 255, 255, 0.09);
+  --rail-accent:  #3B82F6;                 /* Signal / Accent A — electric blue */
+  --rail-accent-b:#60A5FA;                 /* Bright / Accent B — sky blue      */
+
+  display: block;
+  height: 100%;
+  font-family: var(--font-sans);
+  color: #1a1a1a;
+}
+
+.cc-shell {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  overflow: visible;
+  background: #f5f5f3;
+}
+
+/* ─── Left rail ───────────────────────────────────────────────────────────── */
+.cc-rail {
+  width: 200px;
+  flex-shrink: 0;
+  background: var(--rail-bg);
+  color: var(--rail-fg);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px;
+  gap: 4px;
+}
+.cc-rail-brand {
+  display: flex; align-items: center; gap: 9px;
+  padding: 2px 6px 14px;
+  border-bottom: 0.5px solid var(--rail-line);
+  margin-bottom: 4px;
+}
+.cc-rail-logo {
+  width: 30px; height: 30px; border-radius: 7px;
+  flex-shrink: 0; object-fit: contain;
+  display: block;
+}
+.cc-brand-vera { display: flex; flex-direction: column; gap: 2px; }
+.cc-brand-vera-name {
+  font-size: 17px; font-weight: 800; letter-spacing: 0.06em;
+  color: #fff; line-height: 1;
+}
+.cc-brand-vera-sub {
+  font-size: 7.5px; font-weight: 500; letter-spacing: 0.09em;
+  color: var(--rail-muted); text-transform: uppercase; line-height: 1.2;
+}
+
+.cc-rail-section {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--rail-muted); padding: 8px 6px 4px;
+}
+
+.cc-tab {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--rail-fg);
+  padding: 9px 10px; border-radius: 8px;
+  font-family: var(--font-sans);
+  transition: background 0.12s ease;
+}
+.cc-tab:hover  { background: rgba(255, 255, 255, 0.06); }
+.cc-tab.active { background: var(--rail-bg-hover); }
+
+.cc-tab-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2); flex-shrink: 0;
+  transition: background 0.12s ease;
+}
+.cc-tab.active .cc-tab-dot {
+  background: var(--rail-accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.cc-tab-text { display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
+.cc-tab-main { font-size: 13px; font-weight: 500; }
+.cc-tab-sub  { font-size: 10.5px; color: var(--rail-muted); }
+.cc-tab.active .cc-tab-sub { color: var(--rail-accent-b); }
+
+.cc-rail-foot {
+  margin-top: auto;
+  font-size: 10px; color: var(--rail-muted);
+  padding: 10px 6px 2px; border-top: 0.5px solid var(--rail-line);
+  line-height: 1.35;
+}
+
+/* ─── Stage (active child console) ────────────────────────────────────────── */
+.cc-stage {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.cc-stage > * { display: block; min-height: 100%; }

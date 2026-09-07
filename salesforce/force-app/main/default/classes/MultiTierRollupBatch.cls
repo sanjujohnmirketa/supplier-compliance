@@ -13,7 +13,10 @@
  *
  * Schedule via scripts/apex/schedule-multi-tier-rollup.apex.
  */
-public class MultiTierRollupBatch implements Database.Batchable<SObject>, Schedulable {
+// Explicit without sharing (Apex's own default when undeclared — no behavior
+// change): a scheduled sweep across ALL suppliers must not silently narrow
+// to whatever the running user happens to see.
+public without sharing class MultiTierRollupBatch implements Database.Batchable<SObject>, Schedulable {
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
         return Database.getQueryLocator([

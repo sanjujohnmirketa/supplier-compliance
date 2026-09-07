@@ -1,0 +1,46 @@
+<template>
+    <div class="cc-shell">
+
+        <!-- ── LEFT RAIL — persona tabs ──────────────────────────────────────── -->
+        <nav class="cc-rail">
+            <div class="cc-rail-brand">
+                <img class="cc-rail-logo" src={logoUrl} alt="VERA">
+                <div class="cc-brand-vera">
+                    <div class="cc-brand-vera-name">VERA</div>
+                    <div class="cc-brand-vera-sub">Vendor Evaluation &amp; Risk Agent</div>
+                </div>
+            </div>
+
+            <div class="cc-rail-section">Workspace</div>
+
+            <button class={procTabClass} data-persona="procurement" onclick={handlePersona}>
+                <span class="cc-tab-dot"></span>
+                <span class="cc-tab-text">
+                    <span class="cc-tab-main">Procurement</span>
+                    <span class="cc-tab-sub">Intake · screening · handoff</span>
+                </span>
+            </button>
+
+            <button class={analystTabClass} data-persona="analyst" onclick={handlePersona}>
+                <span class="cc-tab-dot"></span>
+                <span class="cc-tab-text">
+                    <span class="cc-tab-main">Analyst</span>
+                    <span class="cc-tab-sub">Risk analysis · decision</span>
+                </span>
+            </button>
+
+            <div class="cc-rail-foot">Supplier Compliance Automation</div>
+        </nav>
+
+        <!-- ── MAIN — active persona console ─────────────────────────────────── -->
+        <div class="cc-stage">
+            <template if:true={isProcurement}>
+                <c-sc-procurement-console></c-sc-procurement-console>
+            </template>
+            <template if:true={isAnalyst}>
+                <c-sc-analyst-console></c-sc-analyst-console>
+            </template>
+        </div>
+
+    </div>
+</template>

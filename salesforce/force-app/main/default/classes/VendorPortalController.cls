@@ -282,7 +282,8 @@ public without sharing class VendorPortalController {
     ) {
         // Generate a personal portal URL for this supplier (stable: same token on re-send).
         String portalUrl = null;
-        try { portalUrl = generateSupplierPortalUrl(accId); } catch (Exception e) { /* non-fatal */ }
+        try { portalUrl = generateSupplierPortalUrl(accId); }
+        catch (Exception e) { System.debug(LoggingLevel.WARN, 'Portal URL generation failed for ' + accId + ': ' + e.getMessage()); }
 
         Messaging.SingleEmailMessage msg = new Messaging.SingleEmailMessage();
         msg.setToAddresses(new List<String>{ supplierEmail });
@@ -757,7 +758,7 @@ public without sharing class VendorPortalController {
                 'Added "' + label + '" to the checklist',
                 'Procurement promoted an unmatched document into the checklist',
                 'Human');
-        } catch (Exception ignored) { /* audit is best-effort */ }
+        } catch (Exception ignored) { IntegrationErrorLogger.log(ca.Supplier__c, 'VendorPortalController', 'Audit_Log__c write failed (addRequirementFromDocument): ' + ignored.getMessage()); }
 
         return ca.Id;
     }
@@ -787,7 +788,7 @@ public without sharing class VendorPortalController {
                 ca.Id, ca.Requirement_Label__c, null,
                 'Procurement removed a required document from the checklist',
                 'Human');
-        } catch (Exception ignored) { /* audit is best-effort */ }
+        } catch (Exception ignored) { IntegrationErrorLogger.log(ca.Supplier__c, 'VendorPortalController', 'Audit_Log__c write failed (removeChecklistRequirement): ' + ignored.getMessage()); }
 
         delete ca;
     }
@@ -1461,24 +1462,6 @@ public without sharing class VendorPortalController {
     // supervisors who need it; nothing is hidden, just not the default anymore.
     @AuraEnabled(cacheable=true)
     public static List<AnalystQueueRow> getAnalystQueue(Boolean showTeamQueue) {
-        // Flag + validated + doc counts per supplier, from persisted assessments.
-        Map<Id, Integer> flagsByAcc = new Map<Id, Integer>();
-        Map<Id, Integer> docByAcc   = new Map<Id, Integer>();
-        Map<Id, Integer> valByAcc   = new Map<Id, Integer>();
-        for (AggregateResult ar : [
-            SELECT Supplier__c sid, COUNT(Id) c
-            FROM   Compliance_Assessment__c
-            WHERE  Status__c IN ('Non-Compliant','At Risk')
-            GROUP BY Supplier__c
-        ]) flagsByAcc.put((Id) ar.get('sid'), (Integer) ar.get('c'));
-        for (AggregateResult ar : [
-            SELECT Supplier__c sid, COUNT(Id) c FROM Compliance_Assessment__c GROUP BY Supplier__c
-        ]) docByAcc.put((Id) ar.get('sid'), (Integer) ar.get('c'));
-        for (AggregateResult ar : [
-            SELECT Supplier__c sid, COUNT(Id) c FROM Compliance_Assessment__c
-            WHERE Analyst_Validated__c = true GROUP BY Supplier__c
-        ]) valByAcc.put((Id) ar.get('sid'), (Integer) ar.get('c'));
-
         // The analyst queue shows ONLY suppliers actually ROUTED to an analyst.
         // 'In Review' is the post-routing state (set by assignToAnalyst / the
         // analyst's own route). Pre-routing states (Draft, and the procurement
@@ -1510,6 +1493,32 @@ public without sharing class VendorPortalController {
                 ORDER BY CreatedDate DESC
                 LIMIT  200
             ];
+        }
+
+        // Flag + validated + doc counts per supplier, from persisted assessments —
+        // scoped to just the queue's own accounts (accs, capped at 200 above), not
+        // every Compliance_Assessment__c row in the org (that grows unbounded with
+        // every supplier ever onboarded and was flagged as a non-restrictive query).
+        Set<Id> accIds = new Map<Id, Account>(accs).keySet();
+        Map<Id, Integer> flagsByAcc = new Map<Id, Integer>();
+        Map<Id, Integer> docByAcc   = new Map<Id, Integer>();
+        Map<Id, Integer> valByAcc   = new Map<Id, Integer>();
+        if (!accIds.isEmpty()) {
+            for (AggregateResult ar : [
+                SELECT Supplier__c sid, COUNT(Id) c
+                FROM   Compliance_Assessment__c
+                WHERE  Supplier__c IN :accIds
+                AND    Status__c IN ('Non-Compliant','At Risk')
+                GROUP BY Supplier__c
+            ]) flagsByAcc.put((Id) ar.get('sid'), (Integer) ar.get('c'));
+            for (AggregateResult ar : [
+                SELECT Supplier__c sid, COUNT(Id) c FROM Compliance_Assessment__c
+                WHERE Supplier__c IN :accIds GROUP BY Supplier__c
+            ]) docByAcc.put((Id) ar.get('sid'), (Integer) ar.get('c'));
+            for (AggregateResult ar : [
+                SELECT Supplier__c sid, COUNT(Id) c FROM Compliance_Assessment__c
+                WHERE Supplier__c IN :accIds AND Analyst_Validated__c = true GROUP BY Supplier__c
+            ]) valByAcc.put((Id) ar.get('sid'), (Integer) ar.get('c'));
         }
 
         List<AnalystQueueRow> out = new List<AnalystQueueRow>();
@@ -2291,7 +2300,10 @@ public without sharing class VendorPortalController {
             if (String.isNotBlank(cleaned)) {
                 try {
                     acc.Annual_Spend_Est__c = Decimal.valueOf(cleaned);
-                } catch (Exception e) { /* leave null if unparseable */ }
+                } catch (Exception e) {
+                    // Unparseable free-text input — expected and silent by
+                    // design; the field is simply left null.
+                }
             }
         }
 
@@ -3013,10 +3025,6 @@ public without sharing class VendorPortalController {
     }
 
     private static String generateUUID() {
-        Blob b = Crypto.generateAesKey(128);
-        String h = EncodingUtil.convertToHex(b);
-        return h.substring(0,8)  + '-' + h.substring(8,12)  + '-' +
-               h.substring(12,16) + '-' + h.substring(16,20) + '-' +
-               h.substring(20,32);
+        return UUID.randomUUID().toString();
     }
 }

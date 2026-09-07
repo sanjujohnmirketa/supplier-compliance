@@ -92,7 +92,8 @@ public with sharing class ComplianceEmailController {
         assessments.sort(new SeverityComparator());
 
         String portalUrl = null;
-        try { portalUrl = VendorPortalController.generateSupplierPortalUrl(accountId); } catch (Exception e) { /* non-fatal */ }
+        try { portalUrl = VendorPortalController.generateSupplierPortalUrl(accountId); }
+        catch (Exception e) { System.debug(LoggingLevel.WARN, 'Portal URL generation failed for ' + accountId + ': ' + e.getMessage()); }
 
         String htmlBody = buildEmailHtml(acc.Name, assessments, customNote, portalUrl);
 
@@ -161,7 +162,8 @@ public with sharing class ComplianceEmailController {
         }
 
         String portalUrl = null;
-        try { portalUrl = VendorPortalController.generateSupplierPortalUrl(accountId); } catch (Exception e) { /* non-fatal */ }
+        try { portalUrl = VendorPortalController.generateSupplierPortalUrl(accountId); }
+        catch (Exception e) { System.debug(LoggingLevel.WARN, 'Portal URL generation failed for ' + accountId + ': ' + e.getMessage()); }
 
         Boolean isExpiry = (a.Reason_Code__c == 'Expired');
         String reasonLine = isExpiry

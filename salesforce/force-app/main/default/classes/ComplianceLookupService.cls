@@ -151,7 +151,10 @@ public with sharing class ComplianceLookupService {
                 if (candidate.getSObjectType() == Account.SObjectType) {
                     return candidate;
                 }
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                // Not a valid Id — expected and silent by design; falls
+                // through to the name-based lookup below.
+            }
         }
         FindSupplierResponse lookup = findOneSupplier(nameOrId);
         if (lookup.matchCount == 1) return Id.valueOf(lookup.supplierId);

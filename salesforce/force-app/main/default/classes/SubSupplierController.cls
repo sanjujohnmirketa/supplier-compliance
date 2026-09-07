@@ -207,7 +207,7 @@ public without sharing class SubSupplierController {
         if (existing.isEmpty()) {
             insert subAcc;
             try { insert new Supplier_Profile__c(Account__c = subAcc.Id); }
-            catch (Exception e) { /* best-effort — non-fatal */ }
+            catch (Exception e) { IntegrationErrorLogger.log(subAcc.Id, 'SubSupplierController', 'Supplier_Profile__c creation failed: ' + e.getMessage()); }
         } else {
             update subAcc;
         }
@@ -415,7 +415,7 @@ public without sharing class SubSupplierController {
                     + ', tier: ' + tier + ', parent: ' + parentAccountId
                     + ', portal user: ' + result.userCreated
             ), false);
-        } catch (Exception e) { /* audit best-effort */ }
+        } catch (Exception e) { IntegrationErrorLogger.log(subAcc.Id, 'SubSupplierController', 'Audit_Log__c write failed: ' + e.getMessage()); }
 
         return result;
     }

@@ -1,1 +1,1 @@
-<apex:page action="{!URLFOR('/answers/answersHome.apexp')}"/>
+<apex:page ><!-- Standard Salesforce Sites scaffold; Answers feature unused by this app. action= on page load was flagged as a VfCsr risk (PMD) even for a static-URL redirect — removed since nothing references this page. --></apex:page>

@@ -52,6 +52,13 @@ public with sharing class MultiTierRollupService {
         Set<Id> currentLevel = new Set<Id>(startIds);
         Integer depth = 0;
 
+        // SOQL-in-loop by necessity, not oversight: this is a bottom-up
+        // hierarchy walk where each level's query depends on the PREVIOUS
+        // level's results (which accounts are the next level's children) —
+        // there's no way to know the full set up front without walking it.
+        // Bounded by MAX_DEPTH (10, see its own comment above) — worst case
+        // 2 queries x 10 levels = 20 SOQL calls, well inside the 100-per-
+        // transaction governor limit, not an unbounded record-count risk.
         while (!currentLevel.isEmpty() && depth < MAX_DEPTH) {
             depth++;
 

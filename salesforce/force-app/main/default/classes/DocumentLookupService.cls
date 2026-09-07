@@ -165,7 +165,10 @@ public with sharing class DocumentLookupService {
                         return accts[0].Id;
                     }
                 }
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                // Not a valid Id — expected and silent by design; falls
+                // through to the name-based lookup below.
+            }
         }
 
         ComplianceLookupService.FindSupplierResponse lookup =

@@ -18,7 +18,14 @@ public without sharing class IntegrationErrorLogger {
                     Id = supplierId,
                     Last_Integration_Error__c = stamped.left(32768)
                 ), false);
-            } catch (Exception ignore) { /* never break the caller */ }
+            } catch (Exception ignore) {
+                // Deliberately swallowed, not re-thrown — this IS the error
+                // logger; if ITS write fails there's nowhere left to log to
+                // without risking breaking the caller, which is the one
+                // thing this class promises never to do (see class doc).
+                // System.debug is the safe last resort — it can't itself fail.
+                System.debug(LoggingLevel.ERROR, 'IntegrationErrorLogger failed to persist: ' + ignore.getMessage());
+            }
         }
 
         // 2. Append to the append-only audit trail

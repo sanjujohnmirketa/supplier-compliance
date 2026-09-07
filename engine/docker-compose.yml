@@ -48,6 +48,14 @@ services:
       OPENAI_API_KEY:        ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL:       ${OPENAI_BASE_URL:-}
       ANTHROPIC_API_KEY:     ${ANTHROPIC_API_KEY:-}
+      # Fast-path override (chat_json(fast=True)) — can point at a different
+      # provider than the main LLM_PROVIDER above (e.g. trialing a model that
+      # only exists on Azure while the main reasoning path stays elsewhere).
+      LLM_PROVIDER_FAST:     ${LLM_PROVIDER_FAST:-}
+      LLM_MODEL_FAST:        ${LLM_MODEL_FAST:-}
+      AZURE_ENDPOINT:        ${AZURE_ENDPOINT:-}
+      AZURE_API_KEY:         ${AZURE_API_KEY:-}
+      AZURE_API_VERSION:     ${AZURE_API_VERSION:-2024-10-21}
       OLLAMA_BASE_URL:       ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
       LOCAL_BASE_URL:        ${LOCAL_BASE_URL:-}
       OPENSANCTIONS_API_KEY: ${OPENSANCTIONS_API_KEY:-}

@@ -44,38 +44,53 @@ public with sharing class ComplianceChecklistController {
         for (Compliance_Requirement__mdt cmt : [
             SELECT DeveloperName, Document_Type__c
             FROM   Compliance_Requirement__mdt
+            LIMIT  2000
         ]) {
             if (String.isNotBlank(cmt.Document_Type__c)) {
                 devNameToDocType.put(cmt.DeveloperName, cmt.Document_Type__c);
             }
         }
 
-        for (FlowInput inp : inputs) {
-            List<Compliance_Assessment__c> assessments = [
-                SELECT Id, Requirement_Key__c, Requirement_Label__c,
-                       Severity__c, Status__c, Reason_Detail__c, Compliance_Document__c
-                FROM Compliance_Assessment__c
-                WHERE Supplier__c = :inp.accountId
-                ORDER BY Severity__c ASC, Requirement_Label__c ASC
-            ];
+        // Bulkified: Flow can invoke this with more than one input in a single
+        // transaction, so both queries below used to run once PER input inside
+        // the loop — fine for one record, a governor-limit risk at bulk volume.
+        // Fetch everything for every account up front, then group in memory.
+        Set<Id> allAccountIds = new Set<Id>();
+        for (FlowInput inp : inputs) allAccountIds.add(inp.accountId);
 
-            // Filenames for any uploaded compliance documents (so a refresh shows them).
-            Set<Id> compDocIds = new Set<Id>();
-            for (Compliance_Assessment__c a : assessments) {
-                if (a.Compliance_Document__c != null) compDocIds.add(a.Compliance_Document__c);
+        Map<Id, List<Compliance_Assessment__c>> assessmentsByAccount = new Map<Id, List<Compliance_Assessment__c>>();
+        Set<Id> allCompDocIds = new Set<Id>();
+        for (Compliance_Assessment__c a : [
+            SELECT Id, Supplier__c, Requirement_Key__c, Requirement_Label__c,
+                   Severity__c, Status__c, Reason_Detail__c, Compliance_Document__c
+            FROM Compliance_Assessment__c
+            WHERE Supplier__c IN :allAccountIds
+            ORDER BY Severity__c ASC, Requirement_Label__c ASC
+        ]) {
+            if (!assessmentsByAccount.containsKey(a.Supplier__c)) {
+                assessmentsByAccount.put(a.Supplier__c, new List<Compliance_Assessment__c>());
             }
-            Map<Id, String> fileByDoc = new Map<Id, String>();
-            if (!compDocIds.isEmpty()) {
-                for (ContentDocumentLink cdl : [
-                    SELECT LinkedEntityId, ContentDocument.Title
-                    FROM   ContentDocumentLink
-                    WHERE  LinkedEntityId IN :compDocIds
-                ]) {
-                    if (!fileByDoc.containsKey(cdl.LinkedEntityId)) {
-                        fileByDoc.put(cdl.LinkedEntityId, cdl.ContentDocument.Title);
-                    }
+            assessmentsByAccount.get(a.Supplier__c).add(a);
+            if (a.Compliance_Document__c != null) allCompDocIds.add(a.Compliance_Document__c);
+        }
+
+        Map<Id, String> fileByDoc = new Map<Id, String>();
+        if (!allCompDocIds.isEmpty()) {
+            for (ContentDocumentLink cdl : [
+                SELECT LinkedEntityId, ContentDocument.Title
+                FROM   ContentDocumentLink
+                WHERE  LinkedEntityId IN :allCompDocIds
+            ]) {
+                if (!fileByDoc.containsKey(cdl.LinkedEntityId)) {
+                    fileByDoc.put(cdl.LinkedEntityId, cdl.ContentDocument.Title);
                 }
             }
+        }
+
+        for (FlowInput inp : inputs) {
+            List<Compliance_Assessment__c> assessments = assessmentsByAccount.containsKey(inp.accountId)
+                ? assessmentsByAccount.get(inp.accountId)
+                : new List<Compliance_Assessment__c>();
 
             List<ChecklistDisplayItem> items = new List<ChecklistDisplayItem>();
             for (Compliance_Assessment__c a : assessments) {

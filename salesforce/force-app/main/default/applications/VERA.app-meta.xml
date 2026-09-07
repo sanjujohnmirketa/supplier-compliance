@@ -19,6 +19,8 @@
     <tabs>standard-Account</tabs>
     <tabs>standard-Contact</tabs>
     <tabs>Audit_Log__c</tabs>
+    <tabs>Intelligence_Dashboard</tabs>
+    <tabs>Policy_Documents</tabs>
     <uiType>Lightning</uiType>
     <utilityBar>VERA_UtilityBar</utilityBar>
     <workspaceConfig>
@@ -36,6 +38,12 @@
         </mappings>
         <mappings>
             <tab>standard-Contact</tab>
+        </mappings>
+        <mappings>
+            <tab>Intelligence_Dashboard</tab>
+        </mappings>
+        <mappings>
+            <tab>Policy_Documents</tab>
         </mappings>
     </workspaceConfig>
 </CustomApplication>

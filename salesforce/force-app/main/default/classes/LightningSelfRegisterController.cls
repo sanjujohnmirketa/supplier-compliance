@@ -87,7 +87,10 @@ global class LightningSelfRegisterController {
                      aura.redirect(lgn);
                     }
                 }
-                else {
+                else if (String.isNotBlank(regConfirmUrl) && regConfirmUrl.startsWith('/') && !regConfirmUrl.startsWith('//')) {
+                    // regConfirmUrl is caller-supplied — same-site-relative-only
+                    // guard, otherwise this is an open redirect (see
+                    // LightningForgotPasswordController.forgotPassword).
                     ApexPages.PageReference confirmRef = new PageReference(regConfirmUrl);
                     if(!Test.isRunningTest()) {
                     aura.redirect(confirmRef);

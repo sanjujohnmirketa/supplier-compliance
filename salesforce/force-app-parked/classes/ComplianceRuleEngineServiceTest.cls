@@ -386,6 +386,17 @@ private class ComplianceRuleEngineServiceTest {
         );
     }
 
+    // KNOWN FAILING — confirmed dead code (superseded by ScopeOnboardingService/
+    // ScopeCalloutQueueable; AccountTrigger no longer calls this class at all).
+    // Two real bugs found while investigating, neither worth fixing since this
+    // whole class ships nowhere and runs nowhere: (1) mockRule()'s stateField
+    // param is accepted but never assigned to the mock record, so this test
+    // never actually sets up a state-scoped rule; (2) ComplianceRuleEngineService.
+    // ruleMatches() accepts billingState but never checks it in its && chain —
+    // the "7th matching dimension" the class header documents was never
+    // wired in. Left failing and documented rather than fixed or deleted, per
+    // the park-list decision to keep this cluster's source until the whole
+    // group is deleted together.
     @IsTest
     static void ruleMatches_stateRule_firesOnlyInCorrectState() {
         Compliance_Requirement__mdt r = mockRule(
@@ -434,6 +445,13 @@ private class ComplianceRuleEngineServiceTest {
     // SECTION E — generateChecklist() integration (requires deployed CMT)
     // ═════════════════════════════════════════════════════════════════════════
 
+    // KNOWN FAILING — confirmed dead code (superseded by ScopeOnboardingService/
+    // ScopeCalloutQueueable; AccountTrigger no longer calls
+    // ComplianceRuleEngineService.generateChecklist() on Account insert).
+    // Asserts against a checklist-generation trigger path that was
+    // deliberately replaced. Left failing and documented rather than fixed or
+    // deleted, per the park-list decision to keep this cluster's source until
+    // the whole group is deleted together.
     @IsTest
     static void generateChecklist_automotiveRawMaterial_createsAssessments() {
         Account acc = makeSupplier(
@@ -597,6 +615,8 @@ private class ComplianceRuleEngineServiceTest {
     // SECTION F — SupplierOnboardingService (full trigger path)
     // ═════════════════════════════════════════════════════════════════════════
 
+    // KNOWN FAILING — confirmed dead code, same reason as the SECTION above:
+    // AccountTrigger no longer routes to this class's onboarding path.
     @IsTest
     static void onboarding_insertSupplierAccount_triggersAssessments() {
         Account acc = makeSupplier(

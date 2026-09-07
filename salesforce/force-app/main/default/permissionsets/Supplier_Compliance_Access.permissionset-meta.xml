@@ -92,43 +92,20 @@
         <viewAllFields>false</viewAllFields>
         <viewAllRecords>true</viewAllRecords>
     </objectPermissions>
-    <objectPermissions>
-        <allowCreate>true</allowCreate>
-        <allowDelete>true</allowDelete>
-        <allowEdit>true</allowEdit>
-        <allowRead>true</allowRead>
-        <modifyAllRecords>false</modifyAllRecords>
-        <object>Compliance_Document_Link__c</object>
-        <viewAllFields>false</viewAllFields>
-        <viewAllRecords>false</viewAllRecords>
-    </objectPermissions>
-    <!-- Compliance_Document_Link__c is a MasterDetail child of
-         Compliance_Assessment__c — Salesforce requires the parent's Read
-         permission explicit in the SAME permission set for the child's Read
-         to deploy, regardless of what the Profile already grants. Same for
-         Account below it (Compliance_Assessment__c.Supplier__c) — once one
-         link in the lookup chain is made explicit, every link above it must
-         be too. -->
-    <objectPermissions>
-        <allowCreate>true</allowCreate>
-        <allowDelete>true</allowDelete>
-        <allowEdit>true</allowEdit>
-        <allowRead>true</allowRead>
-        <modifyAllRecords>false</modifyAllRecords>
-        <object>Compliance_Assessment__c</object>
-        <viewAllFields>false</viewAllFields>
-        <viewAllRecords>false</viewAllRecords>
-    </objectPermissions>
-    <objectPermissions>
-        <allowCreate>false</allowCreate>
-        <allowDelete>false</allowDelete>
-        <allowEdit>false</allowEdit>
-        <allowRead>true</allowRead>
-        <modifyAllRecords>false</modifyAllRecords>
-        <object>Account</object>
-        <viewAllFields>false</viewAllFields>
-        <viewAllRecords>false</viewAllRecords>
-    </objectPermissions>
+    <!-- Compliance_Document_Link__c, Compliance_Assessment__c, and Account
+         objectPermissions blocks intentionally NOT packaged.
+         Compliance_Assessment__c is Master-Detail to the STANDARD Account
+         object; 2GP package version validation rejects the whole package
+         if any PermissionSet grants object/field permissions on a custom
+         object with a Master-Detail relationship to a standard object
+         (confirmed error: "references Compliance Assessment that has M-D
+         relationship with Account"). Compliance_Document_Link__c's own
+         Read grant transitively depends on Compliance_Assessment__c's Read
+         (confirmed via dry-run), so it has to come out too. This is a hard
+         platform packaging rule — access to all three must come from the
+         subscriber's Profile post-install, not a packaged PermissionSet.
+         Field-level grants above (fieldPermissions) are unaffected and
+         still packaged normally — only object-level grants hit this rule. -->
     <tabSettings>
         <tab>Analyst_Console</tab>
         <visibility>Visible</visibility>
@@ -142,7 +119,7 @@
         <visibility>Visible</visibility>
     </tabSettings>
     <tabSettings>
-        <tab>Procurement_Console</tab>
+        <tab>Compliance_Console1</tab>
         <visibility>Visible</visibility>
     </tabSettings>
     <tabSettings>

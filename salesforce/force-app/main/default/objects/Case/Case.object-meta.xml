@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <!-- Minimal override — this app doesn't customize Case, but 2GP package
+         version validation runs in an isolated context where Case falls
+         back to Salesforce's factory-default sharing model
+         (ReadWriteTransfer), which is incompatible with this package's
+         Account.sharingModel=Private. Declaring the already-live value here
+         (matches this org's real Case sharing model today) resolves that
+         validation-context mismatch without claiming ownership of Case's
+         fields, list views, or layouts. -->
+    <sharingModel>Private</sharingModel>
+</CustomObject>

@@ -4,7 +4,7 @@
  */
 @IsTest public with sharing class MyProfilePageControllerTest {
 
-    @IsTest(SeeAllData=true) static void testSave() {
+    @IsTest static void testSave() {
         // Modify the test to query for a portal user that exists in your org
         List<User> existingPortalUsers = [SELECT id, profileId, userRoleId FROM User WHERE UserRoleId <> null AND UserType='CustomerSuccess'];
 

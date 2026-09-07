@@ -27,7 +27,10 @@
  *   SupplierOnboardingService.initiateOnboarding()        (afterInsert)
  *   SupplierOnboardingService.reEvaluateOnSectorChange()  (afterUpdate)
  */
-public class SupplierProfileTriggerHandler implements ITriggerHandler {
+// Explicit without sharing (Apex's own default when undeclared — no behavior
+// change): must re-evaluate the linked Account/checklist regardless of which
+// user's edit fired the trigger.
+public without sharing class SupplierProfileTriggerHandler implements ITriggerHandler {
 
     // ── Fields that, when changed, require re-evaluation of compliance rules ──
     // These are the four rule engine inputs that live on Supplier_Profile__c

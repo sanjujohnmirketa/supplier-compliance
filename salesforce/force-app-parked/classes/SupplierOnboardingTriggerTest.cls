@@ -136,11 +136,19 @@ private class SupplierOnboardingTriggerTest {
     // RULE ENGINE — DIMENSION MATCHING UNIT TESTS
     // These test the private @TestVisible methods directly.
     // No DML needed — pure logic tests.
+    //
+    // NOTE: these tests called a method named splitMultiPicklist, which never
+    // existed on ComplianceRuleEngineService — the real method is
+    // splitSemicolon (identical behavior, confirmed against every assertion
+    // below). This left the org's Apex dependency graph permanently invalid
+    // (any full test run failed org-wide, cascading to unrelated live
+    // classes) until fixed here. Test method names below are unchanged —
+    // only the call target was wrong.
     // ═════════════════════════════════════════════════════════════════════════
 
     @IsTest
     static void testRuleEngine_splitMultiPicklist_semicolonDelimited() {
-        Set<String> result = ComplianceRuleEngineService.splitMultiPicklist('Tier 1;Tier 2;Tier 3');
+        Set<String> result = ComplianceRuleEngineService.splitSemicolon('Tier 1;Tier 2;Tier 3');
         System.assertEquals(3, result.size(), 'Should split into 3 tokens');
         System.assert(result.contains('Tier 1'), 'Should contain Tier 1');
         System.assert(result.contains('Tier 2'), 'Should contain Tier 2');
@@ -149,19 +157,19 @@ private class SupplierOnboardingTriggerTest {
 
     @IsTest
     static void testRuleEngine_splitMultiPicklist_blank_returnsEmpty() {
-        Set<String> result = ComplianceRuleEngineService.splitMultiPicklist('');
+        Set<String> result = ComplianceRuleEngineService.splitSemicolon('');
         System.assertEquals(0, result.size(), 'Blank input should return empty set');
     }
 
     @IsTest
     static void testRuleEngine_splitMultiPicklist_null_returnsEmpty() {
-        Set<String> result = ComplianceRuleEngineService.splitMultiPicklist(null);
+        Set<String> result = ComplianceRuleEngineService.splitSemicolon(null);
         System.assertEquals(0, result.size(), 'Null input should return empty set');
     }
 
     @IsTest
     static void testRuleEngine_splitMultiPicklist_trimsWhitespace() {
-        Set<String> result = ComplianceRuleEngineService.splitMultiPicklist(' Tier 1 ; Tier 2 ');
+        Set<String> result = ComplianceRuleEngineService.splitSemicolon(' Tier 1 ; Tier 2 ');
         System.assert(result.contains('Tier 1'), 'Should trim leading/trailing spaces');
         System.assert(result.contains('Tier 2'), 'Should trim leading/trailing spaces');
     }
@@ -264,6 +272,12 @@ private class SupplierOnboardingTriggerTest {
     // SUPPLIER ONBOARDING SERVICE — END-TO-END TESTS
     // ═════════════════════════════════════════════════════════════════════════
 
+    // KNOWN FAILING — confirmed dead code (superseded by ScopeOnboardingService/
+    // ScopeCalloutQueueable; AccountTrigger no longer calls
+    // SupplierOnboardingService.initiateOnboarding() on Account insert).
+    // Left failing and documented rather than fixed or deleted, per the
+    // park-list decision to keep this cluster's source until the whole group
+    // is deleted together.
     @IsTest
     static void testInitiateOnboarding_createsAssessments_forAutomotiveSupplier() {
         Account acc = makeSupplierAccount(

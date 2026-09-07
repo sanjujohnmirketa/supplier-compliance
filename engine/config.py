@@ -42,22 +42,41 @@ class Settings:
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0"))
     LLM_TIMEOUT: int     = int(os.getenv("LLM_TIMEOUT", "60"))
 
+    # Fast-path override (chat_json(fast=True), narrow low-stakes tasks) — can
+    # point at a DIFFERENT provider than the main model, not just a different
+    # model name, so a deployment can trial a model that only exists on one
+    # provider (e.g. an Azure-only test deployment) without touching the main
+    # reasoning path. Empty LLM_PROVIDER_FAST means "same provider as main."
+    LLM_MODEL_FAST: str     = os.getenv("LLM_MODEL_FAST", "")
+    LLM_PROVIDER_FAST: str  = os.getenv("LLM_PROVIDER_FAST", "").lower()
+
     # provider-specific — only the ACTIVE provider's settings are needed
     OPENAI_API_KEY: str    = os.getenv("OPENAI_API_KEY", "")
-    OPENAI_BASE_URL: str   = os.getenv("OPENAI_BASE_URL", "")     # Azure / proxy / compatible
+    OPENAI_BASE_URL: str   = os.getenv("OPENAI_BASE_URL", "")     # non-Azure OpenAI-compatible proxy only — see AZURE_ENDPOINT for real Azure OpenAI
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
     OLLAMA_BASE_URL: str   = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
     LOCAL_BASE_URL: str    = os.getenv("LOCAL_BASE_URL", "")      # vLLM / LM Studio (OpenAI-compatible)
+
+    # Real Azure OpenAI (LLM_PROVIDER=azure) — Azure's wire format differs from
+    # plain OpenAI (api-version query param, azure_endpoint + deployment name
+    # instead of a bare base_url), so it needs the AzureOpenAI SDK client, not
+    # a base_url override on the plain OpenAI client. AZURE_API_KEY falls back
+    # to OPENAI_API_KEY so a deployment can reuse one key var if it wants.
+    AZURE_ENDPOINT: str    = os.getenv("AZURE_ENDPOINT", "")      # e.g. https://<resource>.cognitiveservices.azure.com/
+    AZURE_API_KEY: str     = os.getenv("AZURE_API_KEY", "") or os.getenv("OPENAI_API_KEY", "")
+    AZURE_API_VERSION: str = os.getenv("AZURE_API_VERSION", "2024-10-21")
 
     # ── Screening (optional; demo fallback when unset) ───────────────────────
     OPENSANCTIONS_API_KEY: str = os.getenv("OPENSANCTIONS_API_KEY", "")
 
     @classmethod
-    def llm_configured(cls) -> bool:
-        """True when the active provider has what it needs to make a call."""
-        p = cls.LLM_PROVIDER
+    def llm_configured(cls, provider: str = None) -> bool:
+        """True when the given provider (default: the main LLM_PROVIDER) has
+        what it needs to make a call. Pass provider= to check a different one
+        (e.g. the fast-path provider, which can differ from the main one)."""
+        p = provider or cls.LLM_PROVIDER
         if p == "openai":            return bool(cls.OPENAI_API_KEY)
-        if p == "azure":             return bool(cls.OPENAI_API_KEY and cls.OPENAI_BASE_URL)
+        if p == "azure":             return bool(cls.AZURE_API_KEY and cls.AZURE_ENDPOINT)
         if p == "anthropic":         return bool(cls.ANTHROPIC_API_KEY)
         if p in ("ollama", "vllm", "local"):
             return True              # local model — no external key required

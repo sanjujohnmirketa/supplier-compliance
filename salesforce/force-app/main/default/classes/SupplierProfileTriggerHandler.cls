@@ -36,6 +36,7 @@
 // the trigger may hold no Read on Account or the checklist rows this handler
 // must re-evaluate, and the re-evaluation must happen regardless. No Schema/
 // stripInaccessible check is applied to the SOQL in this class.
+@SuppressWarnings('PMD.ApexCRUDViolation') // trigger handler, system context — see note above
 public without sharing class SupplierProfileTriggerHandler implements ITriggerHandler {
 
     // ── Fields that, when changed, require re-evaluation of compliance rules ──

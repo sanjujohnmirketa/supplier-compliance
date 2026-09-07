@@ -4,6 +4,10 @@ global class LightningForgotPasswordController {
 
     }
 
+    // ApexOpenRedirect: the target is validated to a same-site relative path
+    // ('/…', never '//…' or absolute) before any PageReference is built — the
+    // rule flags every PageReference built from a parameter regardless.
+    @SuppressWarnings('PMD.ApexOpenRedirect')
     @AuraEnabled
     public static String forgotPassword(String username, String checkEmailUrl) {
         try {

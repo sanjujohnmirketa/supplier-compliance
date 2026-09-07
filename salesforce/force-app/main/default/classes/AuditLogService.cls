@@ -11,6 +11,7 @@
  * Every controller routes its audit rows through write() below so this
  * exception exists in exactly one class instead of being scattered.
  */
+@SuppressWarnings('PMD.ApexCRUDViolation') // system-context audit sink — see class doc
 public without sharing class AuditLogService {
 
     // Generic sink used by the controllers. allOrNone=false: a failed audit

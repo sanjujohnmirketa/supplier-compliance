@@ -9,11 +9,16 @@ public with sharing class LightningForgotPasswordControllerTest {
   System.assertEquals(LightningForgotPasswordController.forgotPassword('a', '/home/home.jsp'), Label.Site.invalid_email);
  }
 
- /* Verifies that null checkEmailRef url throws proper exception. */
+ /* Verifies that a null/blank checkEmailRef url is rejected by the same-site
+    redirect guard (returns the invalid-email label) instead of surfacing the
+    raw "Argument 1 cannot be null" PageReference exception it used to. */
  @IsTest
  static void testLightningForgotPasswordControllerWithNullCheckEmailRef() {
-  System.assertEquals(LightningForgotPasswordController.forgotPassword('a', null), 'Argument 1 cannot be null');
-  System.assertEquals(LightningForgotPasswordController.forgotPassword('a@salesforce.com', null), 'Argument 1 cannot be null');
+  System.assertEquals(Label.Site.invalid_email, LightningForgotPasswordController.forgotPassword('a', null));
+  System.assertEquals(Label.Site.invalid_email, LightningForgotPasswordController.forgotPassword('a@salesforce.com', null));
+  // External / protocol-relative targets are rejected the same way (open-redirect guard).
+  System.assertEquals(Label.Site.invalid_email, LightningForgotPasswordController.forgotPassword('a', 'https://evil.example'));
+  System.assertEquals(Label.Site.invalid_email, LightningForgotPasswordController.forgotPassword('a', '//evil.example'));
  }
 
  /* Verifies that LightningForgotPasswordController object is instantiated correctly. */

@@ -30,6 +30,7 @@
  * enqueued it holds no Edit on that parent Account. The writes are
  * allOrNone=false and audited; no Schema/stripInaccessible check is applied.
  */
+@SuppressWarnings('PMD.ApexCRUDViolation') // system-context rollup — see class doc
 public with sharing class MultiTierRollupService {
 
     // Salesforce hierarchy fields cap around 10 levels in practice; this is a

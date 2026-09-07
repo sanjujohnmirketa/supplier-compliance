@@ -549,15 +549,12 @@ public with sharing class ComplianceEvaluatorService {
         String trimmed = input.trim();
 
         // First — check if it's already a 15- or 18-char Salesforce ID
-        if (trimmed.length() == 15 || trimmed.length() == 18) {
-            try {
-                Id candidate = Id.valueOf(trimmed);
-                if (candidate.getSObjectType() == Account.SObjectType) {
-                    return trimmed;
-                }
-            } catch (Exception e) {
-                // Not a valid ID — fall through to name lookup
-            }
+        // instanceOf Id validates the format without throwing — a non-Id
+        // simply falls through to the name lookup below.
+        if ((trimmed.length() == 15 || trimmed.length() == 18)
+                && trimmed instanceOf Id
+                && ((Id) trimmed).getSObjectType() == Account.SObjectType) {
+            return trimmed;
         }
 
         // Treat as a name lookup

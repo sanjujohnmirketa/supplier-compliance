@@ -66,6 +66,7 @@
  * system-wide (every assessment for the supplier), so no Schema/
  * stripInaccessible check is applied to the SOQL/DML in this class.
  */
+@SuppressWarnings('PMD.ApexCRUDViolation') // system-context rollup — see class doc
 public without sharing class RiskScoreService {
 
     // How much a non-compliant document's penalty is scaled relative to its

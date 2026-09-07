@@ -12,6 +12,7 @@
  * regardless of who happened to trigger it. Both are allOrNone=false and
  * wrapped so they can never affect the caller.
  */
+@SuppressWarnings('PMD.ApexCRUDViolation') // system-context sink — see class doc
 public without sharing class IntegrationErrorLogger {
 
     public static void log(Id supplierId, String source, String message) {
@@ -47,6 +48,9 @@ public without sharing class IntegrationErrorLogger {
                 Source_System__c     = 'Other',
                 New_Value__c         = stamped.left(131072)
             ), false);
-        } catch (Exception ignore) { /* never break the caller */ }
+        } catch (Exception ignore) {
+            // Never break the caller (see class doc) — debug is the last resort.
+            System.debug(LoggingLevel.ERROR, 'IntegrationErrorLogger failed to write audit row: ' + ignore.getMessage());
+        }
     }
 }

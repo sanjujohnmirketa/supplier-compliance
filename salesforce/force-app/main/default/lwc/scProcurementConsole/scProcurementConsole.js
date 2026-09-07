@@ -183,7 +183,7 @@ export default class ScProcurementConsole extends NavigationMixin(LightningEleme
         let saved;
         try {
             saved = JSON.parse(sessionStorage.getItem(ScProcurementConsole._STORAGE_KEY) || 'null');
-        } catch (e) {
+        } catch {
             saved = null; // corrupted/blocked storage — fall back to default p1
         }
         if (!saved || !saved.screen || !BREADCRUMBS[saved.screen]) return;
@@ -209,7 +209,7 @@ export default class ScProcurementConsole extends NavigationMixin(LightningEleme
                 state.supplierName = this._selectedSupplierName || '';
             }
             sessionStorage.setItem(ScProcurementConsole._STORAGE_KEY, JSON.stringify(state));
-        } catch (e) {
+        } catch {
             // Storage blocked (private browsing, quota) — degrade to the old
             // in-memory-only behavior rather than throw.
         }

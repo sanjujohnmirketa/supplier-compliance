@@ -739,6 +739,7 @@ public without sharing class VendorPortalController {
 
     // Shared with the token-verified guest path (getSupplierSnapshotImpl) —
     // system context by design, guarded by the caller; see the class header.
+    @SuppressWarnings('PMD.ApexCRUDViolation') // guest token path — see class header
     private static List<CaseDocument> getCaseDocumentsImpl(Id accountId) {
         List<CaseDocument> out = new List<CaseDocument>();
         if (accountId == null) return out;
@@ -784,6 +785,7 @@ public without sharing class VendorPortalController {
 
     // Shared with removeSupplierDocumentByToken (guest: token-verified and
     // ownership-checked first) — system context by design, see class header.
+    @SuppressWarnings('PMD.ApexCRUDViolation') // guest token path — see class header
     private static void removeSupplierDocumentImpl(Id accountId, Id contentDocumentId) {
         if (contentDocumentId == null) throw new AuraHandledException('No document selected.');
         // Clear assessment rows that referenced this file (via its Compliance_Document__c).
@@ -827,6 +829,7 @@ public without sharing class VendorPortalController {
 
     // Shared with addRequirementFromDocumentByToken (guest, token-verified) —
     // system context by design, see class header.
+    @SuppressWarnings('PMD.ApexCRUDViolation') // guest token path — see class header
     private static String addRequirementFromDocumentImpl(Id accountId, String documentTitle, String requirementKey) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
         if (String.isBlank(documentTitle)) throw new AuraHandledException('No document specified.');
@@ -1084,6 +1087,7 @@ public without sharing class VendorPortalController {
 
     // Shared with getSupplierSnapshotByToken (guest, token-verified) — system
     // context by design, see class header.
+    @SuppressWarnings('PMD.ApexCRUDViolation') // guest token path — see class header
     private static SupplierSnapshot getSupplierSnapshotImpl(Id accountId) {
         if (accountId == null) throw new AuraHandledException('No supplier selected.');
 
@@ -1343,6 +1347,7 @@ public without sharing class VendorPortalController {
     // row for the given assessment Ids, mapped to the per-file LinkedDocument
     // DTO, grouped by parent assessment. Shared by getSupplierSnapshot and
     // getCaseForAnalyst so both consoles render the same per-file data.
+    @SuppressWarnings('PMD.ApexCRUDViolation') // shared with the guest token path — see class header
     private static Map<Id, List<LinkedDocument>> getDocumentLinksByAssessment(Set<Id> assessmentIds) {
         Map<Id, List<LinkedDocument>> out = new Map<Id, List<LinkedDocument>>();
         if (assessmentIds == null || assessmentIds.isEmpty()) return out;
@@ -2252,6 +2257,7 @@ public without sharing class VendorPortalController {
     // Guest/token counterpart — same verify-then-act pattern as every other
     // *ByToken method (assessmentId is looked up as belonging to the token's
     // account first, so a guest can't comment on a document that isn't theirs).
+    @SuppressWarnings('PMD.ApexCRUDViolation') // guest token path — see class header
     @AuraEnabled
     public static void addSupplierCommentByToken(String token, Id assessmentId, String note) {
         Id accountId = verifyPortalTokenId(token);
@@ -2478,14 +2484,11 @@ public without sharing class VendorPortalController {
         }
 
         if (String.isNotBlank(annualSpend)) {
+            // Free-text input: keep only a well-formed number (digits with at
+            // most one decimal point); anything else leaves the field null.
             String cleaned = annualSpend.replaceAll('[^0-9.]', '');
-            if (String.isNotBlank(cleaned)) {
-                try {
-                    acc.Annual_Spend_Est__c = Decimal.valueOf(cleaned);
-                } catch (Exception e) {
-                    // Unparseable free-text input — expected and silent by
-                    // design; the field is simply left null.
-                }
+            if (Pattern.matches('^\\d+(\\.\\d+)?$', cleaned)) {
+                acc.Annual_Spend_Est__c = Decimal.valueOf(cleaned);
             }
         }
 
@@ -3047,6 +3050,7 @@ public without sharing class VendorPortalController {
     // inviting a sub-supplier) who holds no Account permissions — so this
     // cannot carry a user-permission guard without breaking that path. Not
     // imported by any LWC; only reachable through those Apex callers.
+    @SuppressWarnings('PMD.ApexCRUDViolation')
     @AuraEnabled
     public static String generateSupplierPortalUrl(Id accountId) {
         if (accountId == null) throw new AuraHandledException('Account ID required.');
@@ -3092,6 +3096,7 @@ public without sharing class VendorPortalController {
     // Account lookup IS the guest's authorization step — the guest user holds
     // no Account permission, so a CRUD guard here would make every token
     // unusable. Selects only Id, filtered by the exact token.
+    @SuppressWarnings('PMD.ApexCRUDViolation')
     public static Id verifyPortalTokenId(String token) {
         if (String.isBlank(token)) throw new AuraHandledException('Token is required.');
         List<Account> matches = [
@@ -3141,6 +3146,7 @@ public without sharing class VendorPortalController {
     // SYSTEM CONTEXT BY DESIGN (documented scanner exception): this is the
     // guest path's ownership check — it must run for a user with no object
     // permissions, and it only ever narrows what a guest may touch.
+    @SuppressWarnings('PMD.ApexCRUDViolation')
     private static Boolean documentBelongsToSupplier(Id contentDocumentId, Id accountId) {
         if (contentDocumentId == null || accountId == null) return false;
         Set<Id> ownedEntityIds = new Set<Id>{ accountId };
@@ -3190,6 +3196,7 @@ public without sharing class VendorPortalController {
 
     // Shared with generatePublicDocumentUrlByToken (guest: token-verified and
     // ownership-checked first) — system context by design, see class header.
+    @SuppressWarnings('PMD.ApexCRUDViolation') // guest token path — see class header
     private static String generatePublicDocumentUrlImpl(Id contentDocumentId) {
         if (contentDocumentId == null) throw new AuraHandledException('Content Document ID required.');
 

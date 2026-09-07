@@ -153,21 +153,18 @@ public with sharing class DocumentLookupService {
     }
 
     private static Id resolveSupplierId(String nameOrId, FindDocumentsResponse resp) {
-        if (nameOrId.length() == 15 || nameOrId.length() == 18) {
-            try {
-                Id candidate = Id.valueOf(nameOrId);
-                if (candidate.getSObjectType() == Account.SObjectType) {
-                    List<Account> accts = [
-                        SELECT Id, Name FROM Account WHERE Id = :candidate WITH USER_MODE LIMIT 1
-                    ];
-                    if (!accts.isEmpty()) {
-                        resp.supplierName = accts[0].Name;
-                        return accts[0].Id;
-                    }
-                }
-            } catch (Exception e) {
-                // Not a valid Id — expected and silent by design; falls
-                // through to the name-based lookup below.
+        // instanceOf Id validates the format without throwing — a non-Id
+        // simply falls through to the name-based lookup below.
+        if ((nameOrId.length() == 15 || nameOrId.length() == 18)
+                && nameOrId instanceOf Id
+                && ((Id) nameOrId).getSObjectType() == Account.SObjectType) {
+            Id candidate = (Id) nameOrId;
+            List<Account> accts = [
+                SELECT Id, Name FROM Account WHERE Id = :candidate WITH USER_MODE LIMIT 1
+            ];
+            if (!accts.isEmpty()) {
+                resp.supplierName = accts[0].Name;
+                return accts[0].Id;
             }
         }
 

@@ -80,6 +80,7 @@ public without sharing class SubSupplierController {
         return getRequirementsForParentImpl(VendorPortalController.verifyPortalTokenId(token));
     }
 
+    @SuppressWarnings('PMD.ApexCRUDViolation') // guest token path — see class header
     private static List<RequirementRow> getRequirementsForParentImpl(Id parentAccountId) {
         List<RequirementRow> out = new List<RequirementRow>();
         if (parentAccountId == null) return out;
@@ -118,6 +119,7 @@ public without sharing class SubSupplierController {
         return getSubSuppliersImpl(VendorPortalController.verifyPortalTokenId(token));
     }
 
+    @SuppressWarnings('PMD.ApexCRUDViolation') // guest token path — see class header
     private static List<SubSupplierRow> getSubSuppliersImpl(Id parentAccountId) {
         if (parentAccountId == null) return new List<SubSupplierRow>();
 
@@ -226,6 +228,7 @@ public without sharing class SubSupplierController {
                                      category, country, tier, message, expiryDays, selectedRequirementIds);
     }
 
+    @SuppressWarnings('PMD.ApexCRUDViolation') // guest token path — see class header
     private static InviteResult inviteSubSupplierImpl(
         Id      parentAccountId,
         String  company,
@@ -519,6 +522,7 @@ public without sharing class SubSupplierController {
 
     // ─── Email builder ────────────────────────────────────────────────────────
 
+    @SuppressWarnings('PMD.ApexCRUDViolation') // reached only via the guest token path — see class header
     private static void sendInvitationEmail(
         String  toEmail,
         String  firstName,

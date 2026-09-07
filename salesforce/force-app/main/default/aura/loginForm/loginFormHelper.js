@@ -8,7 +8,7 @@
         'expid'  : 'e.c:setExpId'
     },
     
-    handleLogin: function (component, event, helpler) {
+    handleLogin: function (component) {
         var username = component.find("username").get("v.value");
         var password = component.find("password").get("v.value");
         var action = component.get("c.login");
@@ -27,7 +27,7 @@
         $A.enqueueAction(action);
     },
     
-    getIsUsernamePasswordEnabled : function (component, event, helpler) {
+    getIsUsernamePasswordEnabled : function (component) {
         var action = component.get("c.getIsUsernamePasswordEnabled");
         action.setCallback(this, function(a){
         var rtnValue = a.getReturnValue();
@@ -38,7 +38,7 @@
         $A.enqueueAction(action);
     },
     
-    getIsSelfRegistrationEnabled : function (component, event, helpler) {
+    getIsSelfRegistrationEnabled : function (component) {
         var action = component.get("c.getIsSelfRegistrationEnabled");
         action.setCallback(this, function(a){
         var rtnValue = a.getReturnValue();
@@ -49,7 +49,7 @@
         $A.enqueueAction(action);
     },
     
-    getCommunityForgotPasswordUrl : function (component, event, helpler) {
+    getCommunityForgotPasswordUrl : function (component) {
         var action = component.get("c.getForgotPasswordUrl");
         action.setCallback(this, function(a){
         var rtnValue = a.getReturnValue();
@@ -60,7 +60,7 @@
         $A.enqueueAction(action);
     },
     
-    getCommunitySelfRegisterUrl : function (component, event, helpler) {
+    getCommunitySelfRegisterUrl : function (component) {
         var action = component.get("c.getSelfRegistrationUrl");
         action.setCallback(this, function(a){
         var rtnValue = a.getReturnValue();
@@ -71,12 +71,12 @@
         $A.enqueueAction(action);
     },
 
-    setBrandingCookie: function (component, event, helpler) {
+    setBrandingCookie: function (component) {
         var expId = component.get("v.expid");
         if (expId) {
             var action = component.get("c.setExperienceId");
             action.setParams({expId:expId});
-            action.setCallback(this, function(a){ });
+            action.setCallback(this, function() { });
             $A.enqueueAction(action);
         }
     }

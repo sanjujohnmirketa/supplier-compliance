@@ -15,12 +15,10 @@ trigger SupplierRiskChangeTrigger on Supplier_Risk_Change__e (after insert) {
 
     Set<Id> supplierIds = new Set<Id>();
     for (Supplier_Risk_Change__e evt : Trigger.new) {
-        if (String.isNotBlank(evt.Supplier_Id__c)) {
-            try {
-                supplierIds.add((Id) evt.Supplier_Id__c);
-            } catch (Exception e) {
-                // Malformed Id on the event payload — skip it rather than fail the batch.
-            }
+        // instanceOf Id validates the payload without throwing — a malformed
+        // Id on the event is skipped rather than failing the whole batch.
+        if (String.isNotBlank(evt.Supplier_Id__c) && evt.Supplier_Id__c instanceOf Id) {
+            supplierIds.add((Id) evt.Supplier_Id__c);
         }
     }
 

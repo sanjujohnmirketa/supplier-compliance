@@ -486,14 +486,13 @@ public with sharing class DocumentValidatorService {
         }
 
         // Find supplier — must be unambiguous
+        // Describe calls don't throw; a missing record type just leaves this null.
         Id supplierRtId;
-        try {
-            Map<String, Schema.RecordTypeInfo> rtMap =
-                Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName();
-            if (rtMap.containsKey('Supplier')) {
-                supplierRtId = rtMap.get('Supplier').getRecordTypeId();
-            }
-        } catch (Exception e) {}
+        Map<String, Schema.RecordTypeInfo> rtMap =
+            Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName();
+        if (rtMap.containsKey('Supplier')) {
+            supplierRtId = rtMap.get('Supplier').getRecordTypeId();
+        }
 
         List<Account> suppliers;
         if (supplierRtId != null) {

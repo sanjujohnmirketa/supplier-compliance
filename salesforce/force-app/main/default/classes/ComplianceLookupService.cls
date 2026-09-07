@@ -147,16 +147,12 @@ public with sharing class ComplianceLookupService {
 
     public static Id resolveSupplierIdSimple(String nameOrId) {
         if (String.isBlank(nameOrId)) return null;
-        if (nameOrId.length() == 15 || nameOrId.length() == 18) {
-            try {
-                Id candidate = Id.valueOf(nameOrId);
-                if (candidate.getSObjectType() == Account.SObjectType) {
-                    return candidate;
-                }
-            } catch (Exception e) {
-                // Not a valid Id — expected and silent by design; falls
-                // through to the name-based lookup below.
-            }
+        // instanceOf Id validates the format without throwing — a non-Id
+        // simply falls through to the name-based lookup below.
+        if ((nameOrId.length() == 15 || nameOrId.length() == 18)
+                && nameOrId instanceOf Id
+                && ((Id) nameOrId).getSObjectType() == Account.SObjectType) {
+            return (Id) nameOrId;
         }
         FindSupplierResponse lookup = findOneSupplier(nameOrId);
         if (lookup.matchCount == 1) return Id.valueOf(lookup.supplierId);

@@ -39,6 +39,7 @@ public without sharing class DocumentProcessingController {
 
     // Shared with saveFileByToken (guest, token-verified) — system context by
     // design, see class header.
+    @SuppressWarnings('PMD.ApexCRUDViolation') // guest token path — see class header
     private static String saveFileImpl(String recordId, String fileName, String base64Data) {
         if (String.isBlank(recordId) || String.isBlank(base64Data)) {
             throw new AuraHandledException('recordId and file data are required.');
@@ -146,6 +147,7 @@ public without sharing class DocumentProcessingController {
     //   whatever it already was (or set to this file if it had none), purely
     //   for backward-compat with any code still reading that single field —
     //   the real per-file data now lives on the junction rows.
+    @SuppressWarnings('PMD.ApexCRUDViolation') // guest token path — see class header
     private static String linkDocumentToComplianceInternal(
         String accountId,
         String contentDocumentId,
@@ -501,6 +503,7 @@ public without sharing class DocumentProcessingController {
      * Reached only through linkDocumentToComplianceInternal (guarded internal
      * entry or token-verified guest path) — see class header.
      */
+    @SuppressWarnings('PMD.ApexCRUDViolation') // guest token path — see class header
     private static Id getLatestContentVersionId(Id contentDocumentId) {
         List<ContentVersion> cv = [
             SELECT Id FROM ContentVersion

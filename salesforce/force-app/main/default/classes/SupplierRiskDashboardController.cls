@@ -180,6 +180,7 @@ public with sharing class SupplierRiskDashboardController {
                    Case_Closed_DateTime__c, Case_Closed_By__c, Case_Closed_By__r.Name
             FROM   Account
             WHERE  Id = :accountId
+            WITH   USER_MODE
             LIMIT  1
         ];
         return accts.isEmpty() ? null : accts[0];
@@ -204,6 +205,7 @@ public with sharing class SupplierRiskDashboardController {
                    Direct_or_Indirect__c
             FROM   Supplier_Profile__c
             WHERE  Account__c = :acc.Id
+            WITH   USER_MODE
             LIMIT  1
         ];
         if (!profiles.isEmpty()) {
@@ -244,6 +246,7 @@ public with sharing class SupplierRiskDashboardController {
                    Compliance_Document__c, Evaluation_DateTime__c
             FROM   Compliance_Assessment__c
             WHERE  Supplier__c = :accountId
+            WITH   USER_MODE
             ORDER BY Requirement_Label__c ASC
             LIMIT  200
         ]) {
@@ -307,6 +310,7 @@ public with sharing class SupplierRiskDashboardController {
                    AI_Confidence__c, Reason_Detail__c, Compliance_Document__c, Evaluation_DateTime__c
             FROM   Compliance_Assessment__c
             WHERE  Supplier__c = :accountId AND Compliance_Document__c != null
+            WITH   USER_MODE
             ORDER BY Evaluation_DateTime__c DESC
             LIMIT  50
         ]) {
@@ -323,6 +327,7 @@ public with sharing class SupplierRiskDashboardController {
         for (ContentDocumentLink l : [
             SELECT LinkedEntityId, ContentDocumentId
             FROM   ContentDocumentLink WHERE LinkedEntityId IN :compDocIds
+            WITH   USER_MODE
         ]) {
             cdByCompDoc.put(l.LinkedEntityId, l.ContentDocumentId);
         }
@@ -334,6 +339,7 @@ public with sharing class SupplierRiskDashboardController {
                 SELECT Id, Title, FileType, CreatedDate, ContentDocumentId
                 FROM   ContentVersion
                 WHERE  ContentDocumentId IN :cdIds AND IsLatest = true
+                WITH   USER_MODE
             ]) {
                 cvByCd.put(v.ContentDocumentId, v);
             }

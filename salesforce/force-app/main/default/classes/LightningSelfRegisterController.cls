@@ -23,6 +23,11 @@ global class LightningSelfRegisterController {
         return;
     }
     
+    // ApexOpenRedirect: regConfirmUrl is validated to a same-site relative path
+    // ('/…', never '//…' or absolute) before any PageReference is built; the
+    // other redirect is Site.login()'s own PageReference. The rule flags every
+    // PageReference built from a parameter regardless.
+    @SuppressWarnings('PMD.ApexOpenRedirect')
     @AuraEnabled
     public static String selfRegister(String firstname ,String lastname, String email, String password, String confirmPassword, String accountId, String regConfirmUrl, String extraFields, String startUrl, Boolean includePassword) {
         Savepoint sp = null;

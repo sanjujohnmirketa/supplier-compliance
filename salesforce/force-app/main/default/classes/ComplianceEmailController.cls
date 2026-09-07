@@ -28,7 +28,7 @@ public with sharing class ComplianceEmailController {
     public static EmailPreview getEmailPreview(Id accountId) {
         if (accountId == null) throw new AuraHandledException('accountId is required.');
 
-        Account acc = [SELECT Id, Name FROM Account WHERE Id = :accountId LIMIT 1];
+        Account acc = [SELECT Id, Name FROM Account WHERE Id = :accountId WITH USER_MODE LIMIT 1];
 
         List<Compliance_Assessment__c> rawAssessments = [
             SELECT Requirement_Label__c, Requirement_Key__c, Status__c, Severity__c,
@@ -36,6 +36,7 @@ public with sharing class ComplianceEmailController {
             FROM   Compliance_Assessment__c
             WHERE  Supplier__c = :accountId
             AND    (NOT Requirement_Key__c LIKE 'SCREEN_%')
+            WITH   USER_MODE
         ];
 
         // Sort by severity priority in Apex (SOQL ORDER BY CASE not supported)
@@ -80,7 +81,7 @@ public with sharing class ComplianceEmailController {
         if (accountId == null)     throw new AuraHandledException('accountId is required.');
         if (String.isBlank(toEmail)) throw new AuraHandledException('A recipient email address is required.');
 
-        Account acc = [SELECT Id, Name FROM Account WHERE Id = :accountId LIMIT 1];
+        Account acc = [SELECT Id, Name FROM Account WHERE Id = :accountId WITH USER_MODE LIMIT 1];
 
         List<Compliance_Assessment__c> assessments = [
             SELECT Requirement_Label__c, Requirement_Key__c, Status__c, Severity__c,
@@ -88,6 +89,7 @@ public with sharing class ComplianceEmailController {
             FROM   Compliance_Assessment__c
             WHERE  Supplier__c = :accountId
             AND    (NOT Requirement_Key__c LIKE 'SCREEN_%')
+            WITH   USER_MODE
         ];
         assessments.sort(new SeverityComparator());
 
@@ -105,7 +107,7 @@ public with sharing class ComplianceEmailController {
         email.setTargetObjectId(findContactId(accountId));
 
         List<OrgWideEmailAddress> orgEmails = [
-            SELECT Id FROM OrgWideEmailAddress LIMIT 1
+            SELECT Id FROM OrgWideEmailAddress WITH USER_MODE LIMIT 1
         ];
         if (!orgEmails.isEmpty()) {
             email.setOrgWideEmailAddressId(orgEmails[0].Id);
@@ -138,7 +140,7 @@ public with sharing class ComplianceEmailController {
         if (accountId == null)    throw new AuraHandledException('accountId is required.');
         if (assessmentId == null) throw new AuraHandledException('assessmentId is required.');
 
-        Account acc = [SELECT Id, Name, Onboarding_Status__c FROM Account WHERE Id = :accountId LIMIT 1];
+        Account acc = [SELECT Id, Name, Onboarding_Status__c FROM Account WHERE Id = :accountId WITH USER_MODE LIMIT 1];
         // This is a RENEWAL alert — it only makes sense for a supplier that's
         // already onboarded. The dashboard widget that surfaces this button
         // already filters to Approved/Reviewed suppliers only (a still-
@@ -153,6 +155,7 @@ public with sharing class ComplianceEmailController {
             SELECT Requirement_Label__c, Status__c, Reason_Code__c, Reason_Detail__c, Valid_Until__c
             FROM   Compliance_Assessment__c
             WHERE  Id = :assessmentId
+            WITH   USER_MODE
             LIMIT  1
         ];
 
@@ -182,7 +185,7 @@ public with sharing class ComplianceEmailController {
         email.setSaveAsActivity(true);
         email.setTargetObjectId(findContactId(accountId));
 
-        List<OrgWideEmailAddress> orgEmails = [SELECT Id FROM OrgWideEmailAddress LIMIT 1];
+        List<OrgWideEmailAddress> orgEmails = [SELECT Id FROM OrgWideEmailAddress WITH USER_MODE LIMIT 1];
         if (!orgEmails.isEmpty()) {
             email.setOrgWideEmailAddressId(orgEmails[0].Id);
         }
@@ -276,6 +279,7 @@ public with sharing class ComplianceEmailController {
             AND    UserType  IN ('PowerCustomerSuccess', 'PowerPartner', 'CustomerSuccess')
             AND    Contact.Email != null
             AND    IsActive   = true
+            WITH   USER_MODE
             LIMIT  1
         ];
         if (!portalUsers.isEmpty()) return portalUsers[0].Contact.Email;
@@ -285,6 +289,7 @@ public with sharing class ComplianceEmailController {
             FROM   Contact
             WHERE  AccountId = :accountId
             AND    Email     != null
+            WITH   USER_MODE
             ORDER BY CreatedDate ASC
             LIMIT  1
         ];
@@ -299,6 +304,7 @@ public with sharing class ComplianceEmailController {
             AND    UserType   IN ('PowerCustomerSuccess', 'PowerPartner', 'CustomerSuccess')
             AND    ContactId  != null
             AND    IsActive   = true
+            WITH   USER_MODE
             LIMIT  1
         ];
         if (!portalUsers.isEmpty()) return portalUsers[0].ContactId;
@@ -307,6 +313,7 @@ public with sharing class ComplianceEmailController {
             SELECT Id
             FROM   Contact
             WHERE  AccountId = :accountId
+            WITH   USER_MODE
             ORDER BY CreatedDate ASC
             LIMIT  1
         ];

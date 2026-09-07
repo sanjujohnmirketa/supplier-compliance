@@ -15,7 +15,8 @@ public with sharing class MyProfilePageController {
         user = [SELECT id, email, username, usertype, communitynickname, timezonesidkey, languagelocalekey, firstname, lastname, phone, title,
                 street, city, country, postalcode, state, localesidkey, mobilephone, extension, fax, contact.email
                 FROM User
-                WHERE id = :UserInfo.getUserId()];
+                WHERE id = :UserInfo.getUserId()
+                WITH USER_MODE];
         // guest users should never be able to access this page
         if (user.usertype == 'GUEST') {
             throw new NoAccessException();
@@ -32,10 +33,14 @@ public with sharing class MyProfilePageController {
 
     public void save() {
         try {
-            update user;
+            // Field-level security enforced for the running user's own record.
+            update Security.stripInaccessible(AccessType.UPDATABLE, new List<User>{ user }).getRecords();
             isEdit=false;
         } catch(DmlException e) {
             ApexPages.addMessages(e);
+        } catch(System.NoAccessException e) {
+            ApexPages.addMessage(new ApexPages.Message(ApexPages.Severity.ERROR,
+                'You do not have permission to update your profile.'));
         }
     }
 
@@ -48,6 +53,7 @@ public with sharing class MyProfilePageController {
         user = [SELECT id, email, username, communitynickname, timezonesidkey, languagelocalekey, firstname, lastname, phone, title,
                 street, city, country, postalcode, state, localesidkey, mobilephone, extension, fax, contact.email
                 FROM User
-                WHERE id = :UserInfo.getUserId()];
-    }    
+                WHERE id = :UserInfo.getUserId()
+                WITH USER_MODE];
+    }
 }

@@ -56,7 +56,17 @@
  *   - VendorPortalController.saveDocValidation (Analyst Confirm/Override) — recompute()
  *   - VendorPortalController.recordProcurementDecision (Procurement Approve/Reject) — recompute()
  *   - ComplianceExpiryBatch (bulk expiry sweep, many suppliers/execute() call) — recomputeBulk()
+ *
+ * SYSTEM CONTEXT BY DESIGN (documented CRUD/FLS scanner exception): the score is
+ * a platform-computed rollup, written back onto the Account from queueable,
+ * batch and controller paths on behalf of the system — not the acting user. A
+ * user who can merely upload a document or record a decision must not need Edit
+ * on Account (or FLS on Risk_Score__c) for the score to stay correct, and must
+ * not be able to prevent the recompute by lacking it. Its reads are likewise
+ * system-wide (every assessment for the supplier), so no Schema/
+ * stripInaccessible check is applied to the SOQL/DML in this class.
  */
+@SuppressWarnings('PMD.ApexCRUDViolation') // system-context rollup — see class doc
 public without sharing class RiskScoreService {
 
     // How much a non-compliant document's penalty is scaled relative to its

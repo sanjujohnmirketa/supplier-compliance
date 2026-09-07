@@ -7,6 +7,11 @@
  * Uses without sharing so Compliance Managers and Internal Auditors can see
  * every audit record regardless of ownership — the object CRUD on their
  * permission set must be Read-only (never Edit / Delete).
+ *
+ * CRUD/FLS: every SOQL/DML site below is wrapped in Security.stripInaccessible,
+ * which enforces the running user's object CRUD + field-level security WITHOUT
+ * enforcing record sharing — the one combination this class needs (WITH
+ * USER_MODE would also apply sharing and hide other owners' audit rows).
  */
 public without sharing class AuditReportController {
 
@@ -47,13 +52,15 @@ public without sharing class AuditReportController {
         Set<String> relatedIds = resolveRelatedIds(f.supplierName, f.requirementKey);
 
         String soql = buildSoql(f, relatedIds);
-        List<Audit_Log__c> logs = Database.query(soql);
+        List<Audit_Log__c> logs = (List<Audit_Log__c>) Security.stripInaccessible(
+            AccessType.READABLE, Database.query(soql)).getRecords();
 
         // Bulk-resolve user names
         Set<Id> userIds = new Set<Id>();
         for (Audit_Log__c l : logs) if (l.Actor_User__c != null) userIds.add(l.Actor_User__c);
         Map<Id, String> nameById = new Map<Id, String>();
-        for (User u : [SELECT Id, Name FROM User WHERE Id IN :userIds]) {
+        for (User u : (List<User>) Security.stripInaccessible(AccessType.READABLE,
+                [SELECT Id, Name FROM User WHERE Id IN :userIds]).getRecords()) {
             nameById.put(u.Id, u.Name);
         }
 
@@ -114,8 +121,15 @@ public without sharing class AuditReportController {
             VersionData    = Blob.valueOf(csv),
             IsMajorVersion = true
         );
-        insert cv;
-        return [SELECT ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id LIMIT 1].ContentDocumentId;
+        if (!Schema.sObjectType.ContentVersion.isCreateable()
+                || !Schema.sObjectType.ContentVersion.isAccessible()) {
+            throw new AuraHandledException('You do not have permission to export the audit report.');
+        }
+        SObjectAccessDecision cvDecision = Security.stripInaccessible(
+            AccessType.CREATABLE, new List<ContentVersion>{ cv });
+        insert cvDecision.getRecords();
+        Id cvId = cvDecision.getRecords()[0].Id;
+        return [SELECT ContentDocumentId FROM ContentVersion WHERE Id = :cvId LIMIT 1].ContentDocumentId;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
@@ -123,11 +137,18 @@ public without sharing class AuditReportController {
     private static Set<String> resolveRelatedIds(String supplierName, String requirementKey) {
         Set<String> ids = new Set<String>();
         Set<Id> accountIds = new Set<Id>();
+        if (!Schema.sObjectType.Account.isAccessible()
+                || !Schema.sObjectType.Compliance_Document__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isAccessible()
+                || !Schema.sObjectType.Audit_Log__c.isAccessible()) {
+            throw new AuraHandledException('You do not have permission to view audit records.');
+        }
 
         // Supplier name filter: partial match on Account.Name
         if (String.isNotBlank(supplierName)) {
             String nameLike = '%' + String.escapeSingleQuotes(supplierName) + '%';
-            for (Account a : [SELECT Id FROM Account WHERE Name LIKE :nameLike LIMIT 100]) {
+            for (Account a : (List<Account>) Security.stripInaccessible(AccessType.READABLE,
+                    [SELECT Id FROM Account WHERE Name LIKE :nameLike LIMIT 100]).getRecords()) {
                 ids.add(a.Id);
                 accountIds.add(a.Id);
             }
@@ -135,9 +156,11 @@ public without sharing class AuditReportController {
 
         // Expand to related Compliance Documents and Assessments for those suppliers
         if (!accountIds.isEmpty()) {
-            for (Compliance_Document__c d : [
-                SELECT Id FROM Compliance_Document__c WHERE Account__c IN :accountIds
-            ]) { ids.add(d.Id); }
+            for (Compliance_Document__c d : (List<Compliance_Document__c>) Security.stripInaccessible(
+                    AccessType.READABLE,
+                    [SELECT Id FROM Compliance_Document__c WHERE Account__c IN :accountIds]).getRecords()) {
+                ids.add(d.Id);
+            }
         }
 
         // Requirement key filter: match Assessment IDs; if supplier also selected, intersect
@@ -147,12 +170,16 @@ public without sharing class AuditReportController {
                 ? [SELECT Id FROM Compliance_Assessment__c WHERE Requirement_Key__c LIKE :keyLike LIMIT 200]
                 : [SELECT Id FROM Compliance_Assessment__c WHERE Requirement_Key__c LIKE :keyLike
                    AND Supplier__c IN :accountIds LIMIT 200];
+            matches = (List<Compliance_Assessment__c>) Security.stripInaccessible(
+                AccessType.READABLE, matches).getRecords();
             for (Compliance_Assessment__c a : matches) ids.add(a.Id);
         } else if (!accountIds.isEmpty()) {
             // No requirement filter — include all assessments for the supplier
-            for (Compliance_Assessment__c a : [
-                SELECT Id FROM Compliance_Assessment__c WHERE Supplier__c IN :accountIds
-            ]) { ids.add(a.Id); }
+            for (Compliance_Assessment__c a : (List<Compliance_Assessment__c>) Security.stripInaccessible(
+                    AccessType.READABLE,
+                    [SELECT Id FROM Compliance_Assessment__c WHERE Supplier__c IN :accountIds]).getRecords()) {
+                ids.add(a.Id);
+            }
         }
 
         return ids;

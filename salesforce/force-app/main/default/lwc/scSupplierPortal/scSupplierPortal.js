@@ -18,8 +18,11 @@ import linkDocumentToComplianceByToken from '@salesforce/apex/DocumentProcessing
 import generatePublicDocumentUrl from '@salesforce/apex/VendorPortalController.generatePublicDocumentUrl';
 import generatePublicDocumentUrlByToken from '@salesforce/apex/VendorPortalController.generatePublicDocumentUrlByToken';
 import getSubSuppliers            from '@salesforce/apex/SubSupplierController.getSubSuppliers';
+import getSubSuppliersByToken     from '@salesforce/apex/SubSupplierController.getSubSuppliersByToken';
 import inviteSubSupplier          from '@salesforce/apex/SubSupplierController.inviteSubSupplier';
+import inviteSubSupplierByToken   from '@salesforce/apex/SubSupplierController.inviteSubSupplierByToken';
 import getRequirementsForParent   from '@salesforce/apex/SubSupplierController.getRequirementsForParent';
+import getRequirementsForParentByToken from '@salesforce/apex/SubSupplierController.getRequirementsForParentByToken';
 import addSupplierComment         from '@salesforce/apex/VendorPortalController.addSupplierComment';
 import addSupplierCommentByToken  from '@salesforce/apex/VendorPortalController.addSupplierCommentByToken';
 
@@ -235,7 +238,13 @@ export default class ScSupplierPortal extends NavigationMixin(LightningElement) 
     _loadRequirements() {
         if (!this._accountId) return;
         this.requirementsLoading = true;
-        getRequirementsForParent({ parentAccountId: this._accountId })
+        // Guest visitors: the token is re-verified server-side and the parent
+        // account is derived from it — never sent from the client (same pattern
+        // as every other *ByToken call in this component).
+        const call = this._portalToken
+            ? getRequirementsForParentByToken({ token: this._portalToken })
+            : getRequirementsForParent({ parentAccountId: this._accountId });
+        call
             .then(rows => {
                 this.requirementsLoading = false;
                 this.requirements = (rows || []).map(r => ({ ...r, checked: false }));
@@ -252,8 +261,7 @@ export default class ScSupplierPortal extends NavigationMixin(LightningElement) 
         this.inviteError   = null;
         const f = this._inviteForm;
         const selectedIds = this.selectedRequirements.map(r => r.id).join(',');
-        inviteSubSupplier({
-            parentAccountId:        this._accountId,
+        const inviteArgs = {
             company:                f.company,
             firstName:              f.firstName,
             lastName:               f.lastName,
@@ -265,7 +273,11 @@ export default class ScSupplierPortal extends NavigationMixin(LightningElement) 
             message:                f.message,
             expiryDays:             f.expiry || '14',
             selectedRequirementIds: selectedIds
-        })
+        };
+        const call = this._portalToken
+            ? inviteSubSupplierByToken({ token: this._portalToken, ...inviteArgs })
+            : inviteSubSupplier({ parentAccountId: this._accountId, ...inviteArgs });
+        call
             .then(result => {
                 this.inviteSending = false;
                 this._toast('success', 'Invitation sent',
@@ -320,7 +332,10 @@ export default class ScSupplierPortal extends NavigationMixin(LightningElement) 
     _loadSubSuppliers() {
         if (!this._accountId) return;
         this.subSuppliersLoading = true;
-        getSubSuppliers({ parentAccountId: this._accountId })
+        const call = this._portalToken
+            ? getSubSuppliersByToken({ token: this._portalToken })
+            : getSubSuppliers({ parentAccountId: this._accountId });
+        call
             .then(rows => {
                 this.subSuppliersLoading = false;
                 this.subSuppliers = (rows || []).map((r, i) => ({

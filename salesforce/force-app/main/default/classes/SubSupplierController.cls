@@ -15,8 +15,23 @@
  *   Account.Tier__c (Text, picklist or free-text) must exist.
  *   Expected values: 'Tier 1', 'Tier 2', 'Tier 3'.
  *   If the field does not exist, add it via Setup → Object Manager → Account → Fields.
+ *
+ * CRUD/FLS model — same as VendorPortalController (see its header). Every
+ * public method has two entry points:
+ *   • the plain one (Id parentAccountId) — for an authenticated Experience
+ *     Cloud user; checks the running user's object permissions first, and
+ *   • the *ByToken one — for the guest portal; the parent Account is ALWAYS
+ *     the token's own account (verifyPortalTokenId), never a client-supplied
+ *     Id. This closes the IDOR the plain methods had when the guest LWC
+ *     called them with a client-held accountId.
+ * Both delegate to private *Impl methods that run in system context by design
+ * (the guest holds no object permissions); those SOQL/DML sites — including
+ * the best-effort community User provisioning — are the documented exceptions.
  */
 public without sharing class SubSupplierController {
+
+    private static final String NO_ACCESS =
+        'You do not have permission to perform this action.';
 
     // ─── DTOs ─────────────────────────────────────────────────────────────────
 
@@ -54,6 +69,19 @@ public without sharing class SubSupplierController {
 
     @AuraEnabled(cacheable=false)
     public static List<RequirementRow> getRequirementsForParent(Id parentAccountId) {
+        if (!Schema.sObjectType.Compliance_Assessment__c.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
+        return getRequirementsForParentImpl(parentAccountId);
+    }
+
+    @AuraEnabled(cacheable=false)
+    public static List<RequirementRow> getRequirementsForParentByToken(String token) {
+        return getRequirementsForParentImpl(VendorPortalController.verifyPortalTokenId(token));
+    }
+
+    @SuppressWarnings('PMD.ApexCRUDViolation') // guest token path — see class header
+    private static List<RequirementRow> getRequirementsForParentImpl(Id parentAccountId) {
         List<RequirementRow> out = new List<RequirementRow>();
         if (parentAccountId == null) return out;
         for (Compliance_Assessment__c a : [
@@ -79,6 +107,20 @@ public without sharing class SubSupplierController {
 
     @AuraEnabled(cacheable=false)
     public static List<SubSupplierRow> getSubSuppliers(Id parentAccountId) {
+        if (!Schema.sObjectType.Account.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
+        return getSubSuppliersImpl(parentAccountId);
+    }
+
+    @AuraEnabled(cacheable=false)
+    public static List<SubSupplierRow> getSubSuppliersByToken(String token) {
+        return getSubSuppliersImpl(VendorPortalController.verifyPortalTokenId(token));
+    }
+
+    @SuppressWarnings('PMD.ApexCRUDViolation') // guest token path — see class header
+    private static List<SubSupplierRow> getSubSuppliersImpl(Id parentAccountId) {
         if (parentAccountId == null) return new List<SubSupplierRow>();
 
         // Assessment count per sub-supplier account (proxy for "docs submitted")
@@ -130,6 +172,64 @@ public without sharing class SubSupplierController {
 
     @AuraEnabled
     public static InviteResult inviteSubSupplier(
+        Id      parentAccountId,
+        String  company,
+        String  firstName,
+        String  lastName,
+        String  email,
+        String  phone,
+        String  category,
+        String  country,
+        String  tier,
+        String  message,
+        String  expiryDays,
+        String  selectedRequirementIds
+    ) {
+        // User.isCreateable is deliberately NOT required: community-user
+        // provisioning below is best-effort (falls back to the token link),
+        // exactly as before — a caller without Manage Users still invites.
+        if (!Schema.sObjectType.Account.isAccessible()
+                || !Schema.sObjectType.Account.isCreateable()
+                || !Schema.sObjectType.Account.isUpdateable()
+                || !Schema.sObjectType.Supplier_Profile__c.isCreateable()
+                || !Schema.sObjectType.Compliance_Assessment__c.isAccessible()
+                || !Schema.sObjectType.Compliance_Assessment__c.isCreateable()
+                || !Schema.sObjectType.Compliance_Assessment__c.isUpdateable()
+                || !Schema.sObjectType.Contact.isAccessible()
+                || !Schema.sObjectType.Contact.isCreateable()
+                || !Schema.sObjectType.Contact.isUpdateable()
+                || !Schema.sObjectType.User.isAccessible()
+                || !Schema.sObjectType.Profile.isAccessible()
+                || !Schema.sObjectType.RecordType.isAccessible()
+                || !Schema.sObjectType.OrgWideEmailAddress.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
+        return inviteSubSupplierImpl(parentAccountId, company, firstName, lastName, email, phone,
+                                     category, country, tier, message, expiryDays, selectedRequirementIds);
+    }
+
+    @AuraEnabled
+    public static InviteResult inviteSubSupplierByToken(
+        String  token,
+        String  company,
+        String  firstName,
+        String  lastName,
+        String  email,
+        String  phone,
+        String  category,
+        String  country,
+        String  tier,
+        String  message,
+        String  expiryDays,
+        String  selectedRequirementIds
+    ) {
+        Id parentAccountId = VendorPortalController.verifyPortalTokenId(token);
+        return inviteSubSupplierImpl(parentAccountId, company, firstName, lastName, email, phone,
+                                     category, country, tier, message, expiryDays, selectedRequirementIds);
+    }
+
+    @SuppressWarnings('PMD.ApexCRUDViolation') // guest token path — see class header
+    private static InviteResult inviteSubSupplierImpl(
         Id      parentAccountId,
         String  company,
         String  firstName,
@@ -404,7 +504,7 @@ public without sharing class SubSupplierController {
 
         // ── 6. Audit trail ───────────────────────────────────────────────────
         try {
-            Database.insert(new Audit_Log__c(
+            AuditLogService.write(new Audit_Log__c(
                 Event_Type__c        = 'Status_Changed',
                 Related_Object__c    = 'Supplier',
                 Related_Record_Id__c = subAcc.Id,
@@ -414,7 +514,7 @@ public without sharing class SubSupplierController {
                 New_Value__c         = 'Sub-supplier invited — email: ' + email
                     + ', tier: ' + tier + ', parent: ' + parentAccountId
                     + ', portal user: ' + result.userCreated
-            ), false);
+            ));
         } catch (Exception e) { IntegrationErrorLogger.log(subAcc.Id, 'SubSupplierController', 'Audit_Log__c write failed: ' + e.getMessage()); }
 
         return result;
@@ -422,6 +522,7 @@ public without sharing class SubSupplierController {
 
     // ─── Email builder ────────────────────────────────────────────────────────
 
+    @SuppressWarnings('PMD.ApexCRUDViolation') // reached only via the guest token path — see class header
     private static void sendInvitationEmail(
         String  toEmail,
         String  firstName,

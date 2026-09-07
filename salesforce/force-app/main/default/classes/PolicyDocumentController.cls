@@ -19,8 +19,19 @@
  * a non-admin user's requests (debug logs showed zero SOQL/DML statement
  * lines even at FINEST detail for uploadPolicyDocument, which is impossible
  * for the actual source — pointing at cached bytecode, not a permissions gap).
+ *
+ * CRUD/FLS: every entry point checks the running user's object permissions
+ * (Schema.sObjectType.X.isAccessible/isCreateable/isUpdateable/isDeletable)
+ * before its SOQL/DML, and fire-and-forget writes go through
+ * Security.stripInaccessible so field-level security is enforced too.
+ * without sharing is kept on purpose — Policy_Document__c is an org-wide
+ * corpus (OWD Read) that Procurement maintains regardless of record owner —
+ * so WITH USER_MODE, which would also enforce sharing, is not used here.
  */
 public without sharing class PolicyDocumentController {
+
+    private static final String NO_ACCESS =
+        'You do not have permission to perform this action.';
 
     // ─── uploadPolicyDocument ────────────────────────────────────────────────
     // Creates the Policy_Document__c, attaches the file (ContentVersion +
@@ -30,6 +41,13 @@ public without sharing class PolicyDocumentController {
     public static Id uploadPolicyDocument(String fileName, String base64Data, String domainOverride) {
         if (String.isBlank(fileName) || String.isBlank(base64Data)) {
             throw new AuraHandledException('A file is required.');
+        }
+        if (!Schema.sObjectType.Policy_Document__c.isCreateable()
+                || !Schema.sObjectType.Policy_Document__c.isUpdateable()
+                || !Schema.sObjectType.ContentVersion.isCreateable()
+                || !Schema.sObjectType.ContentVersion.isAccessible()
+                || !Schema.sObjectType.ContentDocumentLink.isCreateable()) {
+            throw new AuraHandledException(NO_ACCESS);
         }
 
         Policy_Document__c pd = new Policy_Document__c(
@@ -47,17 +65,21 @@ public without sharing class PolicyDocumentController {
         insert cv;
         Id contentDocumentId = [SELECT ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id LIMIT 1]
             .ContentDocumentId;
-        insert new ContentDocumentLink(
-            ContentDocumentId = contentDocumentId,
-            LinkedEntityId     = pd.Id,
-            ShareType          = 'V',
-            Visibility         = 'AllUsers'
-        );
+        insert Security.stripInaccessible(AccessType.CREATABLE, new List<ContentDocumentLink>{
+            new ContentDocumentLink(
+                ContentDocumentId = contentDocumentId,
+                LinkedEntityId     = pd.Id,
+                ShareType          = 'V',
+                Visibility         = 'AllUsers'
+            )
+        }).getRecords();
 
-        update new Policy_Document__c(
-            Id             = pd.Id,
-            Source_File__c = contentDocumentId
-        );
+        update Security.stripInaccessible(AccessType.UPDATABLE, new List<Policy_Document__c>{
+            new Policy_Document__c(
+                Id             = pd.Id,
+                Source_File__c = contentDocumentId
+            )
+        }).getRecords();
 
         logPolicyDocumentAudit(pd.Id, 'Document_Uploaded', 'Uploaded policy document: ' + fileName);
 
@@ -69,7 +91,7 @@ public without sharing class PolicyDocumentController {
     // hardcodes Related_Object__c='Compliance_Document', which would mislabel
     // policy-document events; this writes directly with the correct object tag.
     private static void logPolicyDocumentAudit(Id policyDocumentId, String eventType, String detail) {
-        Database.insert(new Audit_Log__c(
+        AuditLogService.write(new Audit_Log__c(
             Event_Type__c        = eventType,
             Related_Object__c    = 'Policy_Document',
             Related_Record_Id__c = policyDocumentId,
@@ -77,7 +99,7 @@ public without sharing class PolicyDocumentController {
             Actor_Type__c        = 'User',
             Source_System__c     = 'Salesforce',
             New_Value__c         = detail
-        ), false);
+        ));
     }
 
     // ─── reuploadPolicyDocument ──────────────────────────────────────────────
@@ -92,6 +114,13 @@ public without sharing class PolicyDocumentController {
     public static void reuploadPolicyDocument(Id policyDocumentId, String fileName, String base64Data) {
         if (policyDocumentId == null || String.isBlank(fileName) || String.isBlank(base64Data)) {
             throw new AuraHandledException('policyDocumentId and a file are required.');
+        }
+        if (!Schema.sObjectType.Policy_Document__c.isAccessible()
+                || !Schema.sObjectType.Policy_Document__c.isUpdateable()
+                || !Schema.sObjectType.ContentVersion.isAccessible()
+                || !Schema.sObjectType.ContentVersion.isCreateable()
+                || !Schema.sObjectType.ContentDocumentLink.isCreateable()) {
+            throw new AuraHandledException(NO_ACCESS);
         }
         List<Policy_Document__c> matches = [
             SELECT Id, Source_File__c, Domain__c
@@ -124,24 +153,28 @@ public without sharing class PolicyDocumentController {
             insert cv;
             Id contentDocumentId = [SELECT ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id LIMIT 1]
                 .ContentDocumentId;
-            insert new ContentDocumentLink(
-                ContentDocumentId = contentDocumentId,
-                LinkedEntityId     = pd.Id,
-                ShareType          = 'V',
-                Visibility         = 'AllUsers'
-            );
+            insert Security.stripInaccessible(AccessType.CREATABLE, new List<ContentDocumentLink>{
+                new ContentDocumentLink(
+                    ContentDocumentId = contentDocumentId,
+                    LinkedEntityId     = pd.Id,
+                    ShareType          = 'V',
+                    Visibility         = 'AllUsers'
+                )
+            }).getRecords();
             pd.Source_File__c = contentDocumentId;
         }
 
-        update new Policy_Document__c(
-            Id                = policyDocumentId,
-            Source_File__c    = pd.Source_File__c,
-            Status__c         = 'Processing',
-            Failure_Reason__c = null,
-            Chunk_Count__c    = null,
-            Corpus_Version__c = null,
-            Ingested_Date__c  = null
-        );
+        update Security.stripInaccessible(AccessType.UPDATABLE, new List<Policy_Document__c>{
+            new Policy_Document__c(
+                Id                = policyDocumentId,
+                Source_File__c    = pd.Source_File__c,
+                Status__c         = 'Processing',
+                Failure_Reason__c = null,
+                Chunk_Count__c    = null,
+                Corpus_Version__c = null,
+                Ingested_Date__c  = null
+            )
+        }).getRecords();
 
         logPolicyDocumentAudit(policyDocumentId, 'Document_Uploaded', 'Reuploaded new version: ' + fileName);
 
@@ -164,6 +197,10 @@ public without sharing class PolicyDocumentController {
     public static void deletePolicyDocument(Id policyDocumentId) {
         if (policyDocumentId == null) {
             throw new AuraHandledException('policyDocumentId is required.');
+        }
+        if (!Schema.sObjectType.Policy_Document__c.isAccessible()
+                || !Schema.sObjectType.Policy_Document__c.isDeletable()) {
+            throw new AuraHandledException(NO_ACCESS);
         }
         List<Policy_Document__c> matches = [
             SELECT Id, Name, Source_File__c FROM Policy_Document__c
@@ -199,6 +236,7 @@ public without sharing class PolicyDocumentController {
     // only needs the one document. Returns null if no file exists yet.
     private static String resolveSourceFileName(Id sourceFileContentDocId) {
         if (String.isBlank(sourceFileContentDocId)) return null;
+        if (!Schema.sObjectType.ContentVersion.isAccessible()) return null;
         List<ContentVersion> cv = [
             SELECT Title, FileExtension
             FROM   ContentVersion
@@ -223,22 +261,29 @@ public without sharing class PolicyDocumentController {
         if (policyDocumentId == null || contentDocumentId == null) {
             throw new AuraHandledException('policyDocumentId and contentDocumentId are required.');
         }
+        if (!Schema.sObjectType.Policy_Document__c.isUpdateable()
+                || !Schema.sObjectType.ContentVersion.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
         Id cvId = getLatestContentVersionId(contentDocumentId);
         if (cvId == null) {
             throw new AuraHandledException(
                 'Could not locate the uploaded file version. The file may not have finished uploading. Please try again.');
         }
 
-        update new Policy_Document__c(
-            Id             = policyDocumentId,
-            Source_File__c = contentDocumentId,
-            Status__c      = 'Processing'
-        );
+        update Security.stripInaccessible(AccessType.UPDATABLE, new List<Policy_Document__c>{
+            new Policy_Document__c(
+                Id             = policyDocumentId,
+                Source_File__c = contentDocumentId,
+                Status__c      = 'Processing'
+            )
+        }).getRecords();
 
         System.enqueueJob(new PolicyIngestQueueable(policyDocumentId, cvId));
     }
 
     private static Id getLatestContentVersionId(Id contentDocumentId) {
+        if (!Schema.sObjectType.ContentVersion.isAccessible()) return null;
         List<ContentVersion> cv = [
             SELECT Id FROM ContentVersion
             WHERE  ContentDocumentId = :contentDocumentId
@@ -265,6 +310,10 @@ public without sharing class PolicyDocumentController {
 
     @AuraEnabled(cacheable=false)
     public static List<PolicyDocumentRow> getPolicyDocuments() {
+        if (!Schema.sObjectType.Policy_Document__c.isAccessible()
+                || !Schema.sObjectType.ContentVersion.isAccessible()) {
+            throw new AuraHandledException(NO_ACCESS);
+        }
         List<Policy_Document__c> pds = [
             SELECT Id, Name, Domain__c, Status__c, Chunk_Count__c, Corpus_Version__c,
                    Failure_Reason__c, Ingested_Date__c, CreatedDate, Source_File__c
@@ -282,12 +331,12 @@ public without sharing class PolicyDocumentController {
         }
         Map<Id, String> fileNameByContentDocId = new Map<Id, String>();
         if (!contentDocIds.isEmpty()) {
-            for (ContentVersion cv : [
+            for (ContentVersion cv : (List<ContentVersion>) Security.stripInaccessible(AccessType.READABLE, [
                 SELECT ContentDocumentId, Title, FileExtension
                 FROM   ContentVersion
                 WHERE  ContentDocumentId IN :contentDocIds
                 AND    IsLatest = true
-            ]) {
+            ]).getRecords()) {
                 String title = cv.Title;
                 if (String.isNotBlank(cv.FileExtension)
                         && !title.toLowerCase().endsWith('.' + cv.FileExtension.toLowerCase())) {

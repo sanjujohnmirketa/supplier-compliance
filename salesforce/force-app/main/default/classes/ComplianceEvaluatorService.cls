@@ -219,7 +219,7 @@ public with sharing class ComplianceEvaluatorService {
 
             // ── 5. Persist assessment updates ──────────────────────────────
             if (!toUpdate.isEmpty()) {
-                update toUpdate;
+                update Security.stripInaccessible(AccessType.UPDATABLE, toUpdate).getRecords();
             }
 
             // ── 6. Compute and persist Account rollup ──────────────────────
@@ -233,10 +233,12 @@ public with sharing class ComplianceEvaluatorService {
             }
 
             if (req.persistResults == null || req.persistResults) {
-                update new Account(
-                    Id = supplier.Id,
-                    Compliance_Status_Rollup__c = rollupStatus
-                );
+                update Security.stripInaccessible(AccessType.UPDATABLE, new List<Account>{
+                    new Account(
+                        Id = supplier.Id,
+                        Compliance_Status_Rollup__c = rollupStatus
+                    )
+                }).getRecords();
             }
 
             // ── 7. Build agent-facing response ─────────────────────────────
@@ -422,6 +424,7 @@ public with sharing class ComplianceEvaluatorService {
                    Compliance_Status_Rollup__c
             FROM   Account
             WHERE  Id = :supplierId
+            WITH   USER_MODE
             LIMIT  1
         ];
         return accts.isEmpty() ? null : accts[0];
@@ -437,6 +440,7 @@ public with sharing class ComplianceEvaluatorService {
                 FROM   Compliance_Assessment__c
                 WHERE  Supplier__c       = :supplierId
                 AND    Requirement_Key__c = :specificRequirementKey
+                WITH   USER_MODE
                 LIMIT  50
             ];
         }
@@ -445,6 +449,7 @@ public with sharing class ComplianceEvaluatorService {
                    Severity__c, Compliance_Document__c, Reason_Code__c
             FROM   Compliance_Assessment__c
             WHERE  Supplier__c = :supplierId
+            WITH   USER_MODE
             ORDER  BY Severity__c ASC, Requirement_Label__c ASC
             LIMIT  200
         ];
@@ -464,6 +469,7 @@ public with sharing class ComplianceEvaluatorService {
                    Issuer__c, Confidence_Score__c
             FROM   Compliance_Document__c
             WHERE  Id IN :docIds
+            WITH   USER_MODE
         ]);
 
         Map<Id, Compliance_Document__c> byAssessmentId = new Map<Id, Compliance_Document__c>();
@@ -543,15 +549,12 @@ public with sharing class ComplianceEvaluatorService {
         String trimmed = input.trim();
 
         // First — check if it's already a 15- or 18-char Salesforce ID
-        if (trimmed.length() == 15 || trimmed.length() == 18) {
-            try {
-                Id candidate = Id.valueOf(trimmed);
-                if (candidate.getSObjectType() == Account.SObjectType) {
-                    return trimmed;
-                }
-            } catch (Exception e) {
-                // Not a valid ID — fall through to name lookup
-            }
+        // instanceOf Id validates the format without throwing — a non-Id
+        // simply falls through to the name lookup below.
+        if ((trimmed.length() == 15 || trimmed.length() == 18)
+                && trimmed instanceOf Id
+                && ((Id) trimmed).getSObjectType() == Account.SObjectType) {
+            return trimmed;
         }
 
         // Treat as a name lookup
@@ -563,6 +566,7 @@ public with sharing class ComplianceEvaluatorService {
                 FROM   Account
                 WHERE  Name LIKE :('%' + trimmed + '%')
                 AND    RecordTypeId = :supplierRtId
+                WITH   USER_MODE
                 ORDER BY LastModifiedDate DESC
                 LIMIT  10
             ];
@@ -571,6 +575,7 @@ public with sharing class ComplianceEvaluatorService {
                 SELECT Id, Name, BillingCity, BillingState, Industry__c
                 FROM   Account
                 WHERE  Name LIKE :('%' + trimmed + '%')
+                WITH   USER_MODE
                 ORDER BY LastModifiedDate DESC
                 LIMIT  10
             ];

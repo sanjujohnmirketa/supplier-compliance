@@ -2462,6 +2462,16 @@ public without sharing class VendorPortalController {
         Boolean isUpdate = String.isNotBlank(accountId);
 
         Account acc = isUpdate ? new Account(Id = accountId) : new Account();
+        if (!isUpdate) {
+            // Explicit Supplier record type. Every queue/dedup query in this app
+            // filters on RecordType.DeveloperName = 'Supplier'; relying on the
+            // running user's DEFAULT record type made a supplier created by a
+            // user whose default is Master vanish from all of them (found by
+            // the release rehearsal running as a non-admin persona).
+            Map<String, Schema.RecordTypeInfo> rtMap =
+                Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName();
+            if (rtMap.containsKey('Supplier')) acc.RecordTypeId = rtMap.get('Supplier').getRecordTypeId();
+        }
         acc.Name                     = supplierName.trim();
         acc.BillingCountry           = country;
         acc.Requested_By__c          = requestedBy;

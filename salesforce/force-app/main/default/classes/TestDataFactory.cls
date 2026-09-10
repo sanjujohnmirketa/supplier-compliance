@@ -7,6 +7,72 @@
 @IsTest
 public class TestDataFactory {
 
+    // ── Test persona ─────────────────────────────────────────────────────
+    // The packaged permission sets are what carry field-level security on the
+    // package's custom fields. A freshly built org (the package build's org, a
+    // scratch org) grants the running admin none of it, so USER_MODE queries
+    // and stripInaccessible silently drop fields — and the running user's own
+    // permissions are cached for the test run, so assigning the sets to
+    // yourself changes nothing. A dedicated persona user loaded via
+    // System.runAs picks them up cleanly (the pattern CrudEnforcementTest
+    // proves). createPersona() runs from @TestSetup (setup-object DML only, so
+    // no MIXED_DML with the test's data); every test body runs as persona().
+    private static final String PERSONA_USERNAME_PREFIX = 'grace.persona.';
+
+    public static void createPersona() {
+        Profile p = [SELECT Id FROM Profile WHERE Name = 'Standard User' LIMIT 1];
+        String uniq = String.valueOf(System.currentTimeMillis()) + String.valueOf(Math.abs(Crypto.getRandomInteger())).left(4);
+        User u = new User(
+            Alias             = 'grace',
+            Email             = 'persona@example.com',
+            EmailEncodingKey  = 'UTF-8',
+            FirstName         = 'Grace',
+            LastName          = 'Persona',
+            LanguageLocaleKey = 'en_US',
+            LocaleSidKey      = 'en_US',
+            ProfileId         = p.Id,
+            TimeZoneSidKey    = 'America/New_York',
+            Username          = PERSONA_USERNAME_PREFIX + uniq + '@grace.test'
+        );
+        insert u;
+
+        // Object CRUD the packaged sets cannot carry (master-detail to a
+        // standard object) — what the post-install guide asks an admin to grant
+        // at profile level. Parent-first: a child's Read depends on its
+        // parent's Read inside the same permission set.
+        PermissionSet objects = new PermissionSet(Name = 'GraceTestPersonaObjects', Label = 'Vendor GRACE test persona (object CRUD)');
+        insert objects;
+        for (List<Schema.SObjectType> level : new List<List<Schema.SObjectType>>{
+                new List<Schema.SObjectType>{ Account.SObjectType, Policy_Document__c.SObjectType, Audit_Log__c.SObjectType },
+                new List<Schema.SObjectType>{ Compliance_Assessment__c.SObjectType, Compliance_Document__c.SObjectType, Supplier_Profile__c.SObjectType },
+                new List<Schema.SObjectType>{ Compliance_Document_Link__c.SObjectType, Document_Extraction__c.SObjectType } }) {
+            List<ObjectPermissions> ops = new List<ObjectPermissions>();
+            for (Schema.SObjectType t : level) {
+                ops.add(new ObjectPermissions(
+                    ParentId = objects.Id, SobjectType = t.getDescribe().getName(),
+                    PermissionsRead = true, PermissionsCreate = true, PermissionsEdit = true, PermissionsDelete = true));
+            }
+            insert ops;
+        }
+
+        List<PermissionSetAssignment> psas = new List<PermissionSetAssignment>{
+            new PermissionSetAssignment(AssigneeId = u.Id, PermissionSetId = objects.Id)
+        };
+        for (PermissionSet ps : [
+            SELECT Id FROM PermissionSet
+            WHERE  Name IN ('Supplier_Compliance_Access', 'Procurement_Workspace_Access',
+                            'Analyst_Workspace_Access', 'Full_Supplier_Visibility')
+        ]) {
+            psas.add(new PermissionSetAssignment(AssigneeId = u.Id, PermissionSetId = ps.Id));
+        }
+        insert psas;
+    }
+
+    public static User persona() {
+        String pattern = PERSONA_USERNAME_PREFIX + '%';
+        return [SELECT Id FROM User WHERE Username LIKE :pattern ORDER BY CreatedDate DESC LIMIT 1];
+    }
+
     public static Id supplierRecordTypeId() {
         Map<String, Schema.RecordTypeInfo> rtMap =
             Schema.SObjectType.Account.getRecordTypeInfosByDeveloperName();

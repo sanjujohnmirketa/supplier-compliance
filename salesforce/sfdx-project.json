@@ -1,24 +1,25 @@
-﻿{
-    "packageDirectories":  [
-                               {
-                                   "versionName":  "1.0",
-                                   "versionNumber":  "1.0.0.NEXT",
-                                   "path":  "force-app",
-                                   "default":  true,
-                                   "package":  "Vendor GRACE",
-                                   "versionDescription":  "Vendor GRACE 1.0 - supplier compliance onboarding, document intelligence, risk scoring and multi-tier rollup."
-                               }
-                           ],
-    "name":  "supplierCompliance",
-    "namespace":  "vendorgrace",
-    "sfdcLoginUrl":  "https://login.salesforce.com",
-    "sourceApiVersion":  "66.0",
-    "packageAliases":  {
-                           "Vendor GRACE":  "0HoPc0000000wbtKAA",
-                           "Vendor GRACE@0.1.0-1":  "04tPc000000wnI5IAI",
-                           "Vendor GRACE@0.1.0-2":  "04tPc000000xOKrIAM",
-                           "Vendor GRACE@0.1.0-3":  "04tPc000000xOMTIA2",
-                           "Vendor GRACE@0.1.0-4":  "04tPc000000xOO5IAM",
-                           "Vendor GRACE@0.1.0-5":  "04tPc000000xOPhIAM"
-                       }
+{
+  "packageDirectories": [
+    {
+      "versionName": "1.0",
+      "versionNumber": "1.0.0.NEXT",
+      "path": "force-app",
+      "default": true,
+      "package": "Vendor GRACE",
+      "versionDescription": "Vendor GRACE 1.0 - supplier compliance onboarding, document intelligence, risk scoring and multi-tier rollup."
+    }
+  ],
+  "name": "supplierCompliance",
+  "namespace": "vendorgrace",
+  "sfdcLoginUrl": "https://login.salesforce.com",
+  "sourceApiVersion": "66.0",
+  "packageAliases": {
+    "Vendor GRACE": "0HoPc0000000wbtKAA",
+    "Vendor GRACE@0.1.0-1": "04tPc000000wnI5IAI",
+    "Vendor GRACE@0.1.0-2": "04tPc000000xOKrIAM",
+    "Vendor GRACE@0.1.0-3": "04tPc000000xOMTIA2",
+    "Vendor GRACE@0.1.0-4": "04tPc000000xOO5IAM",
+    "Vendor GRACE@0.1.0-5": "04tPc000000xOPhIAM",
+    "Vendor GRACE@1.0.0-1": "04tPc000000xcm1IAA"
+  }
 }

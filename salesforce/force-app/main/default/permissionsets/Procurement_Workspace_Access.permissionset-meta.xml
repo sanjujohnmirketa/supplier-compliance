@@ -753,4 +753,8 @@
         <tab>standard-Account</tab>
         <visibility>Visible</visibility>
     </tabSettings>
+    <recordTypeVisibilities>
+        <recordType>Account.Supplier</recordType>
+        <visible>true</visible>
+    </recordTypeVisibilities>
 </PermissionSet>

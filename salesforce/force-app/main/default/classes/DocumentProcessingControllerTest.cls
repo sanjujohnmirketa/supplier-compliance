@@ -241,7 +241,8 @@ private class DocumentProcessingControllerTest {
 
             Test.startTest();
             // 1. Unknown ContentVersion → the job exits without touching anything.
-            System.enqueueJob(new DocAssessQueueable(doc.Id, '068000000000000AAA', a.Id, 'COI', ca.Id));
+            Id missingVersion = Id.valueOf(ContentVersion.SObjectType.getDescribe(SObjectDescribeOptions.DEFERRED).getKeyPrefix() + '000000000000');
+            System.enqueueJob(new DocAssessQueueable(doc.Id, missingVersion, a.Id, 'COI', ca.Id));
             // 2. No assessmentId → the verdict lands on a domain-keyed row so evidence is never lost.
             System.enqueueJob(new DocAssessQueueable(doc.Id, TestDataFactory.latestVersionId(doc.Source_File__c), a.Id, null));
             Test.stopTest();

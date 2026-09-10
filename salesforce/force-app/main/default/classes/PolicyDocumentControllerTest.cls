@@ -133,7 +133,7 @@ private class PolicyDocumentControllerTest {
             try { PolicyDocumentController.reuploadPolicyDocument(null, 'x', B64); } catch (AuraHandledException e) { msg = e.getMessage(); }
             System.assertNotEquals(null, msg);
             // A well-formed Id that no longer resolves (deleted by someone else).
-            Id gone = Id.valueOf(Policy_Document__c.SObjectType.getDescribe().getKeyPrefix() + '000000000000');
+            Id gone = Id.valueOf(Policy_Document__c.SObjectType.getDescribe(SObjectDescribeOptions.DEFERRED).getKeyPrefix() + '000000000000');
             msg = null;
             try { PolicyDocumentController.reuploadPolicyDocument(gone, 'x.md', B64); } catch (AuraHandledException e) { msg = e.getMessage(); }
             System.assertNotEquals(null, msg, 'the guard must throw');

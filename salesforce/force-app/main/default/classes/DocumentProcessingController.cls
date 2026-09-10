@@ -462,18 +462,6 @@ public without sharing class DocumentProcessingController {
         return linkDocumentToComplianceInternal(accountId, contentDocumentId, documentType, assessmentId, fileName, 'replace');
     }
 
-    @AuraEnabled(cacheable=false)
-    public static String addDocumentToComplianceByToken(
-        String token,
-        String contentDocumentId,
-        String documentType,
-        String assessmentId,
-        String fileName
-    ) {
-        Id accountId = VendorPortalController.verifyPortalTokenId(token);
-        return linkDocumentToComplianceInternal(accountId, contentDocumentId, documentType, assessmentId, fileName, 'add');
-    }
-
     // ─── Private helpers ──────────────────────────────────────────────────────
 
     /**

@@ -112,11 +112,6 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>Account.Compliance_Case_Id__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
         <field>Account.Compliance_Case_Status__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -192,11 +187,6 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>Account.Own_Compliance_Score__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
         <field>Account.Profile_Risk_Tier__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -242,16 +232,6 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>Account.SLAExpirationDate__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>Account.SLASerialNumber__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
         <field>Account.Stage_Entered_DateTime__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -278,11 +258,6 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>Account.Tax_ID_EIN__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>Account.Total_amount__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -462,11 +437,6 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>Compliance_Document__c.Document_Number__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
         <field>Compliance_Document__c.Document_Type__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -523,11 +493,6 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>Compliance_Document__c.Uploaded_By_Contact__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>Compliance_Document__c.Uploaded_By_User__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -603,11 +568,6 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>Document_Extraction__c.Overall_Confidence__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>Document_Extraction__c.Processing_Duration_ms__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

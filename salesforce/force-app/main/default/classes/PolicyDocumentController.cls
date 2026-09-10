@@ -253,35 +253,6 @@ public without sharing class PolicyDocumentController {
         return title;
     }
 
-    // ─── startIngestion ──────────────────────────────────────────────────────
-    // Retained for backward compatibility with any in-flight callers; no
-    // longer used by scPolicyUpload's own flow (see uploadPolicyDocument).
-    @AuraEnabled
-    public static void startIngestion(Id policyDocumentId, Id contentDocumentId) {
-        if (policyDocumentId == null || contentDocumentId == null) {
-            throw new AuraHandledException('policyDocumentId and contentDocumentId are required.');
-        }
-        if (!Schema.sObjectType.Policy_Document__c.isUpdateable()
-                || !Schema.sObjectType.ContentVersion.isAccessible()) {
-            throw new AuraHandledException(NO_ACCESS);
-        }
-        Id cvId = getLatestContentVersionId(contentDocumentId);
-        if (cvId == null) {
-            throw new AuraHandledException(
-                'Could not locate the uploaded file version. The file may not have finished uploading. Please try again.');
-        }
-
-        update Security.stripInaccessible(AccessType.UPDATABLE, new List<Policy_Document__c>{
-            new Policy_Document__c(
-                Id             = policyDocumentId,
-                Source_File__c = contentDocumentId,
-                Status__c      = 'Processing'
-            )
-        }).getRecords();
-
-        System.enqueueJob(new PolicyIngestQueueable(policyDocumentId, cvId));
-    }
-
     private static Id getLatestContentVersionId(Id contentDocumentId) {
         if (!Schema.sObjectType.ContentVersion.isAccessible()) return null;
         List<ContentVersion> cv = [

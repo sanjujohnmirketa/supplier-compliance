@@ -1,7 +1,7 @@
 {
   "orgName": "Vendor GRACE build",
   "edition": "Developer",
-  "features": ["EnableSetPasswordInApi"],
+  "features": [],
   "settings": {
     "lightningExperienceSettings": {
       "enableS1DesktopEnabled": true

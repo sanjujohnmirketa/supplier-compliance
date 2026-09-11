@@ -1,27 +1,28 @@
-﻿{
-    "packageDirectories":  [
-                               {
-                                   "versionName":  "1.1",
-                                   "versionNumber":  "1.1.0.NEXT",
-                                   "path":  "force-app",
-                                   "default":  true,
-                                   "package":  "Vendor GRACE",
-                                   "versionDescription":  "Vendor GRACE 1.0 - supplier compliance onboarding, document intelligence, risk scoring and multi-tier rollup.",
-                                   "ancestorVersion":  "HIGHEST"
-                               }
-                           ],
-    "name":  "supplierCompliance",
-    "namespace":  "vendorgrace",
-    "sfdcLoginUrl":  "https://login.salesforce.com",
-    "sourceApiVersion":  "66.0",
-    "packageAliases":  {
-                           "Vendor GRACE":  "0HoPc0000000wbtKAA",
-                           "Vendor GRACE@0.1.0-1":  "04tPc000000wnI5IAI",
-                           "Vendor GRACE@0.1.0-2":  "04tPc000000xOKrIAM",
-                           "Vendor GRACE@0.1.0-3":  "04tPc000000xOMTIA2",
-                           "Vendor GRACE@0.1.0-4":  "04tPc000000xOO5IAM",
-                           "Vendor GRACE@0.1.0-5":  "04tPc000000xOPhIAM",
-                           "Vendor GRACE@1.0.0-1":  "04tPc000000xcm1IAA",
-                           "Vendor GRACE@1.0.0-2":  "04tPc000000xcndIAA"
-                       }
+{
+  "packageDirectories": [
+    {
+      "versionName": "1.1",
+      "versionNumber": "1.1.0.NEXT",
+      "path": "force-app",
+      "default": true,
+      "package": "Vendor GRACE",
+      "versionDescription": "Vendor GRACE 1.1 - security hardening. Removes System.setPassword from the sub-supplier invite flow (AppExchange prohibits direct password-management APIs); sub-suppliers access the portal via the tokenised invitation URL and portal user provisioning is retained. Re-inviting an existing contact no longer resets their password. Checkmarx source scan reports no Critical findings.",
+      "ancestorVersion": "HIGHEST"
+    }
+  ],
+  "name": "supplierCompliance",
+  "namespace": "vendorgrace",
+  "sfdcLoginUrl": "https://login.salesforce.com",
+  "sourceApiVersion": "66.0",
+  "packageAliases": {
+    "Vendor GRACE": "0HoPc0000000wbtKAA",
+    "Vendor GRACE@0.1.0-1": "04tPc000000wnI5IAI",
+    "Vendor GRACE@0.1.0-2": "04tPc000000xOKrIAM",
+    "Vendor GRACE@0.1.0-3": "04tPc000000xOMTIA2",
+    "Vendor GRACE@0.1.0-4": "04tPc000000xOO5IAM",
+    "Vendor GRACE@0.1.0-5": "04tPc000000xOPhIAM",
+    "Vendor GRACE@1.0.0-1": "04tPc000000xcm1IAA",
+    "Vendor GRACE@1.0.0-2": "04tPc000000xcndIAA",
+    "Vendor GRACE@1.1.0-1": "04tPc000000xgEXIAY"
+  }
 }

@@ -1,12 +1,12 @@
 {
   "packageDirectories": [
     {
-      "versionName": "1.1",
-      "versionNumber": "1.1.0.NEXT",
+      "versionName": "1.2",
+      "versionNumber": "1.2.0.NEXT",
       "path": "force-app",
       "default": true,
       "package": "Vendor GRACE",
-      "versionDescription": "Vendor GRACE 1.1 - security hardening. Removes System.setPassword from the sub-supplier invite flow (AppExchange prohibits direct password-management APIs); sub-suppliers access the portal via the tokenised invitation URL and portal user provisioning is retained. Re-inviting an existing contact no longer resets their password. Checkmarx source scan reports no Critical findings.",
+      "versionDescription": "Vendor GRACE 1.2 - subscriber-configurable engine connection. The packaged Named Credential no longer ships a resolvable endpoint, and the two unused Azure credentials have been removed from the package. Administrators point Local_Compliance_Service at their own engine deployment and set the inbound bearer token, per the Post-Install Guide.",
       "ancestorVersion": "HIGHEST"
     }
   ],
@@ -23,6 +23,7 @@
     "Vendor GRACE@0.1.0-5": "04tPc000000xOPhIAM",
     "Vendor GRACE@1.0.0-1": "04tPc000000xcm1IAA",
     "Vendor GRACE@1.0.0-2": "04tPc000000xcndIAA",
-    "Vendor GRACE@1.1.0-1": "04tPc000000xgEXIAY"
+    "Vendor GRACE@1.1.0-1": "04tPc000000xgEXIAY",
+    "Vendor GRACE@1.2.0-1": "04tPc000000xgG9IAI"
   }
 }

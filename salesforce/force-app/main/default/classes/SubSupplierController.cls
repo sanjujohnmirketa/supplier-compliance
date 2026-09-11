@@ -52,7 +52,6 @@ public without sharing class SubSupplierController {
         @AuraEnabled public String  contactId;
         @AuraEnabled public String  portalUrl;
         @AuraEnabled public Boolean userCreated;
-        @AuraEnabled public String  tempPassword;
         @AuraEnabled public String  username;
     }
 
@@ -445,19 +444,16 @@ public without sharing class SubSupplierController {
                     // Experience Cloud site — it fails when called from LWC/Aura stack.
                     insert newUser;
                     result.userCreated = true;
+                    result.username    = username;
                     System.debug('[SubSupplier] Portal user created: ' + newUser.Id
                         + ' using profile: ' + profiles[0].Name);
-                    // Set a temporary password and embed it in our branded email.
-                    // This avoids relying on Salesforce's system reset email which
-                    // is often blocked in sandbox or lands in spam.
-                    String tempPwd = generateTempPassword();
-                    try {
-                        System.setPassword(newUser.Id, tempPwd);
-                        result.tempPassword = tempPwd;
-                        result.username     = username;
-                    } catch (Exception pe) {
-                        System.debug('[SubSupplier] setPassword failed: ' + pe.getMessage());
-                    }
+                    // NO password is set here. Managed packages may not call
+                    // System.setPassword (AppExchange security review prohibits
+                    // direct password-management APIs), and emailing a plaintext
+                    // credential is poor practice regardless. The invitee reaches
+                    // the portal through the tokenised URL below, which is always
+                    // present in the invitation; if they want a username/password
+                    // login they use Salesforce's own password-reset flow.
                 }
             } catch (Exception e) {
                 // Surface the real reason in the debug log so admins can diagnose.
@@ -467,17 +463,17 @@ public without sharing class SubSupplierController {
             }
         } else {
             result.userCreated = true;
-            // User already exists — set a fresh temp password so re-invites still
-            // deliver working credentials even when the original was forgotten.
+            // A portal user already exists for this contact. Report the username
+            // so the invitation can name the account, but never touch the
+            // password: re-inviting someone must not silently invalidate the
+            // credential they are already using, and resetting it is the
+            // account owner's decision, not ours.
             try {
                 User existingUser = [SELECT Id, Username FROM User
                                      WHERE ContactId = :con.Id AND IsActive = true LIMIT 1];
-                String tempPwd = generateTempPassword();
-                System.setPassword(existingUser.Id, tempPwd);
-                result.tempPassword = tempPwd;
-                result.username     = existingUser.Username;
-            } catch (Exception pe) {
-                System.debug('[SubSupplier] setPassword (existing user) failed: ' + pe.getMessage());
+                result.username = existingUser.Username;
+            } catch (Exception qe) {
+                System.debug('[SubSupplier] existing portal user lookup failed: ' + qe.getMessage());
             }
         }
 
@@ -491,12 +487,11 @@ public without sharing class SubSupplierController {
         result.portalUrl = portalUrl;
 
         // ── 5. Send invitation email ─────────────────────────────────────────
-        System.debug('[SubSupplier] Email creds — username: ' + result.username
-            + ' | tempPassword set: ' + String.isNotBlank(result.tempPassword));
+        System.debug('[SubSupplier] Invite email — username: ' + result.username);
         try {
             sendInvitationEmail(email, firstName, company, parent.Name,
                                 tier, message, portalUrl, expiryDays,
-                                result.username, result.tempPassword, selectedReqs);
+                                result.username, selectedReqs);
         } catch (Exception e) {
             throw new AuraHandledException(
                 'Sub-supplier account created but email send failed: ' + e.getMessage());
@@ -533,12 +528,11 @@ public without sharing class SubSupplierController {
         String  portalUrl,
         String  expiryDays,
         String  username,
-        String  tempPassword,
         List<Compliance_Assessment__c> requirements
     ) {
         String htmlBody = buildInvitationHtml(
             firstName, company, parentName, tier, personalMessage, portalUrl, expiryDays,
-            username, tempPassword, requirements);
+            username, requirements);
 
         Messaging.SingleEmailMessage msg = new Messaging.SingleEmailMessage();
         msg.setToAddresses(new List<String>{ toEmail });
@@ -568,7 +562,6 @@ public without sharing class SubSupplierController {
         String  portalUrl,
         String  expiryDays,
         String  username,
-        String  tempPassword,
         List<Compliance_Assessment__c> requirements
     ) {
         String displayName = String.isNotBlank(firstName) ? firstName : company;
@@ -604,19 +597,10 @@ public without sharing class SubSupplierController {
             '<p>Once you accept, your organisation will be registered on the compliance platform ',
             'where you can manage required documents, track your compliance status, and communicate ',
             'directly with your supply chain partner.</p>',
-            '<p>Use the login credentials below to access the supplier portal. '
-            + 'You will be prompted to change your password after your first login.</p>'
+            '<p>Use the button below to open your supplier portal. The link is '
+            + 'unique to your organisation, so keep this email to yourself.</p>'
         };
 
-        if (String.isNotBlank(username) && String.isNotBlank(tempPassword)) {
-            p.add('<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;">');
-            p.add('<tr><td style="background:#f4f6fb;border:1px solid #ddd;padding:10px 14px;width:40%;font-weight:700;color:#374151;">Username</td>');
-            p.add('<td style="background:#fff;border:1px solid #ddd;padding:10px 14px;font-family:monospace;color:#166534;">' + esc(username) + '</td></tr>');
-            p.add('<tr><td style="background:#f4f6fb;border:1px solid #ddd;padding:10px 14px;font-weight:700;color:#374151;">Temporary Password</td>');
-            p.add('<td style="background:#fff;border:1px solid #ddd;padding:10px 14px;font-family:monospace;color:#166534;">' + esc(tempPassword) + '</td></tr>');
-            p.add('</table>');
-            p.add('<p style="font-size:12px;color:#888;margin-top:-8px;">Please change your password after your first login.</p>');
-        }
 
         if (String.isNotBlank(personalMessage)) {
             p.add('<div class="note">"' + esc(personalMessage) + '"</div>');
@@ -678,36 +662,8 @@ public without sharing class SubSupplierController {
         return 'vc-sev-med';
     }
 
-    private static String generateTempPassword() {
-        // Meets Salesforce default complexity: 8+ chars, upper, lower, digit, symbol.
-        // Uses substring(i,i+1) — charAt() returns an Integer in Apex, not a char.
-        String upper   = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-        String lower   = 'abcdefghjkmnpqrstuvwxyz';
-        String digits  = '23456789';
-        String symbols = '@#$!';
-        String all     = upper + lower + digits + symbols;
-        // Every character comes from Crypto.getRandomInteger(), which is a CSPRNG.
-        // This previously derived all 12 characters from a single
-        // System.now().getTime() seed, which made the password reconstructable
-        // by anyone who knew roughly when the invite was sent.
-        String pwd = pick(upper) + pick(lower) + pick(digits) + pick(symbols);
-        for (Integer i = 4; i < 12; i++) {
-            pwd += pick(all);
-        }
-        return pwd;
-    }
 
-    @TestVisible
-    private static String newTempPasswordForTest() {
-        return generateTempPassword();
-    }
 
-    // One uniformly-random character from the given alphabet.
-    private static String pick(String alphabet) {
-        Integer idx = Math.mod(Crypto.getRandomInteger(), alphabet.length());
-        if (idx < 0) idx += alphabet.length();   // getRandomInteger() may be negative
-        return alphabet.substring(idx, idx + 1);
-    }
 
     private static String buildAlias(String first, String last) {
         String a = '';

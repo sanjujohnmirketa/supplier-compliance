@@ -36,3 +36,4 @@ Thumbs.db
 # which paths run in system context, which rely on the portal token) and are
 # for the AppExchange security review submission, not the public repo.
 docs/scans/checkmarx-*
+docs/scans/*Checkmarx*

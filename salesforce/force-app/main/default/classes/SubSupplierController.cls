@@ -686,20 +686,27 @@ public without sharing class SubSupplierController {
         String digits  = '23456789';
         String symbols = '@#$!';
         String all     = upper + lower + digits + symbols;
-        Long   seed    = System.now().getTime();
-        Integer ui = (Integer) Math.mod(seed,       upper.length());
-        Integer li = (Integer) Math.mod(seed / 23,  lower.length());
-        Integer di = (Integer) Math.mod(seed / 491, digits.length());
-        Integer si = (Integer) Math.mod(seed / 97,  symbols.length());
-        String pwd = upper.substring(ui, ui + 1)
-                   + lower.substring(li, li + 1)
-                   + digits.substring(di, di + 1)
-                   + symbols.substring(si, si + 1);
+        // Every character comes from Crypto.getRandomInteger(), which is a CSPRNG.
+        // This previously derived all 12 characters from a single
+        // System.now().getTime() seed, which made the password reconstructable
+        // by anyone who knew roughly when the invite was sent.
+        String pwd = pick(upper) + pick(lower) + pick(digits) + pick(symbols);
         for (Integer i = 4; i < 12; i++) {
-            Integer idx = (Integer) Math.mod(seed / (i * 37 + 1), all.length());
-            pwd += all.substring(idx, idx + 1);
+            pwd += pick(all);
         }
         return pwd;
+    }
+
+    @TestVisible
+    private static String newTempPasswordForTest() {
+        return generateTempPassword();
+    }
+
+    // One uniformly-random character from the given alphabet.
+    private static String pick(String alphabet) {
+        Integer idx = Math.mod(Crypto.getRandomInteger(), alphabet.length());
+        if (idx < 0) idx += alphabet.length();   // getRandomInteger() may be negative
+        return alphabet.substring(idx, idx + 1);
     }
 
     private static String buildAlias(String first, String last) {

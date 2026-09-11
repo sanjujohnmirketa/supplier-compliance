@@ -116,4 +116,28 @@ private class SubSupplierControllerTest {
             System.assertNotEquals(null, msg, 'the guard must throw');
         }
     }
+
+    // The temp password is emailed to the invitee and set on a real portal user,
+    // so it must be unpredictable. It previously derived every character from a
+    // single System.now().getTime() seed, which made two passwords minted in the
+    // same millisecond identical and the whole value reconstructable from the
+    // invite time. Crypto.getRandomInteger() is the fix; this asserts the
+    // property that would break if anything reverts to a clock-derived seed.
+    @IsTest
+    static void tempPassword_isRandomAndMeetsComplexity() {
+        Set<String> seen = new Set<String>();
+        for (Integer i = 0; i < 40; i++) {
+            String p = SubSupplierController.newTempPasswordForTest();
+            System.assertEquals(12, p.length(), 'password length is fixed at 12');
+            System.assert(p.containsAny('ABCDEFGHJKLMNPQRSTUVWXYZ'), 'needs an uppercase: ' + p);
+            System.assert(p.containsAny('abcdefghjkmnpqrstuvwxyz'), 'needs a lowercase: ' + p);
+            System.assert(p.containsAny('23456789'),                'needs a digit: ' + p);
+            System.assert(p.containsAny('@#$!'),                    'needs a symbol: ' + p);
+            seen.add(p);
+        }
+        // A clock-seeded generator returns the same value for every call inside a
+        // single test transaction, so this collapses to 1 if the old code returns.
+        System.assert(seen.size() > 35,
+            'passwords must be independently random, got ' + seen.size() + ' distinct of 40');
+    }
 }

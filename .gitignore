@@ -30,3 +30,9 @@ Thumbs.db
 # ── Logs / temp ──────────────────────────────────────────────────────────────
 *.log
 *.tmp
+
+# Checkmarx triage artifacts — kept local, not published.
+# These map the app's trust boundaries (exact file:line of every scan finding,
+# which paths run in system context, which rely on the portal token) and are
+# for the AppExchange security review submission, not the public repo.
+docs/scans/checkmarx-*

@@ -29,6 +29,11 @@ public with sharing class MaterialTypeController {
      */
     @AuraEnabled(cacheable=true)
     public static List<MaterialTypeOption> getMaterialTypeCatalog() {
+        // Custom metadata has no CRUD/sharing model (WITH USER_MODE is rejected
+        // at runtime for it); the describe check is the applicable guard.
+        if (!Schema.sObjectType.Material_Type__mdt.isAccessible()) {
+            throw new AuraHandledException('You do not have permission to read the material catalog.');
+        }
         List<MaterialTypeOption> out = new List<MaterialTypeOption>();
         for (Material_Type__mdt m : [
             SELECT Kind__c, Value_Key__c, Label__c, Domains__c, Display_Order__c

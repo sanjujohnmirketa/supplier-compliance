@@ -1,7 +1,24 @@
+/**
+ * AuditLogService — the ONLY place Audit_Log__c rows are written.
+ *
+ * SYSTEM CONTEXT BY DESIGN (documented CRUD/FLS scanner exception): this
+ * class is without sharing and performs no Schema/stripInaccessible check
+ * before its inserts. An audit entry records what a user DID; it must be
+ * written even when that user holds no Create permission on Audit_Log__c,
+ * otherwise a user could suppress their own audit trail simply by lacking
+ * the permission. Consequently no persona permission set grants Create/
+ * Edit/Delete on Audit_Log__c — only Read (for AuditReportController).
+ * Every controller routes its audit rows through write() below so this
+ * exception exists in exactly one class instead of being scattered.
+ */
+@SuppressWarnings('PMD.ApexCRUDViolation') // system-context audit sink — see class doc
 public without sharing class AuditLogService {
 
-    // All insert operations use without sharing to bypass record-level restrictions
-    // Audit_Log__c has create-only permission in all permission sets
+    // Generic sink used by the controllers. allOrNone=false: a failed audit
+    // write must never roll back the business transaction it describes.
+    public static void write(Audit_Log__c row) {
+        Database.insert(row, false);
+    }
 
     public static void logAIExtraction(
         Id complianceDocId, String modelName, String modelVersion,

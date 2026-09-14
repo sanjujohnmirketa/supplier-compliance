@@ -85,7 +85,7 @@ export default class ScProcurementDocumentUploader
                 console.log('[ProcurementUploader] ID from URL path:', match[1]);
                 return match[1];
             }
-        } catch (e) { /* ignore */ }
+        } catch { /* ignore — storage unavailable */ }
         return null;
     }
 

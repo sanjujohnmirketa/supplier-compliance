@@ -40,6 +40,11 @@ public with sharing class ComplianceChecklistController {
         // rather than the internal requirement key (e.g. "RULE_A_001").
         // AuthoritativeVerificationService and DocumentProcessingController both
         // depend on Document_Type__c matching the Compliance_Verification_Source__mdt value.
+        // Custom metadata has no CRUD/sharing model (WITH USER_MODE is rejected
+        // at runtime for it); the describe check is the applicable guard.
+        if (!Schema.sObjectType.Compliance_Requirement__mdt.isAccessible()) {
+            throw new AuraHandledException('You do not have permission to read compliance requirements.');
+        }
         Map<String, String> devNameToDocType = new Map<String, String>();
         for (Compliance_Requirement__mdt cmt : [
             SELECT DeveloperName, Document_Type__c
@@ -65,6 +70,7 @@ public with sharing class ComplianceChecklistController {
                    Severity__c, Status__c, Reason_Detail__c, Compliance_Document__c
             FROM Compliance_Assessment__c
             WHERE Supplier__c IN :allAccountIds
+            WITH  USER_MODE
             ORDER BY Severity__c ASC, Requirement_Label__c ASC
         ]) {
             if (!assessmentsByAccount.containsKey(a.Supplier__c)) {
@@ -80,6 +86,7 @@ public with sharing class ComplianceChecklistController {
                 SELECT LinkedEntityId, ContentDocument.Title
                 FROM   ContentDocumentLink
                 WHERE  LinkedEntityId IN :allCompDocIds
+                WITH   USER_MODE
             ]) {
                 if (!fileByDoc.containsKey(cdl.LinkedEntityId)) {
                     fileByDoc.put(cdl.LinkedEntityId, cdl.ContentDocument.Title);

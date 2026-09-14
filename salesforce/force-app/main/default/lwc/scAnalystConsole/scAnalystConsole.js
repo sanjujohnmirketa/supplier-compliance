@@ -87,13 +87,13 @@ export default class ScAnalystConsole extends NavigationMixin(LightningElement) 
             } else {
                 sessionStorage.removeItem(this._screenStateKey);
             }
-        } catch (e) { /* storage unavailable (private mode, etc.) — fall back to queue silently */ }
+        } catch { /* storage unavailable (private mode, etc.) — fall back to queue silently */ }
     }
     _restoreScreenState() {
         let saved = null;
         try {
             saved = JSON.parse(sessionStorage.getItem(this._screenStateKey) || 'null');
-        } catch (e) { /* ignore — corrupt/blocked storage, start at queue */ }
+        } catch { /* ignore — corrupt/blocked storage, start at queue */ }
         if (!saved || !saved.caseId) return;
         this._caseId = saved.caseId;
         this._loadCase();

@@ -3,7 +3,16 @@
  * Persists the EXACT backend/callout error so it surfaces in the UI instead of
  * failing silently. Stamps the supplier record + appends to the audit trail.
  * Never throws — error logging must not break the calling job.
+ *
+ * SYSTEM CONTEXT BY DESIGN (documented CRUD/FLS scanner exception): the two
+ * writes below deliberately carry no Schema/stripInaccessible check. They are
+ * fired from asynchronous callout paths (queueables, batch) and from failure
+ * branches of user actions, where the running user may hold no Edit on Account
+ * or Create on Audit_Log__c — and an integration failure must be recorded
+ * regardless of who happened to trigger it. Both are allOrNone=false and
+ * wrapped so they can never affect the caller.
  */
+@SuppressWarnings('PMD.ApexCRUDViolation') // system-context sink — see class doc
 public without sharing class IntegrationErrorLogger {
 
     public static void log(Id supplierId, String source, String message) {
@@ -39,6 +48,9 @@ public without sharing class IntegrationErrorLogger {
                 Source_System__c     = 'Other',
                 New_Value__c         = stamped.left(131072)
             ), false);
-        } catch (Exception ignore) { /* never break the caller */ }
+        } catch (Exception ignore) {
+            // Never break the caller (see class doc) — debug is the last resort.
+            System.debug(LoggingLevel.ERROR, 'IntegrationErrorLogger failed to write audit row: ' + ignore.getMessage());
+        }
     }
 }

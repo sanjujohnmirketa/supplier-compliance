@@ -1,13 +1,16 @@
 {
-  "orgName": "Demo company",
+  "orgName": "Vendor GRACE build",
   "edition": "Developer",
-  "features": ["EnableSetPasswordInApi"],
+  "features": [],
   "settings": {
     "lightningExperienceSettings": {
       "enableS1DesktopEnabled": true
     },
     "mobileSettings": {
       "enableS1EncryptedStoragePref2": false
+    },
+    "contentSettings": {
+      "enableContentDistribution": true
     }
   }
 }

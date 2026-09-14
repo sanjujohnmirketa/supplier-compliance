@@ -1,31 +1,31 @@
 {
-  "packageDirectories": [
-    {
-      "versionName": "1.2",
-      "versionNumber": "1.2.0.NEXT",
-      "path": "force-app",
-      "default": true,
-      "package": "Vendor GRACE",
-      "versionDescription": "Vendor GRACE 1.2 - subscriber-configurable engine connection. The packaged Named Credential no longer ships a resolvable endpoint, and the two unused Azure credentials have been removed from the package. Administrators point Local_Compliance_Service at their own engine deployment and set the inbound bearer token, per the Post-Install Guide.",
-      "ancestorVersion": "HIGHEST"
+    "packageDirectories": [
+        {
+            "versionName": "1.3",
+            "versionNumber": "1.3.0.NEXT",
+            "path": "force-app",
+            "default": true,
+            "package": "Vendor GRACE",
+            "versionDescription": "Vendor GRACE 1.3 - development line. 1.2.0.3 is the current released version.",
+            "ancestorVersion": "HIGHEST"
+        }
+    ],
+    "name": "supplierCompliance",
+    "namespace": "vendorgrace",
+    "sfdcLoginUrl": "https://login.salesforce.com",
+    "sourceApiVersion": "66.0",
+    "packageAliases": {
+        "Vendor GRACE": "0HoPc0000000wbtKAA",
+        "Vendor GRACE@0.1.0-1": "04tPc000000wnI5IAI",
+        "Vendor GRACE@0.1.0-2": "04tPc000000xOKrIAM",
+        "Vendor GRACE@0.1.0-3": "04tPc000000xOMTIA2",
+        "Vendor GRACE@0.1.0-4": "04tPc000000xOO5IAM",
+        "Vendor GRACE@0.1.0-5": "04tPc000000xOPhIAM",
+        "Vendor GRACE@1.0.0-1": "04tPc000000xcm1IAA",
+        "Vendor GRACE@1.0.0-2": "04tPc000000xcndIAA",
+        "Vendor GRACE@1.1.0-1": "04tPc000000xgEXIAY",
+        "Vendor GRACE@1.2.0-1": "04tPc000000xgG9IAI",
+        "Vendor GRACE@1.2.0-2": "04tPc000000xgHlIAI",
+        "Vendor GRACE@1.2.0-3": "04tPc000000xgUfIAI"
     }
-  ],
-  "name": "supplierCompliance",
-  "namespace": "vendorgrace",
-  "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "66.0",
-  "packageAliases": {
-    "Vendor GRACE": "0HoPc0000000wbtKAA",
-    "Vendor GRACE@0.1.0-1": "04tPc000000wnI5IAI",
-    "Vendor GRACE@0.1.0-2": "04tPc000000xOKrIAM",
-    "Vendor GRACE@0.1.0-3": "04tPc000000xOMTIA2",
-    "Vendor GRACE@0.1.0-4": "04tPc000000xOO5IAM",
-    "Vendor GRACE@0.1.0-5": "04tPc000000xOPhIAM",
-    "Vendor GRACE@1.0.0-1": "04tPc000000xcm1IAA",
-    "Vendor GRACE@1.0.0-2": "04tPc000000xcndIAA",
-    "Vendor GRACE@1.1.0-1": "04tPc000000xgEXIAY",
-    "Vendor GRACE@1.2.0-1": "04tPc000000xgG9IAI",
-    "Vendor GRACE@1.2.0-2": "04tPc000000xgHlIAI",
-    "Vendor GRACE@1.2.0-3": "04tPc000000xgUfIAI"
-  }
 }

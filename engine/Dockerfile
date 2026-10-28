@@ -6,6 +6,13 @@
 # ════════════════════════════════════════════════════════════════════════════
 FROM python:3.11-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HF_HOME=/app/.cache/huggingface
+
+# Baked models are cached under $HF_HOME (inside /app, owned by appuser below) so
+# the non-root runtime user finds them at startup with no re-download.
+
 # Minimal build deps (most wheels are prebuilt: psycopg2-binary, torch, spaCy)
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential curl \
@@ -24,6 +31,17 @@ SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
 
 # Application code
 COPY . .
+
+# Force offline mode NOW (after the model download above) — newer transformers/
+# sentence-transformers versions probe the Hub (e.g. for an adapter config) even
+# when the model is already cached, which breaks air-gapped/no-egress deployments.
+ENV HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1
+
+# Run as a non-root user (Azure Container Apps / any hardened runtime)
+RUN useradd --create-home --shell /bin/bash appuser \
+ && chown -R appuser:appuser /app
+USER appuser
 
 EXPOSE 8000
 

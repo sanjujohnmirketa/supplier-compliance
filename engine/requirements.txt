@@ -1,3 +1,12 @@
+# ── CPU-only torch ───────────────────────────────────────────────────────────
+# The default PyPI `torch` wheel bundles full CUDA (nvidia-*/triton, ~4.6GB) even
+# though this service only ever runs on CPU (no GPU on App Service/ACI/local).
+# Serving the CPU-only build from PyTorch's own index instead cuts the image by
+# roughly 4.5GB. Falls back to PyPI for every other package.
+--index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://pypi.org/simple
+torch
+
 # ── Web service ──────────────────────────────────────────────────────────────
 fastapi
 uvicorn[standard]

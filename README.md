@@ -35,6 +35,10 @@ current system interaction, the RAG mechanism, and the Azure/2GP future state. S
 [`docs/veera-golive-guide.md`](docs/veera-golive-guide.md) for the packaging + go-live
 process.
 
+For the live Azure deployment of the engine (resources, redeploy steps, schema migrations),
+see [`engine/azure/DEPLOYMENT.md`](engine/azure/DEPLOYMENT.md). Team-wide AI development and
+deployment standards are in [`artifacts/`](artifacts/).
+
 ## Security
 
 Never commit `.env`, API keys, or credentials. `engine/.env.example` and the

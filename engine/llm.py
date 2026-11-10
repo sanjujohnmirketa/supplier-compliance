@@ -122,6 +122,11 @@ def chat_json(system: str, user: str, model: str = None, temperature: float = No
     REASONING_MODEL_PREFIXES = ("gpt-5", "o1", "o3", "o4")
     is_reasoning_model = any(model.lower().startswith(p) for p in REASONING_MODEL_PREFIXES)
     REASONING_TOKEN_HEADROOM = 1500
+    # Without an explicit reasoning_effort the server default ("medium") applies,
+    # which dominates latency on small structured prompts — see config.py.
+    effort = (settings.LLM_REASONING_EFFORT_FAST if fast else "") or settings.LLM_REASONING_EFFORT
+    if is_reasoning_model and effort:
+        base["reasoning_effort"] = effort
     if max_tokens:
         effective_cap = max_tokens + REASONING_TOKEN_HEADROOM if is_reasoning_model else max_tokens
         token_param = "max_completion_tokens" if is_reasoning_model else "max_tokens"

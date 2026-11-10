@@ -50,6 +50,14 @@ class Settings:
     LLM_MODEL_FAST: str     = os.getenv("LLM_MODEL_FAST", "")
     LLM_PROVIDER_FAST: str  = os.getenv("LLM_PROVIDER_FAST", "").lower()
 
+    # Reasoning effort for reasoning models (gpt-5 family, o-series) only —
+    # ignored for non-reasoning models. Azure's default when unset is "medium",
+    # which costs ~3-4x the latency of "minimal" on gpt-5-nano (measured
+    # 2026-11-10: 5.5s unset vs 1.5s minimal on a small structured-JSON
+    # prompt). minimal | low | medium | high. Empty _FAST = same as main.
+    LLM_REASONING_EFFORT: str      = os.getenv("LLM_REASONING_EFFORT", "minimal").strip().lower()
+    LLM_REASONING_EFFORT_FAST: str = os.getenv("LLM_REASONING_EFFORT_FAST", "").strip().lower()
+
     # provider-specific — only the ACTIVE provider's settings are needed
     OPENAI_API_KEY: str    = os.getenv("OPENAI_API_KEY", "")
     OPENAI_BASE_URL: str   = os.getenv("OPENAI_BASE_URL", "")     # non-Azure OpenAI-compatible proxy only — see AZURE_ENDPOINT for real Azure OpenAI
